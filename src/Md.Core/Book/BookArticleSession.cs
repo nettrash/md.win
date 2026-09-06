@@ -368,18 +368,11 @@ public sealed class BookArticleSession : IDisposable
     {
         var folder = System.IO.Path.GetDirectoryName(path) ?? "";
         var file = BookPaths.Name(path);
-        var dot = file.LastIndexOf('.');
-        string stem, ext;
-        if (dot > 0 && dot < file.Length - 1)
-        {
-            stem = file[..dot];
-            ext = file[(dot + 1)..];
-        }
-        else
-        {
-            stem = file;
-            ext = "md";
-        }
+        // Swift: url.deletingPathExtension().lastPathComponent and url.pathExtension
+        // (empty → "md"); the two Foundation calls disagree on odd names, and so do these.
+        var stem = BookPaths.DeletingPathExtension(file);
+        var ext = BookPaths.PathExtension(file);
+        if (ext.Length == 0) ext = "md";
         var (data, _) = ArticleTextCodec.Encode(Text, Encoding);
         for (var attempt = 1; attempt <= 100; attempt++)
         {

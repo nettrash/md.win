@@ -31,12 +31,16 @@ its APIs are used — governed by Microsoft's privacy statement and by your
 own **Settings ▸ Privacy & security ▸ Diagnostics & feedback ▸ Diagnostic
 data** setting, not by this policy; Microsoft documents that a required
 minimum is collected regardless of that setting, and that a crash inside
-the runtime sends a crash dump to Microsoft. The runtime also contains
-Microsoft Defender SmartScreen, and Microsoft asks every app that leaves it
-enabled to say so: md's preview only ever loads the page md itself builds,
-on your PC — a link you click opens in your browser, not in the preview —
-so in practice there is nothing for SmartScreen to check, but the component
-is present. md **adds nothing to that stream and reads nothing from it.**
+the runtime sends a crash dump to Microsoft. The runtime also includes
+**Microsoft Defender SmartScreen**, which md leaves enabled, and Microsoft
+requires every such app to give this notice: the software includes
+Microsoft Defender SmartScreen, which collects and sends information to
+Microsoft as described in Microsoft's privacy statement (its *SmartScreen*
+section). In md's case the preview only ever loads the page md itself
+builds, on your PC — a link you click opens in your browser, not in the
+preview — so there is little for SmartScreen to look at, but the component
+is there and the notice stands. md **adds nothing to that stream and reads
+nothing from it.**
 Second, because the app is distributed through the Microsoft Store,
 Microsoft reports acquisition counts, ratings and — for a packaged app —
 aggregated crash and hang counts that Windows itself collects under that

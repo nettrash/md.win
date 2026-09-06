@@ -60,6 +60,16 @@ sealed class XamlLint(TypeIndex types, SourceIndex sources, Options options, Log
     static readonly HashSet<string> XAttributes =
         ["Class", "Name", "Key", "Uid", "FieldModifier", "ClassModifier", "Load", "DeferLoadStrategy", "Phase", "DataType"];
 
+    // Markup extensions the XAML parser implements itself and also accepts in object-element form:
+    // <StaticResource x:Key="Alias" ResourceKey="Original" /> is how WinUI's own generic.xaml aliases
+    // one resource to another (and the only way to alias a Color, which has no attribute to hang a
+    // {ThemeResource} on). No WinRT type backs them, so they are matched by name; the value lists
+    // the attributes they take besides x:Key.
+    static readonly Dictionary<string, HashSet<string>> IntrinsicElements = new()
+    {
+        ["StaticResource"] = ["ResourceKey"],
+    };
+
     readonly LintResult _result = new();
 
     // Per-file state.
@@ -151,6 +161,12 @@ sealed class XamlLint(TypeIndex types, SourceIndex sources, Options options, Log
             return;
         }
 
+        if (ns == Presentation && IntrinsicElements.TryGetValue(local, out var intrinsicAttributes))
+        {
+            VisitIntrinsic(e, local, intrinsicAttributes, isRoot, inTemplate);
+            return;
+        }
+
         var type = ResolveType(ns, local, e, line);
         if (isRoot && _class is not null) _class.BaseTypeFullName = type?.FullName;
         // Names inside a DataTemplate / ControlTemplate / ItemsPanelTemplate are template-scoped: no fields.
@@ -194,6 +210,23 @@ sealed class XamlLint(TypeIndex types, SourceIndex sources, Options options, Log
         }
 
         foreach (var child in e.Elements()) Visit(child, false, childInTemplate);
+    }
+
+    void VisitIntrinsic(XElement e, string name, HashSet<string> allowed, bool isRoot, bool inTemplate)
+    {
+        foreach (var a in e.Attributes())
+        {
+            if (a.IsNamespaceDeclaration) continue;
+            var ans = a.Name.Namespace;
+            if (ans == Mc || ans == Xml || _ignored.Contains(ans)) continue;
+            var aline = Line(a);
+            if (ans == X) { VisitXAttribute(a, e, isRoot, inTemplate, null, aline); continue; }
+            if (ans != XNamespace.None || !allowed.Contains(a.Name.LocalName))
+                Error(_file, aline, $"<{name}> has no property '{a.Name.LocalName}' (it takes {string.Join(", ", allowed)})");
+        }
+        if (!allowed.Any(p => e.Attribute(p) is not null))
+            Error(_file, Line(e), $"<{name}> needs {string.Join(" or ", allowed)}");
+        foreach (var child in e.Elements()) Error(_file, Line(child), $"<{name}> takes no content");
     }
 
     void VisitXAttribute(XAttribute a, XElement e, bool isRoot, bool inTemplate, XamlType? type, int line)

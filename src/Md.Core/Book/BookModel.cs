@@ -8,13 +8,7 @@ public sealed record BookArticle(string Path)
     /// ("01-Preface.md" → "01-Preface", "chapter.one.md" → "chapter.one"). Swift's
     /// <c>deletingPathExtension</c>; a leading or trailing dot is not an extension.
     /// </summary>
-    public string Name => StripLastExtension(BookPaths.Name(Path));
-
-    internal static string StripLastExtension(string file)
-    {
-        var dot = file.LastIndexOf('.');
-        return dot > 0 && dot < file.Length - 1 ? file[..dot] : file;
-    }
+    public string Name => BookPaths.DeletingPathExtension(BookPaths.Name(Path));
 }
 
 /// <summary>One chapter — a direct subfolder of the book — with its articles already in reading order.</summary>

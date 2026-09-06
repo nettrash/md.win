@@ -26,6 +26,8 @@ sealed class ShadowProject(Options options, string appCsproj, Log log)
         var minVersion = Prop("TargetPlatformMinVersion", "10.0.22000.0");
         var osVersion = Prop("SupportedOSPlatformVersion", minVersion);
         var rootNamespace = Prop("RootNamespace", "Md.App");
+        // Compile switches the code-behind depends on: LibraryImport (Interop/NativeMethods.cs) needs unsafe.
+        var allowUnsafe = Prop("AllowUnsafeBlocks", "false");
         var packages = app.Descendants("PackageReference")
             .Select(p => (Id: p.Attribute("Include")?.Value, Version: p.Attribute("Version")?.Value ?? p.Element("Version")?.Value))
             .Where(p => p.Id is not null).ToList();
@@ -74,6 +76,7 @@ sealed class ShadowProject(Options options, string appCsproj, Log log)
                 <EnableDefaultApplicationDefinition>false</EnableDefaultApplicationDefinition>
                 <Nullable>enable</Nullable>
                 <ImplicitUsings>enable</ImplicitUsings>
+                <AllowUnsafeBlocks>{{allowUnsafe}}</AllowUnsafeBlocks>
                 <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
                 <GenerateDocumentationFile>false</GenerateDocumentationFile>
               </PropertyGroup>

@@ -8,11 +8,13 @@ on:
 
 jobs:
   core:
-    name: Core tests (${{ matrix.os }})
-    # The Core library is plain .NET, so its golden-fixture suite runs on every OS. Running it
-    # on Linux as well as Windows is deliberate: the plot oracle once passed on one runtime and
-    # failed on another (pow(10, n) is not correctly rounded everywhere), and only a second
-    # runtime finds that class of bug.
+    name: Core & Logic tests (${{ matrix.os }})
+    # The Core library and the shell's logic library (Md.App.Logic) are plain .NET, so their
+    # suites run on every OS. Running them on Linux as well as Windows is deliberate: the plot
+    # oracle once passed on one runtime and failed on another (pow(10, n) is not correctly rounded
+    # everywhere), and only a second runtime finds that class of bug. Md.App.Logic's Windows-only
+    # facts (file identity, ICU word counting) guard themselves with OperatingSystem.IsWindows()
+    # and are exercised on the Windows leg.
     strategy:
       fail-fast: false
       matrix:
@@ -30,6 +32,11 @@ jobs:
       - name: Test Md.Core
         run: dotnet test tests/Md.Core.Tests/Md.Core.Tests.csproj -c Release --logger "trx;LogFileName=core.trx" --results-directory TestResults
 
+      - name: Test Md.App.Logic
+        # Runs even when the Core step failed: one red suite must not hide the other.
+        if: success() || failure()
+        run: dotnet test tests/Md.App.Logic.Tests/Md.App.Logic.Tests.csproj -c Release --logger "trx;LogFileName=logic.trx" --results-directory TestResults
+
       - name: Upload test results on failure
         if: failure()
         uses: actions/upload-artifact@v4
@@ -37,6 +44,26 @@ jobs:
           name: TestResults-${{ matrix.os }}
           path: TestResults
           retention-days: 7
+
+  xamlcheck:
+    name: XAML lint & code-behind shadow build
+    # The WinUI XAML compiler is a Windows executable, but everything short of it — every XAML
+    # element, attribute and handler, and the code-behind compiled against the real WinUI 3 /
+    # Windows App SDK metadata — is checked here on Linux by tools/xamlcheck (see its README).
+    # It is the fast signal for the Md.App code the non-Windows engineers cannot compile; the
+    # real proof stays the app job below.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Lint XAML and shadow-build src/Md.App
+        run: tools/xamlcheck/run.sh -v
 
   app:
     name: Build app & MSIX (${{ matrix.platform }})
@@ -83,3 +110,43 @@ jobs:
           name: md-${{ matrix.platform }}-msix
           path: AppPackages/**/*.msix
           retention-days: 14
+
+      # ── The WebView2 self-test (shell-final.md §11.4) ───────────────────────────────────
+      # A tests/Md.App.Tests project is not possible (app types need Windows and the XAML
+      # compiler), so the WebView2-backed assertions live in the app as a hidden mode:
+      # `md.exe --selftest <outDir>` renders the fixture documents with the bundled engines,
+      # produces PDFs, checks them, writes report.json and exits 0/1. It is compiled in only by
+      # -p:SelfTest=true (#if SELFTEST) into a separate unpackaged build — the MSIX uploaded above
+      # never carries it. Guarded on Services/SelfTest.cs existing, so the pipeline stays green
+      # until WP6 lands it, and on x64, because the runner cannot execute the ARM64 binary.
+      - name: Build the unpackaged self-test binary
+        if: matrix.platform == 'x64' && hashFiles('src/Md.App/Services/SelfTest.cs') != ''
+        run: >
+          msbuild src/Md.App/Md.App.csproj
+          -restore
+          -p:Configuration=Release
+          -p:Platform=x64
+          -p:RuntimeIdentifier=win-x64
+          -p:WindowsPackageType=None
+          -p:WindowsAppSDKSelfContained=true
+          -p:SelfTest=true
+          -p:EnableWinAppRunSupport=false
+          -p:OutDir=${{ github.workspace }}\SelfTestBuild\
+          -v:minimal
+
+      - name: Run the WebView2 self-test
+        if: matrix.platform == 'x64' && hashFiles('src/Md.App/Services/SelfTest.cs') != ''
+        shell: pwsh
+        run: |
+          $exe = Join-Path "${{ github.workspace }}" "SelfTestBuild\md.exe"
+          & $exe --selftest "${{ github.workspace }}\SelfTestReport"
+          exit $LASTEXITCODE
+
+      - name: Upload the self-test report
+        if: always() && matrix.platform == 'x64' && hashFiles('src/Md.App/Services/SelfTest.cs') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: selftest-report
+          path: SelfTestReport
+          retention-days: 14
+          if-no-files-found: ignore

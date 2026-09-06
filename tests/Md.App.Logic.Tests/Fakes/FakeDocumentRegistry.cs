@@ -35,7 +35,7 @@ public sealed class FakeDocumentRegistry : IDocumentRegistry
         foreach (var old in _byPath.Where(kv => kv.Value == windowId).Select(kv => kv.Key).ToList()) _byPath.Remove(old);
         _byPath[canonicalPath] = windowId;
         if (!_order.Contains(windowId)) _order.Add(windowId);
-        _titles.TryAdd(windowId, Path.GetFileNameWithoutExtension(canonicalPath));
+        _titles.TryAdd(windowId, Stem(canonicalPath));
         Raise();
     }
 
@@ -52,6 +52,14 @@ public sealed class FakeDocumentRegistry : IDocumentRegistry
         if (!_titles.ContainsKey(windowId)) throw new KeyNotFoundException($"window {windowId} is not registered");
         _titles[windowId] = title;
         Raise();
+    }
+
+    // Path.GetFileNameWithoutExtension splits only on the host's separators; a Windows path must
+    // give the same default title when the suite runs on the Linux leg of the CI matrix.
+    static string Stem(string path)
+    {
+        var cut = Math.Max(path.LastIndexOf('/'), path.LastIndexOf('\\'));
+        return Path.GetFileNameWithoutExtension(cut < 0 ? path : path[(cut + 1)..]);
     }
 
     void Raise()

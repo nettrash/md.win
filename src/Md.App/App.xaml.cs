@@ -20,6 +20,16 @@ public partial class App : Application
         AppDomain.CurrentDomain.UnhandledException += OnDomainUnhandledException;
     }
 
+    /// <summary>
+    /// Never the constructor that runs: <c>Program.Main</c> (the <c>StartupObject</c>) constructs the
+    /// App with the real activation. It exists because the XAML compiler still emits its own entry
+    /// point — DISABLE_XAML_GENERATED_MAIN renames it (Windows App SDK 2.3.1+) rather than deleting
+    /// it — and that generated code calls <c>new App()</c>; without this overload the Windows build
+    /// fails inside App.g.i.cs, where tools/xamlcheck cannot look. If it ever did run it would read
+    /// the same activation Program.Main reads.
+    /// </summary>
+    public App() : this(AppInstance.GetCurrent().GetActivatedEventArgs()) { }
+
     /// <summary>The UI thread's queue, for the services that need one before any window exists.</summary>
     public DispatcherQueue Dispatcher => _dispatcher ?? throw new InvalidOperationException("OnLaunched has not run yet.");
 

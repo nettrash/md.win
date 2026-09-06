@@ -85,8 +85,12 @@ public static class MarkdownParser
             // its own loop, and a setext heading takes the line of its text, not its underline.
             var start = i;
 
-            // 1. Blank line — separator, nothing to emit. WS set: a lone U+200B is blank.
-            if (line.Length == 0)
+            // 1. Blank line — separator, nothing to emit. WS set: a lone U+200B is blank. This
+            // MUST be the same predicate the continuation loops break on (`TrimWS(l).Length == 0`):
+            // with `line.Length == 0` here, a whitespace-only line is refused by every branch, the
+            // paragraph loop breaks without appending, `i` never advances, and the parser spins
+            // forever on `"a\n   \nb"`.
+            if (TrimWS(line).Length == 0)
             {
                 i++;
                 continue;

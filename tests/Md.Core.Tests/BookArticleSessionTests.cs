@@ -8,6 +8,13 @@ namespace Md.Core.Tests;
 /// testBookFlushGate* tests) against a scratch book folder, plus the watcher events
 /// and the autosave / alert seams the Swift tests reached through AppKit.
 /// </summary>
+/// <remarks>
+/// <c>BookFlushGate.Requested</c> is a static event: every live session answers every
+/// Post. xUnit runs test classes in parallel, so every class that creates a session
+/// shares this collection — otherwise a gate posted here would flush a session owned by
+/// another class from a foreign thread, mid-assertion.
+/// </remarks>
+[Collection("BookArticleSession")]
 public class BookArticleSessionTests
 {
     private static readonly Encoding Utf8 = new UTF8Encoding(false, throwOnInvalidBytes: true);

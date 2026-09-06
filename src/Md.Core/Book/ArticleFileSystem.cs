@@ -28,7 +28,8 @@ public sealed class LocalArticleFileSystem : IArticleFileSystem
 {
     public static LocalArticleFileSystem Instance { get; } = new();
 
-    public bool FileExists(string path) => File.Exists(path);
+    /// <summary>Swift's <c>fileExists(atPath:)</c>: true for a folder too, so a folder squatting on a rescue name is skipped, never written into.</summary>
+    public bool FileExists(string path) => File.Exists(path) || Directory.Exists(path);
 
     public byte[] ReadAllBytes(string path) => File.ReadAllBytes(path);
 

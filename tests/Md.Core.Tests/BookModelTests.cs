@@ -6,7 +6,9 @@ namespace Md.Core.Tests;
 /// <summary>
 /// The tree (mdTests: testReadingOrderIsRootArticlesThenChapters,
 /// testReadingOrderOfEmptyBookIsEmpty) and the listing that builds it — through an
-/// in-memory IBookListing, and once through System.IO.
+/// in-memory IBookListing, and once through System.IO — plus the whole-book compile
+/// (mdTests: testCompileBeginsWithTitlePage, testCompileOrdersPartsAndPagesEveryOne,
+/// testCompileOfEmptyBookIsJustTheTitlePage; Kotlin BookOrderTest's compileBook vectors).
 /// </summary>
 public class BookModelTests
 {
@@ -137,5 +139,65 @@ public class BookModelTests
         {
             Directory.Delete(root, true);
         }
+    }
+
+    // MARK: Compilation (the whole book as one Markdown source)
+
+    [Fact]
+    public void CompileBeginsWithTitlePage()
+    {
+        var compiled = BookCompiler.Compile("My Book", new BookPart[] { new BookPart.Article("Hello.") });
+        // The title page comes first, on a page of its own.
+        Assert.StartsWith("# My Book\n\n\\newpage\n\n", compiled, StringComparison.Ordinal);
+        Assert.EndsWith("Hello.", compiled, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CompileOrdersPartsAndPagesEveryOne()
+    {
+        // Reading order in, one page per part out: chapter headings on their own page,
+        // \newpage between all parts, text verbatim.
+        var compiled = BookCompiler.Compile("B", new BookPart[]
+        {
+            new BookPart.Article("Front matter."),
+            new BookPart.Chapter("One"),
+            new BookPart.Article("First.\n\n---\n\nStill first."),
+            new BookPart.Article("Second."),
+        });
+        Assert.Equal(
+            "# B\n\n\\newpage\n\nFront matter.\n\n\\newpage\n\n# One\n\n\\newpage\n\nFirst.\n\n---\n\nStill first.\n\n\\newpage\n\nSecond.",
+            compiled);
+        // The article's own `---` stays an ordinary rule — only the compiler's four
+        // `\newpage` markers cut pages. (That the parser turns exactly these four into
+        // .pageBreak blocks, and not the rule, is the parser module's test.)
+        Assert.Equal(4, compiled.Split("\n\n\\newpage\n\n", StringSplitOptions.None).Length - 1);
+        Assert.Equal(1, compiled.Split("\n\n---\n\n", StringSplitOptions.None).Length - 1);
+    }
+
+    [Fact]
+    public void CompileOfEmptyBookIsJustTheTitlePage()
+    {
+        Assert.Equal("# Empty", BookCompiler.Compile("Empty", Array.Empty<BookPart>()));
+    }
+
+    [Fact]
+    public void CompileKotlinVectorsAgree()
+    {
+        // Kotlin compileBook(bookName, rootArticles, chapters) builds the same units.
+        Assert.Equal("# Book\n\n\\newpage\n\nroot article\n\n\\newpage\n\n# Chapter One\n\n\\newpage\n\nfirst\n\n\\newpage\n\nsecond",
+            BookCompiler.Compile("Book", new BookPart[]
+            {
+                new BookPart.Article("root article"), new BookPart.Chapter("Chapter One"),
+                new BookPart.Article("first"), new BookPart.Article("second"),
+            }));
+        // A page break on both sides of a chapter heading: nothing shares its page.
+        Assert.Contains("\\newpage\n\n# Setup\n\n\\newpage",
+            BookCompiler.Compile("B", new BookPart[] { new BookPart.Chapter("Setup"), new BookPart.Article("body") }), StringComparison.Ordinal);
+        // Article content is verbatim: notes and the author's own page breaks pass through.
+        var article = "line one\n\n---\n\n<!-- note: private -->\n\n\\newpage\n\nline two";
+        Assert.Contains(article, BookCompiler.Compile("B", new BookPart[] { new BookPart.Article(article) }), StringComparison.Ordinal);
+        // The separator is exactly LF LF backslash newpage LF LF — one backslash.
+        Assert.Equal(new byte[] { 0x0A, 0x0A, 0x5C, 0x6E, 0x65, 0x77, 0x70, 0x61, 0x67, 0x65, 0x0A, 0x0A },
+            System.Text.Encoding.ASCII.GetBytes(BookCompiler.PageSeparator));
     }
 }

@@ -16,26 +16,41 @@ namespace Md.Core.Book;
 /// the code-point lists the table needs (MidLetter, MidNum, MidNumLet, Katakana,
 /// Hebrew_Letter, Ideographic, Hiragana, Regional_Indicator).
 ///
+/// Both siblings run ICU's rules, not the bare UAX #29 defaults, and ICU's root
+/// tailorings (CLDR segments/root.xml) are reproduced where a 490-line differential
+/// against Foundation's <c>enumerateSubstrings(.byWords)</c> showed them: the colon
+/// family (U+003A, U+FE55, U+FF1A) is <em>not</em> MidLetter ("a:b" is two words;
+/// only Swedish and Finnish keep it), wide decimal digits (U+FF10–FF19) <em>are</em>
+/// Numeric ("１２３" is one word), and a segment counts as a word when it carries a
+/// letter, a digit, a letter-number (Roman numerals) or an alphabetic symbol (circled
+/// or squared Latin letters) — ICU's word tokens, wider than Kotlin's
+/// <c>isLetterOrDigit</c> filter, which misses "Ⅻ".
+///
 /// Known limits against the siblings, in order of how likely a writer meets them:
 /// no dictionary segmentation — a CJK ideograph or a Hiragana syllable is one segment
 /// each (so counts one word each, roughly the CJK convention of counting characters,
-/// but higher than ICU's dictionary words); scripts UAX #29 hands to a dictionary
-/// (Thai, Lao, Khmer, Myanmar, the Tai scripts) are deliberately kept in ALetter so
-/// an unspaced run counts as one word rather than one per character; the
-/// Extended_Pictographic set behind WB3c is a coarse range (it only shapes emoji
-/// sequences, which never count as words); and property lists follow Unicode 15 —
-/// characters added since are classified by category alone.
+/// but higher than ICU's dictionary words: "北京" is 1 on macOS, 2 here); scripts ICU
+/// hands to a dictionary (Thai, Lao, Khmer, Myanmar, the Tai scripts and their
+/// neighbours — Line_Break=SA) form their own class here, joining only with
+/// themselves like ICU's dictionary characters — so "ก1" is two words as on macOS
+/// but an unspaced Thai run counts as one word where ICU's dictionary would find
+/// several; the Extended_Pictographic set behind WB3c is a coarse range (it only
+/// shapes emoji sequences, which never count as words); Foundation's Japanese
+/// dictionary path reports a bare connector or space between Katakana runs as a word
+/// token ("カ_カ" and "カタ カナ" count 3 on macOS) — the segments match here, the
+/// connector is not counted; and property lists follow Unicode 15 — characters added
+/// since are classified by category alone.
 /// </summary>
 public static class WritingStats
 {
-    /// <summary>Locale-independent UAX #29 word count: segments containing a letter or digit.</summary>
+    /// <summary>Locale-independent UAX #29 word count: segments carrying a letter, digit, letter-number or alphabetic symbol.</summary>
     public static int Words(string text)
     {
         if (text.Length == 0) return 0;
         var count = 0;
         foreach (var (start, end) in Segments(text))
         {
-            if (ContainsLetterOrDigit(text, start, end)) count++;
+            if (IsWordSegment(text, start, end)) count++;
         }
         return count;
     }
@@ -88,13 +103,22 @@ public static class WritingStats
         return segments;
     }
 
-    private static bool ContainsLetterOrDigit(string text, int start, int end)
+    /// <summary>
+    /// Whether a segment is a word token in ICU's sense: it carries a letter or digit
+    /// (as Kotlin's <c>isLetterOrDigit</c>), a letter-number such as a Roman numeral
+    /// ("Ⅻ" is one word on macOS, none on Android), or one of the alphabetic symbols —
+    /// circled, parenthesized and squared Latin letters ("🄰", "ⓐ") — that Foundation
+    /// counts. Circled digits ("①"), fractions ("½") and superscripts are not words.
+    /// </summary>
+    private static bool IsWordSegment(string text, int start, int end)
     {
         for (var i = start; i < end;)
         {
             if (Rune.TryGetRuneAt(text, i, out var rune))
             {
-                if (Rune.IsLetterOrDigit(rune)) return true;
+                if (Rune.IsLetterOrDigit(rune) || Rune.GetUnicodeCategory(rune) == UnicodeCategory.LetterNumber
+                    || IsAlphabeticSymbol(rune.Value))
+                    return true;
                 i += rune.Utf16SequenceLength;
             }
             else
@@ -105,12 +129,18 @@ public static class WritingStats
         return false;
     }
 
+    /// <summary>Other_Alphabetic symbols: circled Latin letters, parenthesized and squared Latin letters.</summary>
+    private static bool IsAlphabeticSymbol(int v) =>
+        v is >= 0x24B6 and <= 0x24E9 || v is >= 0x1F110 and <= 0x1F129 || v is >= 0x1F130 and <= 0x1F149 || v is >= 0x1F150 and <= 0x1F169;
+
     // MARK: Word_Break property values
 
     private enum Wb : byte
     {
         Other, CR, LF, Newline, Extend, ZWJ, RegionalIndicator, Format, Katakana, HebrewLetter,
         ALetter, SingleQuote, DoubleQuote, MidNumLet, MidLetter, MidNum, Numeric, ExtendNumLet, WSegSpace,
+        /// <summary>Line_Break=SA letters (Thai, Lao, Khmer, Myanmar, the Tai scripts): ICU's dictionary characters, which join only each other.</summary>
+        Complex,
     }
 
     private static Wb Classify(Rune rune)
@@ -128,7 +158,10 @@ public static class WritingStats
             case 0x22: return Wb.DoubleQuote;
             case 0x2E: case 0x2018: case 0x2019: case 0x2024: case 0xFE52: case 0xFF07: case 0xFF0E:
                 return Wb.MidNumLet;
-            case 0x3A: case 0xB7: case 0x387: case 0x55F: case 0x5F4: case 0x2027: case 0xFE13: case 0xFE55: case 0xFF1A:
+            // ICU's root rules subtract the colon family (U+003A, U+FE55, U+FF1A) from
+            // MidLetter — only the Swedish and Finnish tailorings keep it — so "a:b" is
+            // two words on macOS and Android; the colons fall through to Other.
+            case 0xB7: case 0x387: case 0x55F: case 0x5F4: case 0x2027: case 0xFE13:
                 return Wb.MidLetter;
             case 0x2C: case 0x3B: case 0x37E: case 0x589: case 0x60C: case 0x60D: case 0x66C: case 0x7F8:
             case 0x2044: case 0xFE10: case 0xFE14: case 0xFE50: case 0xFE54: case 0xFF0C: case 0xFF1B:
@@ -153,7 +186,9 @@ public static class WritingStats
             case UnicodeCategory.Format:
                 return Wb.Format;
             case UnicodeCategory.DecimalDigitNumber:
-                return v is >= 0xFF10 and <= 0xFF19 ? Wb.Other : Wb.Numeric;   // fullwidth digits are Line_Break=ID
+                // UAX #29 leaves the fullwidth digits out of Numeric (Line_Break=ID); ICU's
+                // root rules add every wide decimal digit back, so "１２３" is one word.
+                return Wb.Numeric;
             case UnicodeCategory.ConnectorPunctuation:
                 return Wb.ExtendNumLet;
             case UnicodeCategory.SpaceSeparator:
@@ -164,10 +199,26 @@ public static class WritingStats
         if (category is UnicodeCategory.UppercaseLetter or UnicodeCategory.LowercaseLetter or UnicodeCategory.TitlecaseLetter
             or UnicodeCategory.ModifierLetter or UnicodeCategory.OtherLetter or UnicodeCategory.LetterNumber)
         {
-            return IsIdeographic(v) || IsHiragana(v) ? Wb.Other : Wb.ALetter;
+            if (IsIdeographic(v) || IsHiragana(v)) return Wb.Other;
+            return IsComplexContext(v) ? Wb.Complex : Wb.ALetter;
         }
         return Wb.Other;
     }
+
+    /// <summary>Line_Break=SA: the South-East Asian scripts ICU segments with a dictionary (letters only; their marks are Extend).</summary>
+    private static bool IsComplexContext(int v) =>
+        v is >= 0xE01 and <= 0xE3A || v is >= 0xE40 and <= 0xE4E            // Thai
+        || v is >= 0xE81 and <= 0xEDF                                         // Lao
+        || v is >= 0x1000 and <= 0x109F || v is >= 0xA9E0 and <= 0xA9FE || v is >= 0xAA60 and <= 0xAA7F   // Myanmar
+        || v is >= 0x1780 and <= 0x17D3 || v is 0x17D7 || v is 0x17DC or 0x17DD   // Khmer
+        || v is >= 0x1950 and <= 0x1974                                       // Tai Le
+        || v is >= 0x1980 and <= 0x19DF                                       // New Tai Lue
+        || v is >= 0x1A00 and <= 0x1A1E                                       // Buginese
+        || v is >= 0x1A20 and <= 0x1AAD                                       // Tai Tham
+        || v is >= 0x1B00 and <= 0x1B7C                                       // Balinese
+        || v is >= 0xA980 and <= 0xA9DF                                       // Javanese
+        || v is >= 0xAA00 and <= 0xAA5F                                       // Cham
+        || v is >= 0xAA80 and <= 0xAADF;                                      // Tai Viet
 
     private static bool IsKatakana(int v) =>
         v is >= 0x3031 and <= 0x3035 || v is 0x309B or 0x309C || v is >= 0x30A0 and <= 0x30FA
@@ -238,8 +289,11 @@ public static class WritingStats
         if ((l == Wb.MidNum || IsMidNumLetQ(l)) && cur == Wb.Numeric && PrevReal(p, left) == Wb.Numeric) return false; // WB11
         if (l == Wb.Numeric && (cur == Wb.MidNum || IsMidNumLetQ(cur)) && NextReal(p, i) == Wb.Numeric) return false;  // WB12
         if (l == Wb.Katakana && cur == Wb.Katakana) return false;                                      // WB13
-        if ((IsAhLetter(l) || l is Wb.Numeric or Wb.Katakana or Wb.ExtendNumLet) && cur == Wb.ExtendNumLet) return false;  // WB13a
-        if (l == Wb.ExtendNumLet && (IsAhLetter(cur) || cur is Wb.Numeric or Wb.Katakana)) return false;                   // WB13b
+        if (l == Wb.Complex && cur == Wb.Complex) return false;                                        // ICU: dictionary run
+        // WB13a / WB13b without Katakana: ICU segments Katakana with its Japanese
+        // dictionary, outside the connector rules, so "カ_カ" is three tokens on macOS.
+        if ((IsAhLetter(l) || l is Wb.Numeric or Wb.ExtendNumLet) && cur == Wb.ExtendNumLet) return false;   // WB13a
+        if (l == Wb.ExtendNumLet && (IsAhLetter(cur) || cur == Wb.Numeric)) return false;                     // WB13b
         if (l == Wb.RegionalIndicator && cur == Wb.RegionalIndicator)                                  // WB15 / WB16
         {
             var run = 0;

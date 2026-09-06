@@ -25,7 +25,8 @@ dotnet run --project tools/xamlcheck -- <repo-root> [options]   # the same witho
 2. **XAML lint.** Reads those assemblies as metadata (`System.Reflection.MetadataLoadContext`;
    nothing WinRT is ever executed) and checks every `*.xaml`: each element is a public type in the
    `Microsoft.UI.Xaml.*` namespaces (or, for `using:` prefixes, in the referenced assemblies or the
-   app's own sources), each attribute is a property, event or attached property of that type,
+   app's own sources — plus the parser's own `<StaticResource x:Key="…" ResourceKey="…"/>` object
+   element, which no type backs), each attribute is a property, event or attached property of that type,
    each event handler is a method *declared* in the code-behind (any partial of the class, or an
    app-declared base class — the compiler wires `this.Handler`), each `x:Class` has a
    `partial class` in a `.cs`, and no `{x:Bind}` is used. Reported as `file:line: error: message`.

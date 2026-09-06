@@ -29,13 +29,15 @@ internal static class Program
             return 0;
         }
 
-        Application.Start(_ =>
+        // The parameter is named (not `_`): with a lone `_` parameter, `_ = new App(...)` would assign
+        // the App to the ApplicationInitializationCallbackParams instead of discarding it (CS0029).
+        Application.Start(callbackParams =>
         {
             // What the XAML-generated Main installs: without it every await after a picker or a
             // WebView2 call would resume on a thread-pool thread.
             var context = new DispatcherQueueSynchronizationContext(DispatcherQueue.GetForCurrentThread());
             SynchronizationContext.SetSynchronizationContext(context);
-            _ = new App(activation);
+            _ = new App(activation);                       // the Application registers itself with XAML
         });
         return 0;
     }

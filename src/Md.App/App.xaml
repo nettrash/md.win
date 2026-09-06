@@ -63,9 +63,11 @@
                     <Thickness x:Key="TextControlBorderThemeThicknessFocused">0</Thickness>
                 </ResourceDictionary>
 
-                <!-- High contrast: the system's colours, and the TextBox keeps its system border. -->
+                <!-- High contrast: the system's colours, and the TextBox keeps its system border. The Color
+                     goes through StaticResource's element form: a {ThemeResource} is a markup extension and
+                     only parses inside an attribute, never as element text. -->
                 <ResourceDictionary x:Key="HighContrast">
-                    <Color x:Key="PaperBackgroundColor">{ThemeResource SystemColorWindowColor}</Color>
+                    <StaticResource x:Key="PaperBackgroundColor" ResourceKey="SystemColorWindowColor" />
                     <SolidColorBrush x:Key="PaperBackgroundBrush" Color="{ThemeResource SystemColorWindowColor}" />
                     <SolidColorBrush x:Key="PaperBackgroundSecondaryBrush" Color="{ThemeResource SystemColorButtonFaceColor}" />
                     <SolidColorBrush x:Key="PaperInkBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
