@@ -1,0 +1,27 @@
+<UserControl
+    x:Class="Md.App.Controls.PrintOverlay"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!--
+        Print (shell-design.md §7.2). Chromium's print preview is drawn INSIDE the WebView2's own
+        rectangle and is not displayed at all for a hidden control, so the paper page is loaded in a
+        visible WebView2 here rather than in the off-canvas export renderer. ShowPrintUI has no
+        completion event of any kind, which is why there is a Done button.
+
+        Structure and names only: the WebView2 is created in the code-behind (as PreviewHost's is),
+        the labels come from Md.App.Logic.Strings, the brushes from the palette, and every handler is
+        wired in code — nothing here depends on the XAML compiler.
+    -->
+    <Grid x:Name="Root">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <Grid x:Name="PageHost" Grid.Row="0" />
+        <StackPanel x:Name="Bar" Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center">
+            <ProgressRing x:Name="Progress" IsActive="True" Width="16" Height="16" VerticalAlignment="Center" />
+            <Button x:Name="PrintButton" VerticalAlignment="Center" />
+            <Button x:Name="DoneButton" VerticalAlignment="Center" />
+        </StackPanel>
+    </Grid>
+</UserControl>

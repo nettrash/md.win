@@ -172,6 +172,16 @@ public static class Strings
         public const string ShareTooltip = "Compile the whole book into a PDF, an EPUB, or print it";
         public const string OpenArticlesInSeparateWindows = "Open Articles in Separate Windows";
 
+        // The detail toolbar's Share menu (§8.4). Deliberately NOT the Book menu's wording — the Mac
+        // names the same five actions differently there ("Share Book as PDF", "PDF…"), and both
+        // spellings ship as they are.
+        public const string ShareAsPdf = "Share as PDF";
+        public const string ExportAsPdf = "Export as PDF\u2026";
+        public const string PdfPageSizeLabel = "PDF Page Size";
+        public const string ExportAsEpub = "Export as EPUB\u2026";
+        public const string ExportAsLaTeX = "Export as LaTeX\u2026";
+        public const string PrintRow = "Print\u2026";
+
         // Detail-pane stages (§8.5).
         public const string HandoffTitle = "Open in Its Own Window";
         public static string HandoffMessage(string title) => $"\u201C{title}\u201D is open as a document window, and that window owns the file while it stays open. Close it to write here again.";
@@ -179,6 +189,9 @@ public static class Strings
         public static string UnreadableMessage(string title) => $"\u201C{title}\u201D could not be read. It may have been moved or deleted outside the book.";
         public const string EmptyTitle = "Select an Article";
         public const string EmptyMessage = "Choose an article in the sidebar to write here. Ctrl+Alt+Up and Ctrl+Alt+Down move through the book in reading order.";
+
+        /// <summary>The delete alert's title when the file system refuses (book.md §6.2; the Mac's own "Could not delete" + the OS message).</summary>
+        public const string CouldNotDelete = "Could not delete";
 
         // Outputs (§8.7).
         public const string CouldNotCompileBook = "Could not compile book";

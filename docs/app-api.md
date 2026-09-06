@@ -426,3 +426,86 @@ App side (internal): `Md.App.Web.WebViewEnvironment.GetAsync()` / `.BrowserArgum
 - **WP6**: `AssetHost.Attach` works unchanged for the export renderer's `CoreWebView2`; use `ScreenHtml.WithWindowsFonts` for `RenderKind.Paper` only and never for `Export`.
 - `AssetHost`'s disk-serving contingency is **written and off** (`serveAssetsFromDisk: false`), with path containment and a 404, exactly as §4.2 asks.
 
+
+---
+
+## WP3 — application and window model, activation, the document window
+
+Merged 2026-09-06 after its adversarial review. Gates at merge: Md.App.Logic.Tests **1020 green**,
+Md.Core.Tests 1271 green, xamlcheck 5 XAML files / 22 named elements / 0 errors.
+
+## 3. Public API added
+
+```csharp
+namespace Md.App.Logic.Activation;
+public enum ActivationKind { Launch, File, Protocol, StartupTask, Other }
+public readonly record struct ActivationItem(string Path, bool IsFolder) { static File(path); static Folder(path); }
+public sealed record ActivationDescription(ActivationKind Kind, IReadOnlyList<ActivationItem> Items,
+        string? Arguments, bool IsFirst, bool HasRestorableSession) {
+    static ForLaunch(string? arguments, bool isFirst, bool hasRestorableSession = false);
+    static ForFiles(IEnumerable<ActivationItem>, bool isFirst, bool hasRestorableSession = false);
+    static ForOther(ActivationKind, bool isFirst, bool hasRestorableSession = false);
+    IReadOnlyList<string> ArgumentPaths { get; }                       // exe + switches dropped
+    static IReadOnlyList<string> SplitArguments(string? commandLine); }  // CommandLineToArgvW rules
+public abstract record ActivationAction {
+    sealed record OpenPath(string Path); ImportTextPack(string Path); ImportTextBundleFolder(string Path);
+    sealed record Focus(Guid WindowId); OpenUntitled; RestoreSession; }
+public static class ActivationRouter {
+    static IReadOnlyList<ActivationAction> Route(ActivationDescription);                       // §1.2 table, pure
+    static ActivationAction? Classify(ActivationItem);
+    static IReadOnlyList<ActivationAction> Resolve(IEnumerable<ActivationAction>, IDocumentRegistry, IFileIdentity); }
+
+namespace Md.App.Logic.Windows;
+public sealed class WindowRegistry : IDocumentRegistry {
+    event Action Changed; IReadOnlyList<(Guid,string)> Windows { get; }
+    Guid? Owning(string canonicalPath); Guid? FindByPath(string path, IFileIdentity); string? PathOf(Guid);
+    void Add(Guid, string title); void SetTitle(Guid, string); void Remove(Guid);
+    void Register(Guid, string canonicalPath); void Unregister(Guid); }
+public static class WindowTitle { const string EditedSuffix; For(name, isDirty); ForBook(bookName, articleTitle); Untitled(ordinal); }
+public sealed class UntitledNames { int Take(); void Release(int); string TakeName(out int ordinal); }
+public readonly record struct WindowSize(int Width, int Height);
+public readonly record struct WindowRect(int X, int Y, int Width, int Height) { Right; Bottom; Size; }
+public static class WindowPlacement {
+    static readonly WindowSize DocumentDefault(900,640), BookDefault(1000,700), Minimum(480,320); const int CascadeStep = 24;
+    ParseSize(string?, WindowSize fallback); FormatSize(WindowSize); AtLeastMinimum(WindowSize);
+    Cascade(WindowRect? previous, WindowSize, WindowRect workArea); Centred(WindowSize, WindowRect); Clamp(WindowRect, WindowRect); }
+public sealed record SessionWindow(string Path, ViewMode Mode, bool Zen, bool ZenReading, WindowRect Placement, bool Maximized);
+public sealed record SessionBook(bool Open, WindowRect Placement, bool Maximized);
+public sealed record SessionState(IReadOnlyList<SessionWindow> Windows, SessionBook? Book);   // structural equality
+public static class SessionStore { const int Version = 1; const string FileName; PathIn(folder);
+    Encode(SessionState); Decode(string?); Load(IFileSystem, folder); Save(IFileSystem, folder, SessionState); Restorable(SessionState, IFileSystem); }
+```
+
+App side (`internal`, namespace **`Md.App`** — see integration note 1): `DocumentWindow`, `WindowManager`, `AppServices`, `TitleBarTint.Apply(AppWindow, bool dark)`.
+
+## 4. Integration notes
+
+**(1) The window files are in namespace `Md.App`, not `Md.App.Windows` — this is load-bearing, WP7 must follow it.** A `Md.App.Windows` namespace shadows the global `Windows` namespace for every file under `Md.App.*`, and xamlcheck reproduced exactly that: 6 × `CS0234 The type or namespace name 'Storage'/'UI'/'System'/'ApplicationModel' does not exist in the namespace 'Md.App.Windows'` in `Controls/PreviewHost.cs`, `Controls/AboutDialog.cs`, `Web/WebViewEnvironment.cs` and `App.xaml.cs` — files no work package may edit. The files stay in the `Windows/` folder per §11.2; only the namespace is the repo root. `BookWindow.xaml`'s `x:Class` must therefore be `Md.App.BookWindow`.
+
+**(2) xamlcheck resolves an attached property's owner with the *element's* prefix.** `Grid.Row="2"` on a `controls:FindBar` is reported as `unknown type 'controls:Grid'`. `DocumentWindow.xaml` declares a second prefix for the same URI (`xmlns:ui="…/presentation"`) and writes `ui:Grid.Row`. Valid XAML, but only a Windows build can confirm the real XamlCompiler accepts two prefixes on one URI — the written fallback is to wrap each `controls:` child in a default-namespace container and go back to bare `Grid.Row`.
+
+**(3) For WP6 (exports and print).** `DocumentWindow` publishes exactly what §7 needs, all on the window that asked:
+- `Canvas ExportSurface` — the `ExportCanvas` in the root grid; park the per-export `WebView2` at `Canvas.SetLeft(view, -10000)`, `Visibility.Visible`.
+- `Grid OverlayLayer` — the full-window `OverlayHost` (`Visibility.Collapsed`) for `PrintOverlay`; it spans every row.
+- `TextFileSession Session` (`Text`, `Title`, `EditingPath`), `IAlerts Alerts`, `IPickers Pickers`, `IScheduler Scheduler` (also the `IClock`), `bool IsDark`, `nint Handle` (the share sheet's `IDataTransferManagerInterop.ShowShareUIForWindow`).
+- `void TrackOutput(Task)` — **call this at the start of every export/print.** `RequestCloseAsync` awaits it, bounded at 10 s, before the window closes; without it a close tears the renderer's `WebView2` down mid-render.
+- Flush before every output is already done on `Deactivated`; call `Session.FlushNow(false)` yourself before Share ▸ Source anyway (§6.3).
+- Replace the `NotYetWired` entries for your ids with `_dispatcher.Register(...)` calls; the test `WindowSurfaceTests.TheNotYetWiredListIsExactlyTheExportPrintAndBookCommands` must be updated in the same commit (it is the contract).
+- `Scripts.cs` is append-only (WP5's note) — `RenderComplete`/`ScrollHeight` are already there.
+
+**(4) For WP7 (books).** `WindowManager.ShowBookWindow()` is your integration point: it is a named seam that `throw`s `NotImplementedException` and is **unreachable today** (every Book command routes to `NotWiredYet`), so nothing lies. Replace its body with create-on-demand/activate and wire the Book ids.
+- `AppServices` (bottom of `WindowManager.cs`) hands you `Settings`, `LocalFolder`, `Registry`, `ViewModeMemory`, `WordCounter`, `Recent`, `Examples`. Move it to its own file the moment a second package needs it without a window (WP4's `PaneBrushes` convention).
+- `WindowRegistry` is `IDocumentRegistry`: the book pane asks `Owning(canonicalPath)`; `ShowOwningWindow` is `WindowManager.Activate(Guid)`; `OpenInWindow` is `session.HandOffForExternalOpen()` → `BookArticleOpens.Mark(path)` → `WindowManager.OpenPath(path)`.
+- `SessionState.Book` is written as `null` today. Add the Book window's row in `WindowManager.Write(...)` — the codec, the `SessionBook` record and its round trip are done and tested.
+- `WindowTitle.ForBook(bookName, articleTitle)` and `WindowPlacement.BookDefault` / `SettingsKeys.BookWindowSize` are ready.
+- `WindowRegistry.Add(id, "Book")` when the Book window opens: it is what puts the "Book" row in the Window menu.
+
+**(5) Command ids still on the `NotYetWired` path (22, pinned by a test):**
+`Print, ShareSource, ShareRenderedPdf, ExportPdf, ExportHtml, ExportEpub, ExportLaTeX, ExportTextBundle, ExportDiagramSvg` (WP6) and `NewBook, OpenBook, ShowBook, CloseBook, ShareBookPdf, PrintBook, ExportBookPdf, ExportBookEpub, ExportBookLaTeX, ExampleBook, PreviousArticle, NextArticle, ShowSidebar` (WP7). Everything else in `CommandTable.All` is wired — `WindowSurfaceTests.EveryCommandIsEitherWiredOrOnTheNamedNotYetWiredList` fails if an id ever reaches no handler. `PdfPageSize` **is** wired (it only writes `md.pdfPageSize`, and other windows re-tick through `ISettingsStore.Changed`).
+
+**(6) One request to WP5.** `PreviewHost` publishes no `Close()`/`IDisposable`, and §1.4 route 3 requires `WebView2.Close()` on every WebView2 in the window. `DocumentWindow.OnClosed` currently does `if (_previewHost.Content is WebView2 web) web.Close();` — correct today (the host's `Content` *is* the control) but it reaches into another package. Please publish `PreviewHost.Close()` and this becomes one call.
+
+**(7) One observation about `ArticlePanes` (WP4).** It collapses the preview **slot**, not the host, so `IPreviewSurface.IsShown` (host + WebView2 visibility) would read `true` for a collapsed pane and §4.5's stale-while-collapsed would never engage. `DocumentWindow.ShowPreview(layout)` sets `_previewHost.Visibility` itself before `Show()`/`Hide()`. If `ArticlePanes` ever collapses the host directly, delete that line.
+
+**(8) WP4's placeholder records.** `View.PreviewNavigation` / `View.EditorJump` still shadow WP5's. `DocumentWindow.PerformJumps()` converts at the one call site (`new PreviewNav(nav.Id, nav.Slug)`); when WP4's two records are deleted it becomes a pass-through.
+
