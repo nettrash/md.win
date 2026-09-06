@@ -48,7 +48,6 @@ public class CommandEnablementTests
 
     [Theory]
     [InlineData(CommandId.Save)]
-    [InlineData(CommandId.SaveAs)]
     [InlineData(CommandId.Duplicate)]
     [InlineData(CommandId.Print)]
     [InlineData(CommandId.ShareSource)]
@@ -68,6 +67,25 @@ public class CommandEnablementTests
         // The Book window publishes a document only while its detail session is editing an article.
         Assert.False(CommandEnablement.IsEnabled(id, BookWindowIdle));
         Assert.True(CommandEnablement.IsEnabled(id, BookWindowEditing));
+    }
+
+    /// <summary>
+    /// §2.2's <c>doc</c> everywhere except the Book window, where an article is its file inside the
+    /// book folder and there is nowhere else for it to be saved <em>as</em> (§8.2, §8.5). The row
+    /// stays in the bar — every window carries the same seven menus (§2.1) — it is simply never live
+    /// there, which is what keeps it from being a row that looks alive and does nothing.
+    /// </summary>
+    [Fact]
+    public void SaveAsIsADocumentWindowRowAndIsRefusedByTheBookWindow()
+    {
+        Assert.False(CommandEnablement.IsEnabled(CommandId.SaveAs, None));
+        Assert.True(CommandEnablement.IsEnabled(CommandId.SaveAs, Document));
+        Assert.False(CommandEnablement.IsEnabled(CommandId.SaveAs, BookWindowIdle));
+        Assert.False(CommandEnablement.IsEnabled(CommandId.SaveAs, BookWindowEditing));
+        // Not "because there is no document": the Book window IS publishing one here, and Save,
+        // Print and every Export row are live on the same snapshot.
+        Assert.True(CommandEnablement.HasActiveDocument(BookWindowEditing));
+        Assert.True(CommandEnablement.IsEnabled(CommandId.Save, BookWindowEditing));
     }
 
     // ── "saved" and "dirty" ───────────────────────────────────────────────────────────────────
@@ -166,6 +184,31 @@ public class CommandEnablementTests
     {
         Assert.False(CommandEnablement.IsEnabled(CommandId.UseSelectionForFind, Document with { EditorVisible = true }));
         Assert.True(CommandEnablement.IsEnabled(CommandId.UseSelectionForFind, Document with { HasSelection = true }));
+    }
+
+    /// <summary>
+    /// §8.1 gives the Book window a menu row, a <c>SplitView</c>, a footer and an <c>InfoBar</c> —
+    /// and no find bar. So the whole of §2.4's find family is dead there, however live the article
+    /// itself is: the editor pane is on screen, the selection is real, and the rows still must not
+    /// light up, because there is no bar for a query to go into.
+    /// </summary>
+    [Theory]
+    [InlineData(CommandId.Find)]
+    [InlineData(CommandId.FindNext)]
+    [InlineData(CommandId.FindPrevious)]
+    [InlineData(CommandId.UseSelectionForFind)]
+    public void TheFindFamilyIsNeverLiveInTheBookWindow(CommandId id)
+    {
+        // Everything §2.4 asks of each of the four, at once — in a document window it is enabled.
+        Assert.True(CommandEnablement.IsEnabled(id, Document with { EditorVisible = true, HasSelection = true, HasFindQuery = true }));
+
+        var bookWindow = BookWindowEditing with { EditorVisible = true, HasSelection = true, HasFindQuery = true };
+        Assert.False(CommandEnablement.IsEnabled(id, bookWindow));
+
+        // The Edit rows that DO have a handler there are unaffected — this is about the find bar,
+        // not about the Book window's editor.
+        Assert.True(CommandEnablement.IsEnabled(CommandId.Copy, bookWindow));
+        Assert.True(CommandEnablement.IsEnabled(CommandId.SelectAll, bookWindow));
     }
 
     // ── View (§2.5) ───────────────────────────────────────────────────────────────────────────

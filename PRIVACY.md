@@ -93,6 +93,12 @@ following:
   the file you named — in the package's temporary folder. It holds nothing
   but those copies; Windows may clear it at any time, and removing the app
   removes it.
+- `md.log` — an error log, written **only** when md hits an unhandled
+  error, beside `session.json`. A line is a timestamp and the error's own
+  text, which can name the file md was reading or writing when it failed.
+  It is written for you, on your PC: nothing is sent anywhere, no crash
+  report of ours exists to send it to, you can read or delete the file at
+  any time, and removing the app removes it.
 
 Two more things are held for md by Windows itself: the **future-access
 grant** that lets md reopen your book folder without asking again (removed

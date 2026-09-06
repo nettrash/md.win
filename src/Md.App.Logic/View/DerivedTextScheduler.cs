@@ -1,5 +1,6 @@
 using Md.App.Logic.Seams;
 using Md.Core.Book;
+using Md.Core.Export;
 using Md.Core.Markdown;
 
 namespace Md.App.Logic.View;
@@ -28,7 +29,7 @@ public sealed class DerivedTextScheduler
     readonly IScheduler _scheduler;
     readonly IUiThread _ui;
     readonly IWordCounter _words;
-    readonly Func<string, IReadOnlyList<DiagramRef>> _diagrams;
+    readonly Func<string, IReadOnlyList<DiagramSvg.Diagram>> _diagrams;
     readonly RunOffThread _offThread;
 
     IDisposable? _pending;
@@ -36,22 +37,21 @@ public sealed class DerivedTextScheduler
     bool _hasComputed;
 
     /// <param name="diagrams">
-    /// The Export ▸ Diagram as SVG rows. Defaults to "none" because Core's <c>DiagramSvg</c> is a
-    /// Wave-C module: when it lands this becomes <c>DiagramSvg.Diagrams</c> at the one call site
-    /// that builds the scheduler.
+    /// The Export ▸ Diagram as SVG rows. Defaults to Core's own <see cref="DiagramSvg.Diagrams"/>,
+    /// which is what every window wants; a test passes its own to count the calls.
     /// </param>
     /// <param name="offThread">Null = <see cref="Task.Run(Action)"/>.</param>
     public DerivedTextScheduler(
         IScheduler scheduler,
         IUiThread ui,
         IWordCounter words,
-        Func<string, IReadOnlyList<DiagramRef>>? diagrams = null,
+        Func<string, IReadOnlyList<DiagramSvg.Diagram>>? diagrams = null,
         RunOffThread? offThread = null)
     {
         _scheduler = scheduler;
         _ui = ui;
         _words = words;
-        _diagrams = diagrams ?? (_ => []);
+        _diagrams = diagrams ?? DiagramSvg.Diagrams;
         _offThread = offThread ?? (work => Task.Run(work));
     }
 

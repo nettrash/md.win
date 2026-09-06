@@ -3,6 +3,8 @@
 // keeps the model in LF. Everything decidable without Windows is in Md.App.Logic.View / .Documents;
 // this file is the adapter.
 using Md.App.Logic;
+using Md.App.Logic.Documents;
+using Md.App.Logic.Preview;
 using Md.App.Logic.Settings;
 using Md.App.Logic.View;
 using Microsoft.UI.Input;
@@ -73,7 +75,7 @@ public sealed class EditorPane : UserControl
     public TextBox Control => _box;
 
     /// <summary>The document text, LF whatever the control reports.</summary>
-    public string Text => LfText(_box.Text);
+    public string Text => EditorText.FromTextBox(_box.Text);
 
     public bool HasSelection => _box.SelectionLength > 0;
 
@@ -91,16 +93,14 @@ public sealed class EditorPane : UserControl
         _replacing = true;
         try
         {
-            _box.Text = text;
+            _box.Text = EditorText.ToTextBox(text);
         }
         finally
         {
             _replacing = false;
         }
 
-        var reported = _box.Text.Length;
-        start = Math.Min(start, reported);
-        length = Math.Min(length, reported - start);
+        (start, length) = EditorText.ClampSelection(start, length, _box.Text.Length);
         _box.Select(start, length);
     }
 
@@ -118,7 +118,7 @@ public sealed class EditorPane : UserControl
         {
             // SelectionStart indexes the string the control reports (with \r), and lines are 1:1
             // between that and the LF model, so the offset is computed over box.Text as it stands.
-            var offset = OffsetOfLine(jump.Line, _box.Text);
+            var offset = LineOffsets.OffsetOfLine(jump.Line, _box.Text);
             _box.Focus(FocusState.Programmatic);
             _box.Select(offset, 0);
             onHandled(jump.Id);
@@ -224,39 +224,6 @@ public sealed class EditorPane : UserControl
 
     static bool ShiftIsDown() =>
         (InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift) & CoreVirtualKeyStates.Down) == CoreVirtualKeyStates.Down;
-
-    // ── WP2 REPLACES THESE TWO ────────────────────────────────────────────────────────────────
-    // Md.App.Logic.Documents.EditorText.FromTextBox and LineOffsets.OffsetOfLine (§3.2, §3.3) are
-    // WP2's files and are tested there. Integrating is deleting both helpers and calling those.
-
-    /// <summary>TextBox.Text reports every break as \r whatever was assigned; the model is always LF.</summary>
-    static string LfText(string reported) => reported.Replace("\r\n", "\n").Replace('\r', '\n');
-
-    /// <summary>UTF-16 offset of the first character of a 0-based line; \n, \r and \r\n count, U+2028/9 do not.</summary>
-    static int OffsetOfLine(int line, string text)
-    {
-        var offset = 0;
-        var remaining = line;
-        var i = 0;
-        while (remaining > 0 && i < text.Length)
-        {
-            var c = text[i];
-            i++;
-            if (c == '\n')
-            {
-                remaining--;
-                offset = i;
-            }
-            else if (c == '\r')
-            {
-                if (i < text.Length && text[i] == '\n') i++;
-                remaining--;
-                offset = i;
-            }
-        }
-        return offset;
-    }
-    // ──────────────────────────────────────────────────────────────────────────────────────────
 }
 
 /// <summary>

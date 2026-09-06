@@ -117,10 +117,14 @@ jobs:
       # `md.exe --selftest <outDir>` renders the fixture documents with the bundled engines,
       # produces PDFs, checks them, writes report.json and exits 0/1. It is compiled in only by
       # -p:SelfTest=true (#if SELFTEST) into a separate unpackaged build — the MSIX uploaded above
-      # never carries it. Guarded on Services/SelfTest.cs existing, so the pipeline stays green
-      # until WP6 lands it, and on x64, because the runner cannot execute the ARM64 binary.
+      # never carries it, and `SelfTest.IsAvailable()` is false there, so the flag does nothing.
+      #
+      # The flag is read twice in the app: Program.Main skips the single-instance redirection for a
+      # self-test run (it must drive its own WebView2, not hand its arguments to a running md), and
+      # App.OnLaunched hands the process to SelfTest.TryStart() before any window or activation.
+      # x64 only: the runner cannot execute the ARM64 binary it just built.
       - name: Build the unpackaged self-test binary
-        if: matrix.platform == 'x64' && hashFiles('src/Md.App/Services/SelfTest.cs') != ''
+        if: matrix.platform == 'x64'
         run: >
           msbuild src/Md.App/Md.App.csproj
           -restore
@@ -134,8 +138,10 @@ jobs:
           -p:OutDir=${{ github.workspace }}\SelfTestBuild\
           -v:minimal
 
+      # The report is written to the directory named after the flag, as SelfTest.TryStart reads it:
+      # the argument that follows --selftest, or %TEMP%\md-selftest when none is given.
       - name: Run the WebView2 self-test
-        if: matrix.platform == 'x64' && hashFiles('src/Md.App/Services/SelfTest.cs') != ''
+        if: matrix.platform == 'x64'
         shell: pwsh
         run: |
           $exe = Join-Path "${{ github.workspace }}" "SelfTestBuild\md.exe"
@@ -143,7 +149,7 @@ jobs:
           exit $LASTEXITCODE
 
       - name: Upload the self-test report
-        if: always() && matrix.platform == 'x64' && hashFiles('src/Md.App/Services/SelfTest.cs') != ''
+        if: always() && matrix.platform == 'x64'
         uses: actions/upload-artifact@v4
         with:
           name: selftest-report

@@ -127,6 +127,13 @@ public static class Strings
         public const string Epub = "EPUB";
         public const string Svg = "SVG";
         public const string LaTeX = "LaTeX";
+
+        /// <summary>
+        /// §7.1: the accessible name of the footer's progress ring, which has no visible label.
+        /// Deliberately not "Exporting" — the ring covers every serialised output, and two of them
+        /// (Share ▸ Source…, Share ▸ Rendered PDF…) are shares rather than exports.
+        /// </summary>
+        public const string Working = "Working\u2026";
     }
 
     /// <summary>§8: the Book window's prompts, placeholders, tooltips and alerts.</summary>

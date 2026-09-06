@@ -23,7 +23,7 @@
     <DisplayName>md</DisplayName>
     <PublisherDisplayName>nettrash</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
-    <Description>The simplest Markdown editor — write on the left, read on the right.</Description>
+    <Description>A Markdown editor and live previewer for Windows 11. Write on one side and watch the finished page take shape on the other, then print it or export it as PDF, HTML, EPUB or LaTeX.</Description>
   </Properties>
 
   <Dependencies>
@@ -41,7 +41,7 @@
       EntryPoint="$targetentrypoint$">
       <uap:VisualElements
         DisplayName="md"
-        Description="The simplest Markdown editor — live preview, math, diagrams, plots, PDF, EPUB and LaTeX export, all offline."
+        Description="Write Markdown on one side and see the finished page on the other. Math, diagrams and charts are drawn on your PC. Print, or export as PDF, HTML, EPUB, LaTeX or TextBundle."
         BackgroundColor="#241E18"
         Square150x150Logo="Assets\Square150x150Logo.png"
         Square44x44Logo="Assets\Square44x44Logo.png">

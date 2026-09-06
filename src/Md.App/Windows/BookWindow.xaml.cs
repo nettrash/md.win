@@ -10,14 +10,17 @@
 using Md.App.Book;
 using Md.App.Controls;
 using Md.App.Logic;
+using Md.App.Logic.Activation;
 using Md.App.Logic.Books;
 using Md.App.Logic.Commands;
 using Md.App.Logic.Documents;
+using Md.App.Logic.Export;
 using Md.App.Logic.Preview;
 using Md.App.Logic.Seams;
 using Md.App.Logic.Settings;
 using Md.App.Logic.Text;
 using Md.App.Logic.View;
+using Md.App.Logic.Windows;
 using Md.App.Menus;
 using Md.App.Services;
 using Md.Core.Document;
@@ -25,7 +28,9 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml.Media;
+using Windows.ApplicationModel.DataTransfer;
 using Windows.Graphics;
+using Windows.Storage;
 using CoreBook = Md.Core.Book.Book;
 
 // NOTE FOR WP3, and the reason this type is not in a namespace called "Md.App.Windows": declaring
@@ -44,6 +49,15 @@ namespace Md.App;
 /// <param name="Outputs">WP6's export pipeline behind <see cref="IBookOutputs"/>.</param>
 /// <param name="OpenPath">WindowManager.OpenPath — Open in New Window, after the handoff.</param>
 /// <param name="ActivateWindow">WindowManager.Activate — the handoff pane's "Show Window".</param>
+/// <param name="Recent">
+/// The app-wide MRU behind File ▸ Open Recent (§6.6). The Book window only READS it for its own
+/// snapshot's rows; the two commands that change it are the manager's, exactly as they are for a
+/// document window, because a row opens a document window and not an article.
+/// </param>
+/// <param name="PerformDrop">
+/// WindowManager.PerformDrop — §6.1's drop, classified by <see cref="ActivationRouter"/> and routed
+/// through the same resolution a File ▸ Open from this window goes through.
+/// </param>
 /// <param name="Decorate">
 /// Optional: WP3's title-bar tint (<c>TitleBarTint</c> is its file, not this package's), run once
 /// the window exists.
@@ -63,6 +77,8 @@ internal sealed record BookWindowServices(
     Action<string> OpenPath,
     Action<Guid> ActivateWindow,
     IReadOnlyList<Example> Examples,
+    RecentFiles Recent,
+    Action<IReadOnlyList<ActivationAction>> PerformDrop,
     Action<Window>? Decorate = null);
 
 internal sealed partial class BookWindow : Window
@@ -89,6 +105,9 @@ internal sealed partial class BookWindow : Window
     const double PlaceholderMessageEpx = 16;
     const double PlaceholderMaxWidth = 420;
 
+    /// <summary>An export or print in flight is awaited before the window goes, but never for ever (§1.4).</summary>
+    static readonly TimeSpan OutputDrainTimeout = TimeSpan.FromSeconds(10);
+
     readonly BookWindowServices _services;
     readonly BookLibraryHost _library;
     readonly FileSystemWatcherAdapter _watcher;
@@ -107,7 +126,11 @@ internal sealed partial class BookWindow : Window
     readonly BookSidebarBuilder _sidebar;
     readonly CommandDispatcher _commands;
     readonly MenuBarBuilder _menus;
+    readonly BusyRing _busy;
 
+    readonly TaskCompletionSource _listed = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    Task _running = Task.CompletedTask;
+    IReadOnlyList<RecentEntry> _recent = [];
     CoreBook? _renderedBook;
     ViewMode _storedMode;
     string? _derivedText;
@@ -155,6 +178,14 @@ internal sealed partial class BookWindow : Window
 
         _commands = new CommandDispatcher(services.Clock, Snapshot);
         _menus = new MenuBarBuilder(_commands, new MenuBarSources(services.Examples, NotePreview.Of));
+        // §7.1's footer ring. The pipeline it listens to does not exist yet — the manager builds this
+        // window's export half the moment the constructor returns (see Exports) — so the ring is
+        // created here and subscribed there.
+        _busy = new BusyRing(services.Scheduler, services.UiThread, _counts.ShowBusy);
+
+        // Before the menu bar is built: the File ▸ Open Recent run is filled from the snapshot, and
+        // an empty run would leave the row disabled until the first activation (§6.6, §2.1).
+        _recent = ReadRecent();
 
         BuildChrome();
         WireEvents();
@@ -168,6 +199,53 @@ internal sealed partial class BookWindow : Window
     public CommandDispatcher Commands => _commands;
 
     /// <summary>
+    /// This window's identity in <c>WindowRegistry</c> — the "Book" row of every window's Window
+    /// menu (§2.8, §8.6). The manager adds and removes it; the window only ticks its own row.
+    /// </summary>
+    public Guid Id { get; } = Guid.NewGuid();
+
+    /// <summary>WP6's off-canvas export surface: one fresh WebView2 per export, parked at <c>Canvas.Left = -10000</c> (§7.1).</summary>
+    public Canvas ExportRoot => ExportCanvas;
+
+    /// <summary>WP6's print-overlay slot, over the body and collapsed until a print starts (§7.2).</summary>
+    public ContentControl OverlaySlot => PrintOverlaySlot;
+
+    /// <summary>
+    /// Completes when the window has listed the stored book for the first time — or settled that
+    /// there is none. A Book row invoked from a document window creates this window and runs on it
+    /// immediately, and every whole-book output reads the listing: without this wait the first
+    /// Print Book after a launch would meet a book that has not been read yet and alert "No book is
+    /// open" about a book that plainly is (§8.2's resolve is asynchronous; the listing follows).
+    /// </summary>
+    public Task Listed => _listed.Task;
+
+    /// <summary>The article editor, for the Edit rows the manager registers on <see cref="Commands"/> (§2.4).</summary>
+    public TextBox Editor => _panes.Editor.Control;
+
+    /// <summary>File ▸ Save from the Book window: the article is written now rather than on the 1 s autosave (§2.2).</summary>
+    public void SaveArticle() => _session.FlushNow(explicitSave: true);
+
+    /// <summary>
+    /// This window's export half (§7), built by the manager the moment the window exists — every
+    /// piece of it needs the window, and the window needs <see cref="IBookOutputs"/> before it does.
+    /// Null only between the two, where nothing can reach it. Set through <see cref="AttachExports"/>.
+    /// </summary>
+    public Export.DocumentExports? Exports { get; private set; }
+
+    /// <summary>
+    /// Hand the window the export half the manager has just built for it, and wire §7.1's footer
+    /// ring to the pipeline that will raise it. One call rather than a property set, because the
+    /// subscription is not optional: without it <c>BusyChanged</c> has no consumer and a slow book
+    /// compile shows nothing at all.
+    /// </summary>
+    public void AttachExports(Export.DocumentExports exports)
+    {
+        ArgumentNullException.ThrowIfNull(exports);
+        Exports = exports;
+        exports.Pipeline.BusyChanged += _busy.BusyChanged;
+    }
+
+    /// <summary>
     /// The article being written, or null. File ▸ Print… and File ▸ Share act on <em>this</em> from
     /// the Book window, never on the whole book (book.md §14) — and with no file path, so Share ▸
     /// Source… offers a copy rather than the live file, which is the Mac's nil <c>fileURL</c>.
@@ -175,6 +253,36 @@ internal sealed partial class BookWindow : Window
     /// </summary>
     public (string Text, string Title)? ActiveArticle =>
         _session.Stage is Stage.Editing ? (_session.Text, _session.Title) : null;
+
+    /// <summary>
+    /// File ▸ Open Recent's rows as this window publishes them (§2.1: the row belongs to every
+    /// window, not only to a document window). The manager's Open Recent handler reads the label
+    /// from here when it has to say which file has gone.
+    /// </summary>
+    public IReadOnlyList<RecentEntry> RecentRows => _recent;
+
+    /// <summary>
+    /// The MRU changed under this window — a row was opened, cleared, or forgotten because its token
+    /// no longer resolved (§6.6). Re-read and republish: the rows live in the snapshot, and the menu
+    /// bar rebuilds the run only when that snapshot differs (§2.9).
+    /// </summary>
+    public void RefreshRecent()
+    {
+        _recent = ReadRecent();
+        Publish();
+    }
+
+    // A WinRT call per row: it changes on an open, a save and an activation, never on a keystroke,
+    // so it is cached rather than read while the snapshot is built (a document window's rule too).
+    IReadOnlyList<RecentEntry> ReadRecent()
+    {
+        var rows = new List<RecentEntry>();
+        foreach (var entry in _services.Recent.Entries)
+        {
+            rows.Add(new RecentEntry(entry.Token, FileNames.NameOf(entry.Path), FileNames.DirectoryOf(entry.Path)));
+        }
+        return rows;
+    }
 
     /// <summary>
     /// The Mac's <c>didBecomeKeyNotification</c> observer: WindowManager calls this when <em>any</em>
@@ -190,11 +298,38 @@ internal sealed partial class BookWindow : Window
     /// <summary>Book ▸ Close Book, and the window's own close route: flush, let go of the grant, close.</summary>
     public async Task<bool> RequestCloseAsync()
     {
+        // An export or print in flight is waited for first, bounded, exactly as a document window
+        // waits: closing under a running renderer tears its WebView2 down mid-render (§1.4).
+        await DrainOutputAsync();
         // CloseBook detaches with reportFailure, so a final save that will not land is parked in a
         // rescue copy and named — the close is never blocked (§1.4, §8.5).
         _navigator.CloseBook();
-        await Task.CompletedTask;
         return true;
+    }
+
+    /// <summary>Close now, without re-running the policy: it has already said yes (§1.4 routes 2 and 3).</summary>
+    public void CloseApproved()
+    {
+        _closing = true;
+        Close();
+    }
+
+    /// <summary>
+    /// A whole-book output registers itself here so a close waits for it. Outputs accumulate: a
+    /// Print Book started while an EPUB is still being photographed must not make the close forget
+    /// the EPUB.
+    /// </summary>
+    public void TrackOutput(Task output)
+    {
+        ArgumentNullException.ThrowIfNull(output);
+        _running = _running.IsCompleted ? output : Task.WhenAll(_running, output);
+    }
+
+    async Task DrainOutputAsync()
+    {
+        if (_running.IsCompleted) return;
+        // Bounded: a wedged renderer must not make the window unclosable.
+        await Task.WhenAny(_running, Task.Delay(OutputDrainTimeout));
     }
 
     // ───────────────────────────────── chrome ─────────────────────────────────
@@ -203,6 +338,10 @@ internal sealed partial class BookWindow : Window
     {
         Title = Strings.Book;
         MenuSlot.Content = _menus.Build();
+        // §6.1: drag & drop onto the window root, which the design gives to ANY window — the Book
+        // window included. The root, not the detail pane: a document dropped anywhere on the window
+        // opens, and it opens where a File ▸ Open from here would put it (a document window).
+        Root.AllowDrop = true;
 
         Split.DisplayMode = SplitViewDisplayMode.Inline;
         Split.PanePlacement = SplitViewPanePlacement.Left;
@@ -235,6 +374,10 @@ internal sealed partial class BookWindow : Window
         _panes.SetPreview(_preview);
         _panes.AttachScrollSync(_scrollGuard);
         _panes.ScrollSync.ScrollPreview = _preview.ApplyScrollFraction;
+        // Both directions, as a document window wires them and as the Mac's book workspace hands one
+        // ScrollSync to both panes (BookWorkspace.editorPane / previewPane): without this the article
+        // preview follows the editor but never the other way round.
+        _preview.PreviewDidScroll += fraction => _panes.ScrollSync.PreviewDidScroll(fraction);
         PanesSlot.Content = _panes;
         FooterCountsSlot.Content = _counts;
 
@@ -265,9 +408,10 @@ internal sealed partial class BookWindow : Window
         Info.IsClosable = false;
 
         // §7.1: the export renderer lives off-canvas inside a visible window, because Chromium
-        // throttles a page by IsVisible and a never-activated window is never shown at all.
-        Canvas.SetLeft(ExportCanvas, -10000);
-        Canvas.SetTop(ExportCanvas, 0);
+        // throttles a page by IsVisible and a never-activated window is never shown at all. It is
+        // the WebView2 that ExportRenderer parks at Canvas.Left = -10000, INSIDE this canvas —
+        // Canvas.Left on the canvas itself is an attached property read by a Canvas parent, and this
+        // one's parent is the body Grid, so setting it here did nothing at all.
         PrintOverlaySlot.Visibility = Visibility.Collapsed;
     }
 
@@ -353,10 +497,22 @@ internal sealed partial class BookWindow : Window
         _services.Settings.Changed += OnSettingChanged;
         _services.Registry.Changed += OnRegistryChanged;
 
+        Root.DragOver += OnDragOver;
+        Root.Drop += OnDrop;
+
         Activated += (_, e) =>
         {
-            if (e.WindowActivationState != WindowActivationState.Deactivated) RecheckOwnership();
-            else _session.FlushNow(explicitSave: false);
+            if (e.WindowActivationState != WindowActivationState.Deactivated)
+            {
+                // §6.6: another window may have opened or saved a file while this one was behind, so
+                // the rows are re-read here — RecheckOwnership's Render publishes them.
+                _recent = ReadRecent();
+                RecheckOwnership();
+            }
+            else
+            {
+                _session.FlushNow(explicitSave: false);
+            }
         };
 
         AppWindow.Changed += (_, args) =>
@@ -413,6 +569,13 @@ internal sealed partial class BookWindow : Window
         _services.Settings.Changed -= OnSettingChanged;
         _services.Registry.Changed -= OnRegistryChanged;
         _derived.Cancel();
+        // Before the pipeline is cancelled: a ring still waiting out its 500 ms must not fire into a
+        // footer that is going away.
+        _busy.Cancel();
+        Exports?.Cancel();
+        // §1.4 route 3: every WebView2 in the window is closed, or its browser process outlives the
+        // window that hosted it. The export renderers are the pipeline's; this one is the preview's.
+        _preview.Close();
         _session.CloseFlush();
         _gate.Dispose();
         _session.Dispose();
@@ -424,15 +587,24 @@ internal sealed partial class BookWindow : Window
 
     async Task OpenStoredBookAsync()
     {
-        var root = await _library.ResolveAsync();
-        if (root is null)
+        try
         {
-            _navigator.CloseBook();
+            var root = await _library.ResolveAsync();
+            if (root is null)
+            {
+                _navigator.CloseBook();
+                Render();
+                return;
+            }
+            _navigator.OpenBook(root);
             Render();
-            return;
         }
-        _navigator.OpenBook(root);
-        Render();
+        finally
+        {
+            // Settled either way: a window with no book is as listed as one with a book, and a
+            // caller waiting on it must not wait for ever because the folder was unreachable.
+            _listed.TrySetResult();
+        }
     }
 
     async Task OpenBookAsync()
@@ -544,8 +716,11 @@ internal sealed partial class BookWindow : Window
 
     void RenderTitle(CoreBook? book)
     {
-        var name = book?.Name ?? Strings.Book;
-        Title = _session.Stage is Stage.Editing ? $"{name} {Strings.EmDash} {_session.Title}" : name;
+        // One spelling of §1.3's Book title, shared with the tests: WindowTitle.ForBook. It is the
+        // stricter of the two — a book (or an article) whose name is EMPTY falls back to "Book"
+        // instead of producing "Book — " or a blank caption, which is what the hand-built string
+        // here used to do.
+        Title = WindowTitle.ForBook(book?.Name, _session.Stage is Stage.Editing ? _session.Title : null);
     }
 
     void RenderSidebar(CoreBook? book)
@@ -612,13 +787,7 @@ internal sealed partial class BookWindow : Window
             _coordinator.Update(_session.Text, _session.Title, Root.ActualTheme == ElementTheme.Dark, _session.EditingPath);
 
             if (_state.EditorJump is { } jump) _panes.Editor.ApplyJump(jump, _state.EditorJumpHandled);
-            if (_state.PreviewNavigation is { } navigation)
-            {
-                // WP4 declares its own PreviewNavigation placeholder in View/DocumentWindowState.cs
-                // (its integration note 1); until that file re-types it, the two records are carried
-                // across by hand rather than by editing another package's file.
-                _coordinator.Navigate(new Md.App.Logic.Preview.PreviewNavigation(navigation.Id, navigation.Slug), _state.PreviewNavigationHandled);
-            }
+            if (_state.PreviewNavigation is { } navigation) _coordinator.Navigate(navigation, _state.PreviewNavigationHandled);
             return;
         }
 
@@ -712,6 +881,57 @@ internal sealed partial class BookWindow : Window
     {
         if (_session.OwningWindow is { } id) _services.ActivateWindow(id);
     }
+
+    // ───────────────────────────────── drag & drop (§6.1) ─────────────────────────────────
+
+    /// <summary>Storage items are the only payload md answers; text and bitmaps are not documents.</summary>
+    void OnDragOver(object sender, DragEventArgs args)
+    {
+        args.AcceptedOperation = args.DataView.Contains(StandardDataFormats.StorageItems)
+            ? DataPackageOperation.Copy
+            : DataPackageOperation.None;
+        args.Handled = true;
+    }
+
+    /// <summary>
+    /// §6.1 / §6.5, the document window's handler over again and deliberately identical: files open
+    /// as documents, a <c>.textpack</c> imports, a <c>.textbundle</c> <em>folder</em> imports and
+    /// every other folder is ignored — the same <see cref="ActivationRouter.Classify"/> a
+    /// double-click goes through, handed to the same <c>WindowManager.PerformDrop</c>. A drop on the
+    /// Book window therefore opens a DOCUMENT window, exactly as File ▸ Open from here does: an
+    /// arbitrary file dropped on a book is not an article of it, and nothing is copied into the book
+    /// folder.
+    /// </summary>
+    async void OnDrop(object sender, DragEventArgs args)
+    {
+        if (!args.DataView.Contains(StandardDataFormats.StorageItems)) return;
+        args.Handled = true;
+        // GetStorageItemsAsync is awaited, so the source must be told when we are done with the data
+        // package — without the deferral the view can be released under us.
+        var deferral = args.GetDeferral();
+        try
+        {
+            var actions = new List<ActivationAction>();
+            foreach (var item in await args.DataView.GetStorageItemsAsync())
+            {
+                if (ActivationRouter.Classify(new ActivationItem(item.Path ?? "", item is StorageFolder)) is { } action)
+                    actions.Add(action);
+            }
+            if (!_closing) _services.PerformDrop(actions);
+        }
+        catch (Exception e) when (IsFileFailure(e))
+        {
+            // A drop whose source withdrew the data is not worth a dialog.
+            System.Diagnostics.Debug.WriteLine($"md: drop failed: {e}");
+        }
+        finally
+        {
+            deferral.Complete();
+        }
+    }
+
+    static bool IsFileFailure(Exception e) =>
+        e is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException or System.Runtime.InteropServices.COMException;
 
     void RenderMinimumSize(bool hasBook)
     {
@@ -935,7 +1155,8 @@ internal sealed partial class BookWindow : Window
             // "an article is open", or Edit ▸ Undo is live on a document nobody has typed into.
             CanUndo = editing && _panes.Editor.Control.CanUndo,
             CanRedo = editing && _panes.Editor.Control.CanRedo,
-            WindowTitles = _services.Registry.Windows.Select(w => (w.Id, w.Title, false)).ToList(),
+            RecentEntries = _recent,
+            WindowTitles = _services.Registry.Windows.Select(w => (w.Id, w.Title, w.Id == Id)).ToList(),
             HasSelection = _panes.Editor.HasSelection,
             PdfPageSizeId = PageSize.Named(_services.Settings.GetString(SettingsKeys.PdfPageSize)).Id,
             SidebarOpen = Split.IsPaneOpen,
@@ -976,13 +1197,14 @@ internal sealed partial class BookWindow : Window
 
     void SizeWindow()
     {
-        var (width, height) = ParseSize(
-            _services.Settings.GetString(SettingsKeys.BookWindowSize),
-            SettingsKeys.BookWindowSizeDefault);
+        // §9's "WxH" epx codec is WindowPlacement's, and the fallback is its BookDefault (1000×700)
+        // — the same pair SettingsKeys.BookWindowSizeDefault spells, pinned against each other in
+        // WindowPlacementTests. A corrupted setting reads as the default, never as a windowless app.
+        var size = WindowPlacement.ParseSize(_services.Settings.GetString(SettingsKeys.BookWindowSize), WindowPlacement.BookDefault);
         var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
         var scale = Interop.NativeMethods.GetDpiForWindow(hwnd) / 96.0;
         if (scale <= 0) scale = 1;
-        AppWindow.ResizeClient(new SizeInt32((int)Math.Round(width * scale), (int)Math.Round(height * scale)));
+        AppWindow.ResizeClient(new SizeInt32((int)Math.Round(size.Width * scale), (int)Math.Round(size.Height * scale)));
     }
 
     void StoreWindowSize()
@@ -992,27 +1214,8 @@ internal sealed partial class BookWindow : Window
         var size = AppWindow.ClientSize;
         _services.Settings.SetString(
             SettingsKeys.BookWindowSize,
-            $"{(int)Math.Round(size.Width / scale)}x{(int)Math.Round(size.Height / scale)}");
-    }
-
-    /// <summary>
-    /// The "WxH" epx codec of §9. Local because WP3 owns <c>Windows/WindowPlacement.cs</c>, which is
-    /// the file this belongs in the moment it exists.
-    /// </summary>
-    static (int Width, int Height) ParseSize(string? stored, string fallback)
-    {
-        foreach (var candidate in new[] { stored, fallback })
-        {
-            if (candidate is null) continue;
-            var parts = candidate.Split('x');
-            if (parts.Length != 2) continue;
-            if (int.TryParse(parts[0], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var w)
-                && int.TryParse(parts[1], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var h)
-                && w > 0 && h > 0)
-            {
-                return (w, h);
-            }
-        }
-        return (1000, 700);
+            WindowPlacement.FormatSize(new WindowSize(
+                (int)Math.Round(size.Width / scale),
+                (int)Math.Round(size.Height / scale))));
     }
 }

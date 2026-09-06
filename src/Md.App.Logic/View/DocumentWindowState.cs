@@ -1,3 +1,4 @@
+using Md.App.Logic.Preview;
 using Md.Core.Document;
 
 namespace Md.App.Logic.View;
@@ -30,19 +31,6 @@ public readonly record struct IdentityMemo
     /// <summary>Swift's <c>lastIdentity == .some(String?.none)</c> — the untitled-document case.</summary>
     public bool RanWithNoIdentity => Ran && Value is null;
 }
-
-// ─────────────────────────── WP5 SHAPES, DECLARED HERE FOR NOW ───────────────────────────
-// WP5 owns Preview/PreviewNavigation.cs and Preview/EditorJump.cs (§11.1) with exactly these two
-// shapes (§3.3, §5.6). They live here until that package lands so the window state can carry the
-// one-shot requests; integrating is deleting the two records below and adding
-// `using Md.App.Logic.Preview;` to this file.
-
-/// <summary>A request to scroll the preview to a heading slug, performed once per <see cref="Id"/>.</summary>
-public readonly record struct PreviewNavigation(Guid Id, string Slug);
-
-/// <summary>A request to put the caret at the start of a 0-based parser line, performed once per <see cref="Id"/>.</summary>
-public readonly record struct EditorJump(Guid Id, int Line);
-// ─────────────────────────────────────────────────────────────────────────────────────────
 
 /// <summary>
 /// Everything one document window remembers about how it is showing its document

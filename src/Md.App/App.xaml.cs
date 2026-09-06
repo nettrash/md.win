@@ -55,6 +55,12 @@ public partial class App : Application
         // previewing something invented.
         DocumentHtml.Default = new CoreDocumentHtml();
 
+        // §11.4: `md.exe --selftest <outDir>` drives the real ExportRenderer over the fixture
+        // documents, writes report.json and exits 0/1. It takes the process over from here — no
+        // window, no services, no activation routing — and it exists only in a build made with
+        // -p:SelfTest=true, so a shipped md never reaches past this line.
+        if (SelfTest.TryStart()) return;
+
         _services = new AppServices(Settings(), LocalFolder());
         _manager = new WindowManager(_services);
 
@@ -115,7 +121,10 @@ public partial class App : Application
     static bool HasRestorableSession(AppServices services)
     {
         var fileSystem = Md.App.Logic.Documents.SystemIoFileSystem.Instance;
-        return SessionStore.Restorable(SessionStore.Load(fileSystem, services.LocalFolder), fileSystem).Windows.Count > 0;
+        var state = SessionStore.Restorable(SessionStore.Load(fileSystem, services.LocalFolder), fileSystem);
+        // A session of nothing but the Book window is still a session (§1.6): a writer who quit with
+        // only their book open gets it back, not an untitled document they never asked for.
+        return state.Windows.Count > 0 || state.Book is not null;
     }
 
     void OnXamlUnhandledException(object sender, Microsoft.UI.Xaml.UnhandledExceptionEventArgs e) =>

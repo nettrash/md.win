@@ -490,22 +490,77 @@ App side (`internal`, namespace **`Md.App`** — see integration note 1): `Docum
 - `TextFileSession Session` (`Text`, `Title`, `EditingPath`), `IAlerts Alerts`, `IPickers Pickers`, `IScheduler Scheduler` (also the `IClock`), `bool IsDark`, `nint Handle` (the share sheet's `IDataTransferManagerInterop.ShowShareUIForWindow`).
 - `void TrackOutput(Task)` — **call this at the start of every export/print.** `RequestCloseAsync` awaits it, bounded at 10 s, before the window closes; without it a close tears the renderer's `WebView2` down mid-render.
 - Flush before every output is already done on `Deactivated`; call `Session.FlushNow(false)` yourself before Share ▸ Source anyway (§6.3).
-- Replace the `NotYetWired` entries for your ids with `_dispatcher.Register(...)` calls; the test `WindowSurfaceTests.TheNotYetWiredListIsExactlyTheExportPrintAndBookCommands` must be updated in the same commit (it is the contract).
+- ~~Replace the `NotYetWired` entries for your ids~~ — **done (see Integration below): the list and its test are gone, replaced by `WindowSurfaceTests`'s three wiring tests.**
 - `Scripts.cs` is append-only (WP5's note) — `RenderComplete`/`ScrollHeight` are already there.
 
-**(4) For WP7 (books).** `WindowManager.ShowBookWindow()` is your integration point: it is a named seam that `throw`s `NotImplementedException` and is **unreachable today** (every Book command routes to `NotWiredYet`), so nothing lies. Replace its body with create-on-demand/activate and wire the Book ids.
+**(4) For WP7 (books).** `WindowManager.ShowBookWindow()` is your integration point. **Implemented (see Integration below): create-on-demand, activate, reuse.**
 - `AppServices` (bottom of `WindowManager.cs`) hands you `Settings`, `LocalFolder`, `Registry`, `ViewModeMemory`, `WordCounter`, `Recent`, `Examples`. Move it to its own file the moment a second package needs it without a window (WP4's `PaneBrushes` convention).
 - `WindowRegistry` is `IDocumentRegistry`: the book pane asks `Owning(canonicalPath)`; `ShowOwningWindow` is `WindowManager.Activate(Guid)`; `OpenInWindow` is `session.HandOffForExternalOpen()` → `BookArticleOpens.Mark(path)` → `WindowManager.OpenPath(path)`.
 - `SessionState.Book` is written as `null` today. Add the Book window's row in `WindowManager.Write(...)` — the codec, the `SessionBook` record and its round trip are done and tested.
 - `WindowTitle.ForBook(bookName, articleTitle)` and `WindowPlacement.BookDefault` / `SettingsKeys.BookWindowSize` are ready.
 - `WindowRegistry.Add(id, "Book")` when the Book window opens: it is what puts the "Book" row in the Window menu.
 
-**(5) Command ids still on the `NotYetWired` path (22, pinned by a test):**
+**(5) HISTORICAL — command ids that were on the `NotYetWired` path (22, pinned by a test). All 22 are wired now; the paragraph is kept because it is the map of who owns which row:**
 `Print, ShareSource, ShareRenderedPdf, ExportPdf, ExportHtml, ExportEpub, ExportLaTeX, ExportTextBundle, ExportDiagramSvg` (WP6) and `NewBook, OpenBook, ShowBook, CloseBook, ShareBookPdf, PrintBook, ExportBookPdf, ExportBookEpub, ExportBookLaTeX, ExampleBook, PreviousArticle, NextArticle, ShowSidebar` (WP7). Everything else in `CommandTable.All` is wired — `WindowSurfaceTests.EveryCommandIsEitherWiredOrOnTheNamedNotYetWiredList` fails if an id ever reaches no handler. `PdfPageSize` **is** wired (it only writes `md.pdfPageSize`, and other windows re-tick through `ISettingsStore.Changed`).
 
-**(6) One request to WP5.** `PreviewHost` publishes no `Close()`/`IDisposable`, and §1.4 route 3 requires `WebView2.Close()` on every WebView2 in the window. `DocumentWindow.OnClosed` currently does `if (_previewHost.Content is WebView2 web) web.Close();` — correct today (the host's `Content` *is* the control) but it reaches into another package. Please publish `PreviewHost.Close()` and this becomes one call.
+**(6) One request to WP5.** `PreviewHost` publishes no `Close()`/`IDisposable`, and §1.4 route 3 requires `WebView2.Close()` on every WebView2 in the window. **Done: `PreviewHost.Close()` exists and both windows call it.**
 
 **(7) One observation about `ArticlePanes` (WP4).** It collapses the preview **slot**, not the host, so `IPreviewSurface.IsShown` (host + WebView2 visibility) would read `true` for a collapsed pane and §4.5's stale-while-collapsed would never engage. `DocumentWindow.ShowPreview(layout)` sets `_previewHost.Visibility` itself before `Show()`/`Hide()`. If `ArticlePanes` ever collapses the host directly, delete that line.
 
-**(8) WP4's placeholder records.** `View.PreviewNavigation` / `View.EditorJump` still shadow WP5's. `DocumentWindow.PerformJumps()` converts at the one call site (`new PreviewNav(nav.Id, nav.Slug)`); when WP4's two records are deleted it becomes a pass-through.
+**(8) WP4's placeholder records.** `View.PreviewNavigation` / `View.EditorJump` shadowed WP5's. **Unified: both are deleted, `DocumentWindowState` carries WP5's records, and both windows pass them straight through.**
 
+
+
+---
+
+## Integration — WP6 and WP7 joined to WP3 (2026-09-06)
+
+The last gap of §13.3: WP6 (exports, print, share) and WP7 (books) were written beside WP3 and are
+now wired to it. Gates at merge: Md.App.Logic.Tests **1211 green**, Md.Core.Tests **1271 green**,
+`tools/xamlcheck/run.sh` clean over 7 XAML files / 68 named elements, `dotnet build src/Md.App.Logic`
+0 warnings.
+
+**1. `DocumentWindow` ↔ WP6.** The window builds one `DocumentExports(this, ExportSurface,
+printOverlay, _scheduler, _alerts)` in its constructor and adds the `PrintOverlay` to `OverlayLayer`
+(which is shown only while a print sheet is up — a collapsed parent hides the WebView2 Chromium
+draws its preview inside, §7.2). Every §7 row is registered and handed to `TrackOutput`, so §1.4's
+bounded drain covers it; failures are the pipeline's own alerts on this window; the page size is
+`PageSize.Named(Settings[SettingsKeys.PdfPageSize])`, re-read per flow; `ExportDiagramSvg` takes the
+menu's **ordinal** and lets the pipeline re-resolve the diagram against the current text.
+
+**2. `WindowManager` ↔ WP7.** `ShowBookWindow()` creates the one `BookWindow` (services record,
+`WindowRegistry.Add(id, "Book")`, `Closed` → forget + re-write the session) and activates it,
+reusing it afterwards. Three services need the window that needs them, so `Md.App.Book`'s
+**`BookWindowBinding`** (`IAlerts`, `IPickers`, `IBookOutputs` — the `BookExportOutputs` `BookOutput`
+names) is handed over empty and bound the moment the constructor returns. `RegisterShellCommands`
+adds the File / Edit / Window / Help rows and §7's article-scoped print, share and export to
+`bookWindow.Commands`; the Book rows on a document window go through `RouteToBook`, which waits for
+the window's first listing (`BookWindow.Listed`) so the first Print Book cannot meet a book that has
+not been read yet. `RecheckOwnership()` runs from `NoteActivated` and `Forget` (§8.6). Close Book
+without a Book window drops the grant where it stands rather than flashing a window to close it.
+
+**3. Session (§1.6).** `SessionState.Book` is written and restored: the Book window's frame comes
+from its `AppWindow` (the manager owns that arithmetic — the window has none), and a session of
+nothing but a book restores the book instead of an untitled document (`App.HasRestorableSession`).
+
+**4. `--selftest` (§11.4).** `App.OnLaunched` hands the process to `SelfTest.TryStart()` before any
+window or activation, and `Program.Main` skips the single-instance redirection when
+`SelfTest.Requested` (available only in a `-p:SelfTest=true` build). `.github/workflows/windows.yml`
+runs it unguarded on x64 now that `Services/SelfTest.cs` is in the tree.
+
+**5. New public surface on `BookWindow`** (for the manager only): `Id`, `ExportRoot`, `OverlaySlot`,
+`Editor`, `Exports`, `Listed`, `SaveArticle()`, `TrackOutput(Task)`, `CloseApproved()`; its
+`RequestCloseAsync` now drains outputs first and its `Cleanup` closes the preview's WebView2.
+
+**6. Two rows the Book window still cannot answer, both design gaps rather than wiring ones**
+(named in `WindowSurfaceTests.TheBookWindowWiresEveryRowItsOwnMenusCanEnable`, which fails if a
+third appears): **Find / Use Selection for Find** — §2.4 enables them whenever an editor is visible,
+and §8.1 gives the Book window no find bar — and **Save As…** — §2.2 enables it for any active
+document, and an article that must stay inside its book folder has nowhere to be saved *as*.
+
+**7. Two placeholder records were unified with the real ones** (they were waiting on packages that
+have since landed): `View.DiagramRef` is now `Md.Core.Export.DiagramSvg.Diagram`, so
+`DerivedTextScheduler`'s `diagrams` delegate defaults to `DiagramSvg.Diagrams` and the **Book window
+gets Export ▸ Diagram as SVG rows it never had**; and `View.PreviewNavigation` / `View.EditorJump`
+are gone in favour of WP5's `Preview.PreviewNavigation` / `Preview.EditorJump`, so both windows pass
+a jump straight through instead of rebuilding it.

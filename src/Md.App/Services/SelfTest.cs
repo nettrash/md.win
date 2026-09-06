@@ -31,6 +31,14 @@ internal static partial class SelfTest
     public const string ReportFileName = "report.json";
 
     /// <summary>
+    /// True when this build carries the self-test <b>and</b> this process was asked for it. Read
+    /// before the single-instance redirection of §1.1: a self-test run drives its own WebView2 and
+    /// exits with its own code, so it must never hand its arguments to a running md and exit 0
+    /// having proved nothing. False in every shipped build, whatever the command line says.
+    /// </summary>
+    public static bool Requested => IsAvailable() && Array.IndexOf(Environment.GetCommandLineArgs(), Flag) >= 0;
+
+    /// <summary>
     /// True when this process is a self-test run and has taken over: the caller must open no window
     /// and route no activation. The run ends by exiting the process.
     /// </summary>
@@ -49,6 +57,9 @@ internal static partial class SelfTest
 
     /// <summary>Takes the process over and answers true, or — in a shipped build — answers false.</summary>
     private static partial bool Start(string directory);
+
+    /// <summary>Whether this build was compiled with the self-test at all (<c>-p:SelfTest=true</c>).</summary>
+    private static partial bool IsAvailable();
 }
 
 #if SELFTEST
@@ -149,6 +160,8 @@ internal static partial class SelfTest
         _ = RunAsync(directory);
         return true;
     }
+
+    private static partial bool IsAvailable() => true;
 
     static async Task RunAsync(string directory)
     {
@@ -448,6 +461,8 @@ internal static partial class SelfTest
     /// has no self-test code in it at all and the flag does nothing.
     /// </summary>
     private static partial bool Start(string directory) => false;
+
+    private static partial bool IsAvailable() => false;
 }
 
 #endif

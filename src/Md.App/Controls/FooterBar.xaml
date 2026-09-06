@@ -3,11 +3,21 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <!--
-        "N words · M characters", right-aligned on the secondary paper (shell-design.md §5.5).
-        Structure only: the padding, the Georgia face, the tabular figures and the brushes are set in
-        the code-behind, and the text comes from Md.App.Logic.Strings.Footer.
+        "N words · M characters", right-aligned on the secondary paper (shell-design.md §5.5), with
+        §7.1's export progress ring to its left — collapsed until an export has been running for
+        500 ms, so a fast one never flickers it.
+
+        Structure only: the padding, the Georgia face, the tabular figures, the ring's size and the
+        brushes are set in the code-behind, and the text comes from Md.App.Logic.Strings.Footer.
     -->
     <Border x:Name="Root">
-        <TextBlock x:Name="Counts" HorizontalAlignment="Right" VerticalAlignment="Center" />
+        <StackPanel
+            x:Name="Line"
+            Orientation="Horizontal"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Center">
+            <ProgressRing x:Name="Busy" VerticalAlignment="Center" Visibility="Collapsed" />
+            <TextBlock x:Name="Counts" HorizontalAlignment="Right" VerticalAlignment="Center" />
+        </StackPanel>
     </Border>
 </UserControl>

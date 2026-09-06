@@ -1,20 +1,7 @@
+using Md.Core.Export;
 using Md.Core.Markdown;
 
 namespace Md.App.Logic.View;
-
-/// <summary>
-/// One rich-content block the Export ▸ Diagram as SVG submenu offers, in the shape Core's Wave-C
-/// <c>Md.Core.Export.DiagramSvg.Diagram</c> is dictated to have (core-api.md Part B).
-/// </summary>
-/// <remarks>
-/// PLACEHOLDER for that record: it does not exist in Core yet, and <see cref="DerivedText"/> has to
-/// carry the rows today. Integrating is deleting this record and re-typing
-/// <see cref="DerivedText.Diagrams"/> as <c>IReadOnlyList&lt;DiagramSvg.Diagram&gt;</c> — the field
-/// names already match, and the scheduler reaches Core through one delegate
-/// (<see cref="DerivedTextScheduler"/>'s <c>diagrams</c> argument), which becomes
-/// <c>DiagramSvg.Diagrams</c>.
-/// </remarks>
-public readonly record struct DiagramRef(int Ordinal, string Engine, string Source, string MenuTitle);
 
 /// <summary>
 /// Everything the window derives from the document text off the typing path (shell-design.md §5.5):
@@ -26,7 +13,7 @@ public sealed record DerivedText(
     int Characters,
     IReadOnlyList<OutlineEntry> Outline,
     IReadOnlyList<NoteEntry> Notes,
-    IReadOnlyList<DiagramRef> Diagrams)
+    IReadOnlyList<DiagramSvg.Diagram> Diagrams)
 {
     /// <summary>What a window shows before its first computation lands: "0 words · 0 characters", empty menus.</summary>
     public static readonly DerivedText Empty = new(0, 0, [], [], []);

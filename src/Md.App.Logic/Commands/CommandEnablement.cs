@@ -22,6 +22,19 @@ public static class CommandEnablement
     /// <summary>§2.1 <c>saved</c> — an active document that has a path.</summary>
     static bool Saved(ShellSnapshot s) => HasActiveDocument(s) && s.IsSaved;
 
+    /// <summary>
+    /// Whether this window has a find bar at all. §8.1 lists the Book window's rows — the menu row,
+    /// the <c>SplitView</c>, the footer and the <c>InfoBar</c> — and there is no find bar among
+    /// them: Find is a Windows addition to the document window's §1.3 stack (§3.5), because the Mac
+    /// gets Find from <c>NSTextView</c> and its book pane publishes no find of its own.
+    ///
+    /// So the whole find family is dead in the Book window, not merely unhandled there. Reading it
+    /// off <c>HasFindQuery</c> / <c>FindBarOpen</c> alone would have made Find Next and Esc right by
+    /// accident — a Book window can never set either — while leaving Find… and Use Selection for
+    /// Find enabled on <c>EditorVisible</c> and <c>HasSelection</c>, which an article does set.
+    /// </summary>
+    static bool HasFindBar(ShellSnapshot s) => !s.IsBookWindow;
+
     /// <summary>Whether the row for <paramref name="id"/> is live in this window right now.</summary>
     public static bool IsEnabled(CommandId id, ShellSnapshot s)
     {
@@ -38,7 +51,14 @@ public static class CommandEnablement
             CommandId.ExampleBook => true,
             CommandId.Close => true,
             CommandId.Save => HasActiveDocument(s),
-            CommandId.SaveAs => HasActiveDocument(s),
+            // Never in the Book window (§8.5): an article IS its file inside the book folder, and
+            // the folder is the book — the reading order, the chapter it belongs to and the name the
+            // sidebar shows are all read back out of that path (§8.2, §8.3). "Save this article
+            // somewhere else" either silently drops it out of the book or writes a second copy the
+            // book never lists, and the Mac's book pane offers no Save As for the same reason: its
+            // activeDocument publishes a nil fileURL. Rename… and Move To… (inside the book) are the
+            // Book window's answer, and the sidebar's own menu is where a writer reaches them.
+            CommandId.SaveAs => HasActiveDocument(s) && !s.IsBookWindow,
             CommandId.Duplicate => HasActiveDocument(s),
             CommandId.Rename => Saved(s),
             CommandId.MoveTo => Saved(s),
@@ -65,10 +85,12 @@ public static class CommandEnablement
             CommandId.Paste => s.EditorVisible,
             CommandId.Delete => s.EditorVisible,
             CommandId.SelectAll => s.EditorVisible,
-            CommandId.Find => s.EditorVisible,
-            CommandId.FindNext => s.HasFindQuery,
-            CommandId.FindPrevious => s.HasFindQuery,
-            CommandId.UseSelectionForFind => s.HasSelection,
+            // The find family, all four gated on the window HAVING a find bar (§8.1) as well as on
+            // §2.4's own condition.
+            CommandId.Find => HasFindBar(s) && s.EditorVisible,
+            CommandId.FindNext => HasFindBar(s) && s.HasFindQuery,
+            CommandId.FindPrevious => HasFindBar(s) && s.HasFindQuery,
+            CommandId.UseSelectionForFind => HasFindBar(s) && s.HasSelection,
 
             // View (§2.5)
             CommandId.ViewEdit => HasActiveDocument(s),

@@ -1,5 +1,7 @@
+using Md.App.Logic.Preview;
 using Md.App.Logic.View;
 using Md.Core.Document;
+using Md.Core.Export;
 using Md.Core.Markdown;
 
 namespace Md.App.Logic.Tests;
@@ -68,8 +70,8 @@ public sealed class DocumentWindowStateTests
         // one, and the window would relay out and re-evaluate the Go menu for nothing.
         var changes = 0;
         _state.Changed += () => changes++;
-        var first = new DerivedText(2, 7, [new OutlineEntry(1, "T", "t", 0)], [new NoteEntry("n", 3)], [new DiagramRef(0, "mermaid", "graph", "Diagram 1")]);
-        var second = new DerivedText(2, 7, [new OutlineEntry(1, "T", "t", 0)], [new NoteEntry("n", 3)], [new DiagramRef(0, "mermaid", "graph", "Diagram 1")]);
+        var first = new DerivedText(2, 7, [new OutlineEntry(1, "T", "t", 0)], [new NoteEntry("n", 3)], [new DiagramSvg.Diagram(0, "mermaid", "graph", "Diagram 1")]);
+        var second = new DerivedText(2, 7, [new OutlineEntry(1, "T", "t", 0)], [new NoteEntry("n", 3)], [new DiagramSvg.Diagram(0, "mermaid", "graph", "Diagram 1")]);
         Assert.NotSame(first, second);
         Assert.Equal(first, second);
         Assert.Equal(first.GetHashCode(), second.GetHashCode());

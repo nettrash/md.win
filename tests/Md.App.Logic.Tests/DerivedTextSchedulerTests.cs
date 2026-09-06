@@ -1,4 +1,5 @@
 using Md.App.Logic.View;
+using Md.Core.Export;
 
 namespace Md.App.Logic.Tests;
 
@@ -14,7 +15,7 @@ public sealed class DerivedTextSchedulerTests
     readonly List<DerivedText> _published = [];
 
     /// <summary>The computation runs where it is asked; the thread-pool hop is the App's business.</summary>
-    DerivedTextScheduler Build(Func<string, IReadOnlyList<DiagramRef>>? diagrams = null, DerivedTextScheduler.RunOffThread? offThread = null)
+    DerivedTextScheduler Build(Func<string, IReadOnlyList<DiagramSvg.Diagram>>? diagrams = null, DerivedTextScheduler.RunOffThread? offThread = null)
     {
         var scheduler = new DerivedTextScheduler(_scheduler, _ui, _words, diagrams, offThread ?? (work => work()));
         scheduler.Changed += _published.Add;
@@ -125,7 +126,7 @@ public sealed class DerivedTextSchedulerTests
     [Fact]
     public void CharactersAreGraphemeClustersAndNotesAndDiagramsComeAlong()
     {
-        var derived = Build(diagrams: _ => [new DiagramRef(0, "mermaid", "graph TD;", "Diagram 1")]);
+        var derived = Build(diagrams: _ => [new DiagramSvg.Diagram(0, "mermaid", "graph TD;", "Diagram 1")]);
 
         derived.TextChanged("e\u0301\U0001F469\u200D\U0001F467\n\n<!-- note: private -->\n");
 

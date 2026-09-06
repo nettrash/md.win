@@ -23,7 +23,10 @@ internal static class Program
         var current = AppInstance.GetCurrent();
         var activation = current.GetActivatedEventArgs();                    // the real activation; OnLaunched's argument is not
         var main = AppInstance.FindOrRegisterForKey(InstanceKey);
-        if (!main.IsCurrent)
+        // A self-test run (§11.4) is not a second copy of md asking an existing one to open a file:
+        // it has to drive its own WebView2 and exit with its own code, so it never redirects. The
+        // property is false in every build that does not carry the self-test.
+        if (!main.IsCurrent && !Services.SelfTest.Requested)
         {
             Redirection.RedirectAndWait(main, activation);
             return 0;

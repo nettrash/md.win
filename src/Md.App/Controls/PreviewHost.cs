@@ -47,6 +47,14 @@ internal sealed class PreviewHost : UserControl
     public void ApplyScrollFraction(double fraction) => _ = EvalAsync(Scripts.SyncScrollTo(fraction));
 
     /// <summary>
+    /// §1.4 route 3: the window is closing. The browser process outlives the XAML tree unless the
+    /// control is told to go, so every window closes the WebView2 it hosts — this is that call, made
+    /// here rather than by reaching for <c>Content</c> from the window (WP3's integration note 6).
+    /// The host is finished afterwards.
+    /// </summary>
+    public void Close() => _web.Close();
+
+    /// <summary>
     /// The paper colour behind the page, painted before the page exists and again before a re-render,
     /// so neither the runtime-startup gap nor a reload ever shows white. The CSS paints the identical
     /// value on html, body. The owner calls this from ActualThemeChanged, before

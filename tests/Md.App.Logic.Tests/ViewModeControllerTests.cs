@@ -296,7 +296,7 @@ public sealed class ViewModeControllerTests : IDisposable
         Assert.Equal(ViewMode.Edit, _state.NavigationMode);
         Assert.Equal(ViewMode.Edit, _state.EffectiveMode);
         Assert.Equal(ViewMode.Preview, _state.StoredMode);      // the preference is still untouched
-        Assert.Equal(9, _state.EditorJump!.Value.Line);
+        Assert.Equal(9, _state.EditorJump!.Line);
     }
 
     [Fact]
@@ -370,13 +370,13 @@ public sealed class ViewModeControllerTests : IDisposable
         _state.StoredMode = ViewMode.Edit;
 
         controller.JumpToNote(new NoteEntry("first", 1));
-        var first = _state.EditorJump!.Value.Id;
+        var first = _state.EditorJump!.Id;
         controller.JumpToNote(new NoteEntry("second", 9));
 
         _state.EditorJumpHandled(first);                   // the older pane reports back late
-        Assert.Equal(9, _state.EditorJump!.Value.Line);
+        Assert.Equal(9, _state.EditorJump!.Line);
 
-        _state.EditorJumpHandled(_state.EditorJump!.Value.Id);
+        _state.EditorJumpHandled(_state.EditorJump!.Id);
         Assert.Null(_state.EditorJump);
     }
 

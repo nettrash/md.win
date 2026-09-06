@@ -4,6 +4,7 @@
 // is theirs and already tested off Windows. What is left in this file is the part only Windows can
 // run: the AppWindow, the three close routes, the presenter, the DPI arithmetic and the pickers.
 using Md.App.Controls;
+using Md.App.Export;
 using Md.App.Logic;
 using Md.App.Logic.Activation;
 using Md.App.Logic.Commands;
@@ -16,7 +17,6 @@ using Md.App.Logic.Windows;
 using Md.App.Menus;
 using Md.App.Services;
 using Md.Core.Document;
-using Md.Core.Export;
 using Md.Core.Markdown;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
@@ -25,32 +25,11 @@ using Windows.ApplicationModel.DataTransfer;
 using Windows.Graphics;
 using Windows.Storage;
 using Launcher = Windows.System.Launcher;
-using PreviewNav = Md.App.Logic.Preview.PreviewNavigation;
 
 namespace Md.App;
 
 internal sealed partial class DocumentWindow : Window
 {
-    /// <summary>
-    /// The commands whose targets do not exist yet: exports and print are WP6's, books are WP7's.
-    /// They stay enabled (§2.2 keeps Export ▸ live) and route here, to one clearly named no-op, so
-    /// that the wiring is a single line to delete rather than a search. Nothing else in this file
-    /// mentions them.
-    /// </summary>
-    static readonly CommandId[] NotYetWired =
-    [
-        // WP6 — exports, share and print (§7).
-        CommandId.Print, CommandId.ShareSource, CommandId.ShareRenderedPdf,
-        CommandId.ExportPdf, CommandId.ExportHtml, CommandId.ExportEpub, CommandId.ExportLaTeX,
-        CommandId.ExportTextBundle, CommandId.ExportDiagramSvg,
-        // WP7 — books (§8). ShowSidebar, Previous/Next Article are Book-window rows and are
-        // disabled here by CommandEnablement; they are listed so no id is silently unhandled.
-        CommandId.NewBook, CommandId.OpenBook, CommandId.ShowBook, CommandId.CloseBook,
-        CommandId.ShareBookPdf, CommandId.PrintBook,
-        CommandId.ExportBookPdf, CommandId.ExportBookEpub, CommandId.ExportBookLaTeX,
-        CommandId.ExampleBook, CommandId.PreviousArticle, CommandId.NextArticle, CommandId.ShowSidebar,
-    ];
-
     /// <summary>An export or print in flight is awaited before the window goes, but never for ever (§1.4).</summary>
     static readonly TimeSpan OutputDrainTimeout = TimeSpan.FromSeconds(10);
 
@@ -72,6 +51,8 @@ internal sealed partial class DocumentWindow : Window
     readonly Md.App.Logic.Preview.PreviewCoordinator _preview;
     readonly CommandDispatcher _dispatcher;
     readonly MenuBarBuilder _menu;
+    readonly PrintOverlay _printOverlay;
+    readonly DocumentExports _exports;
 
     IReadOnlyList<Md.App.Logic.Commands.DiagramRef> _diagrams = [];
     (bool Conflicted, string? Error)? _infoState;
@@ -111,11 +92,15 @@ internal sealed partial class DocumentWindow : Window
         _modes = new ViewModeController(_state, services.ViewModeMemory);
         _zen = new ZenController(_state, _scheduler);
         _scrollGuard = new ScrollSyncGuard(_scheduler);
-        _derived = new DerivedTextScheduler(_scheduler, _ui, services.WordCounter, DiagramsOf);
+        _derived = new DerivedTextScheduler(_scheduler, _ui, services.WordCounter);
         _previewHost = new PreviewHost();
         _preview = new Md.App.Logic.Preview.PreviewCoordinator(_previewHost.Surface, _scheduler);
         _dispatcher = new CommandDispatcher(_scheduler, () => _snapshot);
         _menu = new MenuBarBuilder(_dispatcher, new MenuBarSources(services.Examples.Examples, NotePreview.Of));
+        // §7: this window's own export half — the off-canvas renderers go in ExportCanvas, the print
+        // preview into the overlay OverlayHost holds, and every dialog belongs to this window.
+        _printOverlay = new PrintOverlay();
+        _exports = new DocumentExports(this, ExportSurface, _printOverlay, _scheduler, _alerts);
 
         services.Registry.Add(Id, Strings.Untitled);
         BuildContent();
@@ -324,6 +309,10 @@ internal sealed partial class DocumentWindow : Window
         Panes.AttachScrollSync(_scrollGuard);
         Panes.ScrollSync.ScrollPreview = _previewHost.ApplyScrollFraction;
         _previewHost.PreviewDidScroll += fraction => Panes.ScrollSync.PreviewDidScroll(fraction);
+
+        // §7.2: the print overlay covers every content row. It is added once and stays; the host
+        // grid is what is shown and hidden, so nothing is re-parented while a WebView2 is loading.
+        OverlayLayer.Children.Add(_printOverlay);
 
         ZenCapsule.Attach(_zen, _state);
         // ArticlePanes' first arrange happens in its own constructor, before anything can subscribe,
@@ -588,13 +577,14 @@ internal sealed partial class DocumentWindow : Window
         _services.Settings.Changed -= OnSettingChanged;
         _services.Registry.Changed -= Publish;
         _derived.Cancel();
+        // Anything still rendering stops rather than talking to a dead XamlRoot (§7.1). The wait for
+        // it already happened in RequestCloseAsync; this is the export's own cancellation.
+        _exports.Cancel();
         _session.Dispose();
         _watcher.Dispose();
 
-        // The browser process outlives the XAML tree unless it is told to go. WP5's PreviewHost does
-        // not publish a Close() yet (integration note); its Content is the control, and closing that
-        // is exactly what §1.4 asks for.
-        if (_previewHost.Content is WebView2 web) web.Close();
+        // The browser process outlives the XAML tree unless it is told to go (§1.4 route 3).
+        _previewHost.Close();
 
         _services.Registry.Remove(Id);
         _services.Settings.SetString(SettingsKeys.DocumentWindowSize, WindowPlacement.FormatSize(_restoreFrame.Size));
@@ -612,7 +602,7 @@ internal sealed partial class DocumentWindow : Window
         _dispatcher.Register(CommandId.OpenRecentEntry, argument => _ = OpenRecentAsync(argument as string));
         _dispatcher.Register(CommandId.ClearRecent, () => { _services.Recent.Clear(); RefreshRecent(); Publish(); });
         _dispatcher.Register(CommandId.OpenTextBundleFolder, () => _ = OpenBundleFolderAsync());
-        _dispatcher.Register(CommandId.Example, argument => OpenExample(argument as string));
+        _dispatcher.Register(CommandId.Example, argument => _manager.OpenExample(argument as string));
         _dispatcher.Register(CommandId.Close, () => _ = ApproveAndCloseAsync());
         _dispatcher.Register(CommandId.Save, () => _ = SaveAsync());
         _dispatcher.Register(CommandId.SaveAs, () => _ = SaveAsAsync());
@@ -622,6 +612,39 @@ internal sealed partial class DocumentWindow : Window
         _dispatcher.Register(CommandId.RevertToSaved, () => _session.RevertToSaved());
         _dispatcher.Register(CommandId.PdfPageSize, argument => SetPdfPageSize(argument as string));
         _dispatcher.Register(CommandId.Exit, () => _ = _manager.RequestExitAsync());
+
+        // File ▸ Print, Share ▸, Export ▸ (§7). Every flow is handed to TrackOutput, so a close waits
+        // for it rather than tearing the renderer's WebView2 down mid-render (§1.4); the pipeline
+        // itself serialises them and puts every failure in this window's own alert (§7.9).
+        _dispatcher.Register(CommandId.Print, () => TrackOutput(PrintAsync()));
+        _dispatcher.Register(CommandId.ShareSource, () => TrackOutput(ShareSourceAsync()));
+        _dispatcher.Register(CommandId.ShareRenderedPdf, () => TrackOutput(_exports.Pipeline.SharePdfAsync(_session.Text, _session.Title, PdfPageSize)));
+        _dispatcher.Register(CommandId.ExportPdf, () => TrackOutput(_exports.Pipeline.ExportPdfAsync(_session.Text, _session.Title, PdfPageSize)));
+        _dispatcher.Register(CommandId.ExportHtml, () => TrackOutput(_exports.Pipeline.ExportHtmlAsync(_session.Text, _session.Title)));
+        _dispatcher.Register(CommandId.ExportEpub, () => TrackOutput(_exports.Pipeline.ExportEpubAsync(_session.Text, _session.Title)));
+        _dispatcher.Register(CommandId.ExportLaTeX, () => TrackOutput(_exports.Pipeline.ExportLaTeXAsync(_session.Text, _session.Title)));
+        _dispatcher.Register(CommandId.ExportTextBundle, () => TrackOutput(_exports.Pipeline.ExportTextBundleAsync(_session.Text, _session.EditingPath, _session.Title)));
+        // The menu row dispatches the diagram's ORDINAL (§2.2): the snapshot it was built from is up
+        // to 250 ms old, so the pipeline re-resolves the row against the text as it is now and does
+        // nothing at all when that fence has since been deleted.
+        _dispatcher.Register(CommandId.ExportDiagramSvg, argument =>
+        {
+            if (argument is int ordinal) TrackOutput(_exports.Pipeline.ExportDiagramSvgAsync(_session.Text, _session.Title, ordinal));
+        });
+
+        // Book (§2.6). There is exactly one Book window and it owns the book: every row here reaches
+        // it through the manager, which creates it on demand. Close Book is the exception — closing a
+        // book that no window is showing must not open one to do it.
+        _dispatcher.Register(CommandId.NewBook, () => _manager.RouteToBook(CommandId.NewBook));
+        _dispatcher.Register(CommandId.OpenBook, () => _manager.RouteToBook(CommandId.OpenBook));
+        _dispatcher.Register(CommandId.ShowBook, () => _manager.ShowBookWindow());
+        _dispatcher.Register(CommandId.CloseBook, () => _manager.CloseBook(this));
+        _dispatcher.Register(CommandId.ExampleBook, () => _manager.RouteToBook(CommandId.ExampleBook));
+        _dispatcher.Register(CommandId.ShareBookPdf, () => _manager.RouteToBook(CommandId.ShareBookPdf));
+        _dispatcher.Register(CommandId.PrintBook, () => _manager.RouteToBook(CommandId.PrintBook));
+        _dispatcher.Register(CommandId.ExportBookPdf, () => _manager.RouteToBook(CommandId.ExportBookPdf));
+        _dispatcher.Register(CommandId.ExportBookEpub, () => _manager.RouteToBook(CommandId.ExportBookEpub));
+        _dispatcher.Register(CommandId.ExportBookLaTeX, () => _manager.RouteToBook(CommandId.ExportBookLaTeX));
 
         // Edit — the TextBox does these itself; the rows only reach it (§2.4).
         _dispatcher.Register(CommandId.Undo, () => Editor.Undo());
@@ -657,15 +680,42 @@ internal sealed partial class DocumentWindow : Window
         _dispatcher.Register(CommandId.Help, () => _ = Launcher.LaunchUriAsync(new Uri(Strings.Help.SupportUrl)));
         _dispatcher.Register(CommandId.PrivacyPolicy, () => _ = Launcher.LaunchUriAsync(new Uri(Strings.Help.PrivacyUrl)));
         _dispatcher.Register(CommandId.About, () => _ = AboutDialog.ShowAsync(Root.XamlRoot));
-
-        foreach (var id in NotYetWired) _dispatcher.Register(id, () => NotWiredYet(id));
     }
 
     TextBox Editor => Panes.Editor.Control;
 
-    /// <summary>The single "WP6/WP7 replace this" path (see <see cref="NotYetWired"/>).</summary>
-    static void NotWiredYet(CommandId id) =>
-        System.Diagnostics.Debug.WriteLine($"md: {id} has no handler yet (WP6 exports and print, WP7 books).");
+    /// <summary>The trim size every PDF flow renders at — <c>md.pdfPageSize</c>, shared with every other window (§9).</summary>
+    PageSize PdfPageSize => PageSize.Named(_services.Settings.GetString(SettingsKeys.PdfPageSize));
+
+    // ── print, share and export (§7) ──────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// File ▸ Print… — the overlay host is shown for as long as the sheet is up. It has to be: a
+    /// collapsed parent hides the WebView2 the preview is drawn inside, and Chromium draws no
+    /// preview at all for a hidden control (§7.2), so a hidden host would print a blank sheet.
+    /// </summary>
+    async Task PrintAsync()
+    {
+        OverlayLayer.Visibility = Visibility.Visible;
+        try
+        {
+            await _exports.PrintAsync(_session.Text, _session.Title);
+        }
+        finally
+        {
+            OverlayLayer.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    /// <summary>
+    /// Share ▸ Source… — the real file when the document has one. It is flushed first (§6.3): the
+    /// sheet hands another app the bytes on disk, and they must be the text on screen.
+    /// </summary>
+    async Task ShareSourceAsync()
+    {
+        _session.FlushNow(explicitSave: false);
+        await _exports.Pipeline.ShareSourceAsync(_session.EditingPath, _session.Text, _session.Title);
+    }
 
     // ── file commands ─────────────────────────────────────────────────────────────────────────
 
@@ -693,15 +743,6 @@ internal sealed partial class DocumentWindow : Window
     async Task OpenBundleFolderAsync()
     {
         if (await _pickers.PickFolderAsync(null) is { } folder) _manager.OpenPath(folder);
-    }
-
-    void OpenExample(string? fileName)
-    {
-        if (fileName is null) return;
-        var example = _services.Examples.Examples.FirstOrDefault(e => string.Equals(e.FileName, fileName, StringComparison.Ordinal));
-        if (example is null || _services.Examples.ReadText(example) is not { } text) return;
-        // Untitled and dirty, as on the Mac: the row is a starting point, not a file to overwrite.
-        _manager.OpenUntitled(text, dirty: true);
     }
 
     async Task SaveAsync()
@@ -886,11 +927,7 @@ internal sealed partial class DocumentWindow : Window
     void PerformJumps()
     {
         if (_state.EditorJump is { } jump) Panes.Editor.ApplyJump(jump, _state.EditorJumpHandled);
-        // WP4's state carries its own placeholder record; WP5's coordinator takes its own. Two
-        // fields, one meaning — the conversion is this line, and the day WP4's placeholders are
-        // deleted it becomes a straight pass-through.
-        if (_state.PreviewNavigation is { } navigation)
-            _preview.Navigate(new PreviewNav(navigation.Id, navigation.Slug), _state.PreviewNavigationHandled);
+        if (_state.PreviewNavigation is { } navigation) _preview.Navigate(navigation, _state.PreviewNavigationHandled);
     }
 
     void ApplyTheme()
@@ -907,9 +944,6 @@ internal sealed partial class DocumentWindow : Window
     // A document window passes no token: its document never changes under it without the text
     // changing too, so the coordinator's scroll-preserving reload is always the right one.
     void UpdatePreview() => _preview.Update(_session.Text, _session.Title, IsDark, token: null);
-
-    IReadOnlyList<Md.App.Logic.View.DiagramRef> DiagramsOf(string text) =>
-        [.. DiagramSvg.Diagrams(text).Select(d => new Md.App.Logic.View.DiagramRef(d.Ordinal, d.Engine, d.Source, d.MenuTitle))];
 
     // ── the conflict and save-error bars (§6.3) ───────────────────────────────────────────────
 

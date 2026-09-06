@@ -49,16 +49,34 @@
     <ProjectReference Include="..\Md.App.Logic\Md.App.Logic.csproj" />
   </ItemGroup>
 
+  <!--
+    Content that must sit beside md.exe at run time. CopyToOutputDirectory is not decoration:
+    without it these files reach neither half of the build. The unpackaged leg is obvious — the
+    app resolves both roots from AppContext.BaseDirectory (Web/AssetHost.WebRoot = BaseDirectory\web,
+    Services/ExampleLibrary.FolderPath = BaseDirectory\Examples), so nothing beside md.exe means no
+    engines and no Examples, which is exactly what CI's `-p:WindowsPackageType=None … --selftest` leg
+    runs. The packaged leg is the same story one level up: MSBuild only lifts a ContentWithTargetPath
+    item into AllItemsFullPathWithTargetPath when its CopyToOutputDirectory is Always / PreserveNewest /
+    IfDifferent (Microsoft.Common.CurrentVersion.targets, _GetCopyToOutputDirectoryItemsFromThisProject),
+    and that item set is precisely what GetCopyToOutputDirectoryItemsOutputGroup hands to the MSIX
+    tooling's GetPackagingOutputs (Microsoft.Windows.SDK.BuildTools.MSIX.Packaging.targets) — which
+    never calls ContentFilesProjectOutputGroup, so bare Content is not payload either. Measured on a
+    probe mirroring these four globs: 160 Content items, AllItemsFullPathWithTargetPath 0 → 160,
+    output-directory files 3 → 163 (Assets 77, Examples 14, web\rich 69).
+  -->
   <ItemGroup>
     <!-- Visual assets (generated from the macOS 1024-pt master; see README). -->
-    <Content Include="Assets\**\*.png" />
-    <Content Include="Assets\AppIcon.ico" />
+    <Content Include="Assets\**\*.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets\AppIcon.ico" CopyToOutputDirectory="PreserveNewest" />
     <!-- The offline math / diagram / highlighting engines, byte-identical with the other md
          apps. Packaged under web\rich\ so the WebView2 virtual host maps <install>\web — the page
-         can fetch rich/ and nothing else (never md.dll, Examples\ or an assembly). -->
-    <Content Include="rich\**\*" Link="web\rich\%(RecursiveDir)%(Filename)%(Extension)" />
+         can fetch rich/ and nothing else (never md.dll, Examples\ or an assembly). The Link is what
+         puts them there, in the package and beside md.exe alike; never drop it. -->
+    <Content Include="rich\**\*" Link="web\rich\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <!-- The Examples menu, byte-identical with the other md apps. -->
-    <Content Include="Examples\**\*.md" />
+    <Content Include="Examples\**\*.md" CopyToOutputDirectory="PreserveNewest" />
+    <!-- The MIT licence, so the shipped app carries its own licence text (store/README.md says so). -->
+    <Content Include="..\..\LICENSE" Link="LICENSE" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
