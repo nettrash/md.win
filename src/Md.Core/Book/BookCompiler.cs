@@ -40,4 +40,84 @@ public static class BookCompiler
         }
         return string.Join(PageSeparator, sections);
     }
+
+    // MARK: Reading the whole book (Swift's compileBookSource / readStructuredBook)
+
+    /// <summary>
+    /// The book's compile title: the display name of the root folder, prefix stripped —
+    /// not <see cref="Book.Name"/>, which is the raw folder name the window shows. It also
+    /// names the exported PDF and EPUB.
+    /// </summary>
+    public static string Title(Book book) => BookNaming.DisplayName(book.Name);
+
+    /// <summary>
+    /// Read every article in reading order and compile the book (see <see cref="Compile"/>).
+    /// <paramref name="readArticle"/> takes an article path and returns its Markdown, or
+    /// null when it cannot be read — one unreadable article aborts the whole compile, as
+    /// on the Mac, and <paramref name="unreadable"/> then names it
+    /// (<see cref="BookArticle.Name"/>, ordering prefix kept) for the alert.
+    /// <see cref="BookFolder.ReadArticle"/> is the reader the app passes.
+    /// </summary>
+    public static string? CompileBookSource(Book book, Func<string, string?> readArticle, out string? unreadable)
+    {
+        unreadable = null;
+        var parts = new List<BookPart>();
+        foreach (var article in book.Articles)
+        {
+            var text = readArticle(article.Path);
+            if (text is null) { unreadable = article.Name; return null; }
+            parts.Add(new BookPart.Article(text));
+        }
+        foreach (var chapter in book.Chapters)
+        {
+            parts.Add(new BookPart.Chapter(BookNaming.DisplayName(chapter.Name)));
+            foreach (var article in chapter.Articles)
+            {
+                var text = readArticle(article.Path);
+                if (text is null) { unreadable = article.Name; return null; }
+                parts.Add(new BookPart.Article(text));
+            }
+        }
+        return Compile(Title(book), parts);
+    }
+
+    /// <summary>Same, for callers that only need to know it failed.</summary>
+    public static string? CompileBookSource(Book book, Func<string, string?> readArticle) =>
+        CompileBookSource(book, readArticle, out _);
+
+    /// <summary>
+    /// Read the book in the same reading order as the compile, but with the chapter and
+    /// article boundaries kept rather than flattened: the EPUB gives each one its own file
+    /// and the LaTeX turns them into <c>\chapter</c> and <c>\section</c>. Same abort rule
+    /// as <see cref="CompileBookSource"/> — one unreadable article and the export stops,
+    /// named in <paramref name="unreadable"/>.
+    /// </summary>
+    public static StructuredBook? ReadStructuredBook(Book book, Func<string, string?> readArticle, out string? unreadable)
+    {
+        unreadable = null;
+        var front = new List<BookUnit>();
+        foreach (var article in book.Articles)
+        {
+            var text = readArticle(article.Path);
+            if (text is null) { unreadable = article.Name; return null; }
+            front.Add(new BookUnit(BookNaming.DisplayName(BookPaths.Name(article.Path)), text));
+        }
+        var sections = new List<BookSection>();
+        foreach (var chapter in book.Chapters)
+        {
+            var units = new List<BookUnit>();
+            foreach (var article in chapter.Articles)
+            {
+                var text = readArticle(article.Path);
+                if (text is null) { unreadable = article.Name; return null; }
+                units.Add(new BookUnit(BookNaming.DisplayName(BookPaths.Name(article.Path)), text));
+            }
+            sections.Add(new BookSection(BookNaming.DisplayName(chapter.Name), units));
+        }
+        return new StructuredBook(Title(book), front, sections);
+    }
+
+    /// <summary>Same, for callers that only need to know it failed.</summary>
+    public static StructuredBook? ReadStructuredBook(Book book, Func<string, string?> readArticle) =>
+        ReadStructuredBook(book, readArticle, out _);
 }

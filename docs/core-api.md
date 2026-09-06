@@ -126,3 +126,42 @@ namespace Md.Core.Book
 - LocalArticleFileSystem.FileExists is true for directories too (Swift fileExists(atPath:)).
 - MarkdownParser.cs: the blank-line predicate is TrimWS(line).Length == 0 — a live mutant (line.Length == 0) shipped from the implementer's harness and hung the parser on whitespace-only lines; fixed by the refuter, pinned by ParserAdversarialTests.WhitespaceOnlyLineIsABlankLineAndNeverHangsTheParser.
 - Test-isolation: BookArticleSession tests are in [Collection("BookArticleSession")] because BookFlushGate.Requested is a static event.
+
+## A3. Shipped after Wave B/C (2026-09-06) — the HTML writer, LaTeX, book I/O and DiagramSvg
+
+namespace Md.Core.Markdown
+- record EngineNeeds(bool Math, bool Mermaid, bool Plantuml, bool Graphviz, bool Highlight) { static None; ToString() = the space-joined
+  lowercase list in probe order "math mermaid plantuml graphviz highlight" — the engine-needs.json golden pins it }
+- record RenderedBody(string Html, EngineNeeds Needs)
+- static MarkdownHtml { IReadOnlyDictionary<string,string> GraphvizEngines (10 keys, 8 engines, ordinal);
+  string Document(string source, string title, bool dark, bool export = false); RenderedBody Body(string source, string title, bool dark);
+  string Css(bool dark, bool export); EngineNeeds Needs(string body); string RenderBlocks(IReadOnlyList<MarkdownBlock>);
+  string RenderBlock(MarkdownBlock); string Inline(string text, bool softBreaks = false); string Escape(string) }
+  (internal MarkdownCss.Stylesheet, MarkdownInlineHtml — not for callers.)
+  NOTE Css(dark: true, export: true) returns the EXPORT sheet: `dark && !export` is applied inside, as in the Swift and in md.vscode.
+
+namespace Md.Core.Book
+- record BookUnit(string Title, string Source); record BookSection(string Title, IReadOnlyList<BookUnit> Units);
+  record StructuredBook(string Title, IReadOnlyList<BookUnit> FrontUnits, IReadOnlyList<BookSection> Sections)  — Swift's EPUBBook
+- static BookCompiler gained ReadStructuredBook(...) alongside Compile(...)
+- static BookFolder { CreateChapter, CreateArticle, RenameItem, DeleteItem, DeletionNeighbor, RelativePath, OrderIndex, IsValidName … }
+- BookArticleSession now decodes through Md.Core.Document.PlainTextCodec (ArticleTextCodec.cs is DELETED)
+
+namespace Md.Core.Export
+- static LaTeXExport { string Document(string source, string title); string Book(StructuredBook book) }
+- static DiagramSvg { IReadOnlyList<Diagram> Diagrams(string source); record Diagram(int Ordinal, string Engine, string Source, string MenuTitle);
+  string StandaloneDocument(string svgOuterHtml) }
+- static ExportFileNames { string Sanitized(string title, string extension) } — also refuses the Windows-illegal characters,
+  trailing dots/spaces and the reserved device names (documented in the file as the Windows-specific part)
+
+Md.Core suite after integration: **1163 tests, 0 failures, 0 warnings**. The 25 golden HTML bodies, engine-needs.json,
+document.html and the three stylesheets are byte-exact; testdata/test.html and document.html were regenerated for the Windows
+test.md and differ from md.vscode's originals only in the four documented hunks (recorded at the top of GoldenTests.cs).
+
+## B2. Still to write (Wave D)
+namespace Md.Core.Export
+- static PdfExport { string StyledForExport(string html, PageSize pageSize) }
+- static HtmlExport { the pure steps of the self-contained HTML export: DOCTYPE prepend, page-break swap, KaTeX CSS inlining
+  (woff2-only data: faces, only when the document has math), the MIT + OFL notices verbatim }
+- static EpubExport { string DocumentTitle(string source, string fileName); byte[] BuildDocument(...); byte[] Build(StructuredBook, ...) }
+  — container.xml/OPF/nav/XHTML fixer/UUIDv5 identifier/stored zip in Core; the rich-element PNG snapshots come from the app as bytes

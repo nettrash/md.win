@@ -79,6 +79,15 @@ public static class Strings
         /// <summary>Open Recent: the MRU token no longer resolves (§6.6).</summary>
         public static string FileNotFound(string name) => $"The file \u201C{name}\u201D could not be found.";
 
+        /// <summary>
+        /// The fallback for a save failure the file system gave no message of its own for. Two
+        /// wordings because one session serves both surfaces (§6.3): a document window says
+        /// "document", the book's detail pane says "article" — the Mac's own string.
+        /// </summary>
+        public const string CouldNotWriteDocument = "The document could not be written.";
+
+        public const string CouldNotWriteArticle = "The article could not be written.";
+
         public const string RenameTitle = "Rename";
         public const string RenameMessage = "Only the name changes \u2014 the file extension is kept.";
         public const string CouldNotRename = "Could not rename";
@@ -199,6 +208,9 @@ public static class Strings
         public const string SupportUrl = "https://nettrash.me/msstore/md/support.html";
         public const string PrivacyUrl = "https://nettrash.me/msstore/md/privacy.html";
         public const string Copyright = "\u00A9 2026 nettrash. MIT licensed.";
+
+        /// <summary>§2.8: the line above <see cref="Engines"/> in the About dialog. "Bundled" and "open source" are the family's wording (facts/windows-facts.md); the app never claims it has no third-party dependencies, and never that the licence texts are published.</summary>
+        public const string EnginesHeading = "Bundled open source engines:";
 
         /// <summary>The bundled engines, as About lists them. Never the phrase "no third-party dependencies".</summary>
         public static readonly IReadOnlyList<string> Engines =

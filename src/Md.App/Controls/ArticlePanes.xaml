@@ -1,0 +1,28 @@
+<UserControl
+    x:Class="Md.App.Controls.ArticlePanes"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!--
+        The content row both windows use (shell-design.md §5.3): editor, a 1-epx divider, preview.
+        Structure and names only — the two slots are filled from code (the editor is built there, the
+        preview host is WP5's control), and the column/row definitions are rebuilt on every layout
+        change from SplitLayout.Arrange, because which of the four arrangements applies depends on the
+        mode and the measured width. No x:Bind, no {Binding}, no ThemeResource: the brushes are read
+        from Application.Current.Resources in the code-behind with a typed fallback.
+    -->
+    <Grid x:Name="Panes">
+        <ContentControl
+            x:Name="EditorSlot"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch"
+            HorizontalContentAlignment="Stretch"
+            VerticalContentAlignment="Stretch" />
+        <Border x:Name="Divider" />
+        <ContentControl
+            x:Name="PreviewSlot"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch"
+            HorizontalContentAlignment="Stretch"
+            VerticalContentAlignment="Stretch" />
+    </Grid>
+</UserControl>

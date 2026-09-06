@@ -68,7 +68,7 @@ this text is on a new line within the same paragraph.</p>
 <p>A fenced code block using tildes:</p>
 <pre><code class="language-json">{
   &quot;name&quot;: &quot;md&quot;,
-  &quot;platforms&quot;: [&quot;Visual Studio Code&quot;],
+  &quot;platforms&quot;: [&quot;Windows&quot;],
   &quot;dependencies&quot;: []
 }</code></pre>
 <p>A fenced block with no language:</p>
@@ -94,9 +94,9 @@ this text is on a new line within the same paragraph.</p>
 <hr>
 <h2 id="8-images">8. Images</h2>
 <p>Inline image (may not render if the renderer is text-only):</p>
-<p><img src="https://nettrash.me/favicon.ico" alt="Alt text for an image" title="Optional title"></p>
+<p><img src="https://nettrash.me/favicon-192x192.png" alt="Alt text for an image" title="Optional title"></p>
 <p>A linked image:</p>
-<p><a href="https://nettrash.me"><img src="https://nettrash.me/favicon.ico" alt="Alt text"></a></p>
+<p><a href="https://nettrash.me"><img src="https://nettrash.me/md-icon.png" alt="Alt text"></a></p>
 <hr>
 <h2 id="9-math-latex">9. Math (LaTeX)</h2>
 <p>New in <strong>1.1</strong>: TeX / LaTeX math is typeset by a bundled <strong>KaTeX</strong> engine,<br>
@@ -174,7 +174,8 @@ some parsers treat as a lazy continuation):</p>
 <div class="md-list"><div class="md-item" style="padding-left:0.00em"><span class="md-marker">&bull;</span><span>item one</span></div><div class="md-item" style="padding-left:0.00em"><span class="md-marker">&bull;</span><span>item two</span></div></div>
 <p>A list item containing a fenced code block:</p>
 <div class="md-list"><div class="md-item" style="padding-left:0.00em"><span class="md-marker">1.</span><span>Run the build:</span></div></div>
-<pre><code class="language-bash">npm ci &amp;&amp; npm run compile</code></pre>
+<pre><code class="language-powershell">dotnet build src\Md.App\Md.App.csproj `
+  -p:Platform=x64</code></pre>
 <div class="md-list"><div class="md-item" style="padding-left:0.00em"><span class="md-marker">2.</span><span>Open a <code>.md</code> file and start editing.</span></div></div>
 <p>A blockquote that contains a table:</p>
 <blockquote>

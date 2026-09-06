@@ -1,0 +1,23 @@
+<UserControl
+    x:Class="Md.App.Controls.FindBar"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!--
+        One row above the footer, hidden by default (shell-design.md §3.5): the query and Next /
+        Previous / Done. No replace in 1.0. Structure and names only — the labels come from
+        Md.App.Logic.Strings.Find, the face and brushes from the code-behind, and every handler is
+        wired there too (no Click attributes, so nothing here depends on the XAML compiler).
+    -->
+    <Grid x:Name="Root">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <TextBox x:Name="QueryBox" Grid.Column="0" VerticalAlignment="Center" />
+        <Button x:Name="NextButton" Grid.Column="1" VerticalAlignment="Center" />
+        <Button x:Name="PreviousButton" Grid.Column="2" VerticalAlignment="Center" />
+        <Button x:Name="DoneButton" Grid.Column="3" VerticalAlignment="Center" />
+    </Grid>
+</UserControl>

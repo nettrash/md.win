@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using Md.Core.Document;
 
 namespace Md.Core.Book;
 
@@ -124,7 +125,13 @@ public sealed class BookArticleSession : IDisposable
     private readonly IBookAlerts? alerts;
     private readonly IAutosaveScheduler? autosave;
     private FileStamp? diskStamp;
+    private TextEncoding encoding = TextEncoding.Utf8;
     private bool disposed;
+
+    // Assigned here rather than in a field initializer for the reason PlainTextCodec
+    // spells out: every static field initializer runs before the static constructor's
+    // body, so a GetEncoding(1251) initializer would beat the provider registration.
+    static BookArticleSession() => Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
     public BookArticleSession(
         IArticleFileSystem? fileSystem = null,
@@ -155,8 +162,13 @@ public sealed class BookArticleSession : IDisposable
 
     public bool Dirty { get; private set; }
 
-    /// <summary>The encoding the file was read in — what a save writes back in, unless the text outgrew it.</summary>
-    public Encoding Encoding { get; private set; } = ArticleTextCodec.Utf8;
+    /// <summary>
+    /// The encoding the file was read in — what a save writes back in, unless the text
+    /// outgrew it. The state behind it is the codec's own <see cref="TextEncoding"/>; this
+    /// is the <see cref="System.Text.Encoding"/> view of it, the shape a status line or a
+    /// Save As… wants.
+    /// </summary>
+    public Encoding Encoding => SystemEncoding(encoding);
 
     /// <summary>Bumped on every load and detach: the editor discards its undo stack when it changes.</summary>
     public int UndoGeneration { get; private set; }
@@ -264,14 +276,14 @@ public sealed class BookArticleSession : IDisposable
             Stage = BookStage.Unreadable(path);
             return;
         }
-        var decoded = ArticleTextCodec.Decode(data);
+        var decoded = PlainTextCodec.Decode(data);
         if (decoded is null)
         {
             Stage = BookStage.Unreadable(path);
             return;
         }
-        Text = decoded.Value.Text;
-        Encoding = decoded.Value.Encoding;
+        Text = decoded.Text;
+        encoding = decoded.Encoding;
         diskStamp = fileSystem.Stamp(path);
         UndoGeneration++;
         Stage = BookStage.Editing(path);
@@ -321,7 +333,7 @@ public sealed class BookArticleSession : IDisposable
         var owned = ownership?.Owns(path) == true;
         autosave?.Cancel();
 
-        var (data, usedEncoding) = ArticleTextCodec.Encode(Text, Encoding);
+        var encoded = PlainTextCodec.Encode(Text, encoding);
         if (diskStamp is { } expected && (fileSystem.Stamp(path) ?? Missing) != expected)
         {
             Conflicted = true;
@@ -330,7 +342,7 @@ public sealed class BookArticleSession : IDisposable
         }
         try
         {
-            fileSystem.WriteAllBytes(path, data);
+            fileSystem.WriteAllBytes(path, encoded.Data);
             diskStamp = fileSystem.Stamp(path);
         }
         catch (Exception e) when (IsFileFailure(e))
@@ -339,7 +351,7 @@ public sealed class BookArticleSession : IDisposable
             Notify();
             return false;
         }
-        Encoding = usedEncoding;
+        encoding = encoded.Encoding;
         SaveErrorText = null;
         SetDirty(false);
         if (owned) Stage = BookStage.Handoff(path);
@@ -373,7 +385,7 @@ public sealed class BookArticleSession : IDisposable
         var stem = BookPaths.DeletingPathExtension(file);
         var ext = BookPaths.PathExtension(file);
         if (ext.Length == 0) ext = "md";
-        var (data, _) = ArticleTextCodec.Encode(Text, Encoding);
+        var encoded = PlainTextCodec.Encode(Text, encoding);
         for (var attempt = 1; attempt <= 100; attempt++)
         {
             var name = attempt == 1
@@ -383,7 +395,7 @@ public sealed class BookArticleSession : IDisposable
             if (fileSystem.FileExists(candidate)) continue;
             try
             {
-                fileSystem.WriteAllBytes(candidate, data);
+                fileSystem.WriteAllBytes(candidate, encoded.Data);
                 return candidate;
             }
             catch (Exception e) when (IsFileFailure(e))
@@ -402,11 +414,11 @@ public sealed class BookArticleSession : IDisposable
         if (Stage.Kind != BookStageKind.Editing) return;
         Conflicted = false;
         var path = Stage.Path!;
-        var (data, usedEncoding) = ArticleTextCodec.Encode(Text, Encoding);
+        var encoded = PlainTextCodec.Encode(Text, encoding);
         try
         {
-            fileSystem.WriteAllBytes(path, data);
-            Encoding = usedEncoding;
+            fileSystem.WriteAllBytes(path, encoded.Data);
+            encoding = encoded.Encoding;
             diskStamp = fileSystem.Stamp(path);
             SaveErrorText = null;
             SetDirty(false);
@@ -507,11 +519,11 @@ public sealed class BookArticleSession : IDisposable
         {
             try
             {
-                var decoded = ArticleTextCodec.Decode(fileSystem.ReadAllBytes(path));
-                if (decoded is { } fresh)
+                var fresh = PlainTextCodec.Decode(fileSystem.ReadAllBytes(path));
+                if (fresh is not null)
                 {
                     Text = fresh.Text;
-                    Encoding = fresh.Encoding;
+                    encoding = fresh.Encoding;
                     diskStamp = fileSystem.Stamp(path);
                 }
             }
@@ -555,6 +567,18 @@ public sealed class BookArticleSession : IDisposable
     }
 
     private void Notify() => Changed?.Invoke();
+
+    private static readonly Encoding Utf8NoBom = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+    private static readonly Encoding Utf16LeBom = new UnicodeEncoding(bigEndian: false, byteOrderMark: true);
+
+    /// <summary>The codec's encoding as System.Text sees it — same code pages Foundation reports (65001 / 1200 / 1251 / 28591).</summary>
+    private static Encoding SystemEncoding(TextEncoding encoding) => encoding switch
+    {
+        TextEncoding.Utf16 => Utf16LeBom,
+        TextEncoding.WindowsCP1251 => Encoding.GetEncoding(1251),
+        TextEncoding.IsoLatin1 => Encoding.Latin1,
+        _ => Utf8NoBom,
+    };
 
     private static bool IsFileFailure(Exception e) =>
         e is IOException or UnauthorizedAccessException or NotSupportedException

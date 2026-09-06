@@ -20,16 +20,18 @@ public class ParserAdversarialTests
     /// set: such a line is a separator. Bounded so a regression fails instead of hanging the run.
     /// </summary>
     [Fact]
-    public void WhitespaceOnlyLineIsABlankLineAndNeverHangsTheParser()
+    public async Task WhitespaceOnlyLineIsABlankLineAndNeverHangsTheParser()
     {
         var task = Task.Run(() => MarkdownParser.Parse("a\n   \nb\n\t\nc\n​\nd\n \ne\n　\nf\n"));
-        Assert.True(task.Wait(TimeSpan.FromSeconds(10)), "parser did not return: whitespace-only line loops forever");
+        // Awaited rather than Wait()/.Result so the bound costs no blocked thread (xUnit1031).
+        var finished = await Task.WhenAny(task, Task.Delay(TimeSpan.FromSeconds(10)));
+        Assert.True(ReferenceEquals(finished, task), "parser did not return: whitespace-only line loops forever");
         Assert.Equal(
             [
                 new MarkdownBlock.Paragraph("a"), new MarkdownBlock.Paragraph("b"), new MarkdownBlock.Paragraph("c"),
                 new MarkdownBlock.Paragraph("d"), new MarkdownBlock.Paragraph("e"), new MarkdownBlock.Paragraph("f"),
             ],
-            task.Result);
+            await task);
 
         // The same separator inside every container: it ends a list, splits a quote's paragraphs,
         // ends a footnote definition, and ends a table's rows (the next row becomes prose).
