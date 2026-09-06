@@ -76,27 +76,30 @@ Beside those settings the app keeps, in its package folders, exactly the
 following:
 
 - `session.json` — the saved documents you had open when md last closed,
-  with each one's layout, Zen state and window position, so a plain launch
-  reopens them. Untitled drafts are not in it. It holds file paths and
-  window geometry, nothing else.
+  with each one's layout, Zen state and window position, and whether the
+  book window was open and where, so a plain launch reopens them. Untitled
+  drafts are not in it. It holds file paths and window geometry, nothing
+  else.
 - A **WebView2 user-data folder** — the runtime's own cache and state for
   the preview, including the choices you last made in the print dialog. It
   lives under the package's local cache and can hold only what the preview
   loaded, which is md's own page.
-- **Temporary files** for Share — the PDF or Markdown file handed to the
-  Windows Share pane — in the package's temporary folder, deleted after
-  the share.
+- **Temporary files** for Share — the PDF or Markdown copy handed to the
+  Windows Share pane, and the PDF an export renders before it is copied to
+  the file you named — in the package's temporary folder. It holds nothing
+  but those copies; Windows may clear it at any time, and removing the app
+  removes it.
 
 Two more things are held for md by Windows itself: the **future-access
 grant** that lets md reopen your book folder without asking again (removed
 by Close Book), and Windows' own **recent-items list**, which is what
 **File ▸ Open Recent** and the taskbar Jump List show; **Clear Menu**
-clears it.
+empties md's list.
 
 One file may be written beside *your* document rather than in md's folders:
 if a save fails while a window is closing — a full disk, a locked file — md
-keeps your text as `<name> (rescued).md` next to the original and tells you
-so. It is your document, in your folder, and md never touches it again.
+keeps your text next to the original as `<name> (rescued)` with the
+original extension — `Notes (rescued).md` — and tells you so. It is your document, in your folder, and md never touches it again.
 
 None of these settings and files leave your PC, and none of them contain
 personal information. If a future version remembers anything else, it is
@@ -123,8 +126,10 @@ goes straight to the host **your own document names**, which sees your IP
 address exactly as it would if you opened the link in a browser. It
 happens only for documents that contain such a link. A local image beside
 the document is deliberately *not* shown in the preview (the family
-decision: md's document is its text), so no other file is read on a
-document's behalf.
+decision: md's document is its text); the one time md reads a file beside
+your document is **Export ▸ TextBundle…**, which copies the local images
+the document links into the new bundle's `assets/` — from disk, at your
+request.
 
 Everything else is built on your PC: the Markdown renderer, and the math
 and diagram engines (KaTeX with mhchem, Mermaid, Graphviz, PlantUML,

@@ -16,8 +16,8 @@ PRINT AND EXPORT
 • Print or export real A4 pages — or A5, US Letter, US Legal, or a paperback trim size for a book bound for print. Breaks fall between lines, and \newpage starts a fresh page wherever you decide.
 • Export as HTML: one self-contained file that opens anywhere, diagrams as drawings and formulas as real, selectable text.
 • Export as LaTeX: a .tex file where your mathematics stays mathematics, ready to paste into a paper.
-• Export a diagram or a plot as a standalone .svg vector, or the whole document — or a single one — as a standard EPUB 3.
-• Share the rendered PDF or the Markdown source through the Windows Share pane, export through the standard save dialog, or open and export TextBundle and TextPack, the Markdown-with-images container.
+• Export a diagram or a plot as a standalone .svg vector, or the document as a standard EPUB 3 with its own headings as the table of contents.
+• Share the rendered PDF or the Markdown source through the Windows Share pane, export through the standard save dialog, open a TextBundle or TextPack — the Markdown-with-images container — and export a TextBundle of your own.
 
 WRITER MODE: BOOKS
 • A book is simply a folder: its subfolders are chapters, its Markdown files are articles, ordered by name.
@@ -28,7 +28,7 @@ WRITER MODE: BOOKS
 A REAL WINDOWS APP
 • Document-based: open, save, autosave, rename, duplicate, move and revert from the File menu, and your open documents come back where you left them. Your files stay ordinary .md, .markdown or .txt, in the encoding they arrived in — and md also opens .puml, .gv and .textpack files, and TextBundle folders from the File menu.
 • Autosave that never clobbers: the file is written in place a second after you stop typing, and if another program changed it first md asks instead of overwriting.
-• Native menus and keyboard shortcuts in every window, drag and drop, the Jump List, the Share pane and Windows' own print preview — no toolbar clutter.
+• Native menus and keyboard shortcuts in every window, drag and drop, the Jump List, the Share pane and a print preview inside the window — no toolbar clutter.
 • Built for Windows 11 on x64 and ARM64, with the WebView2 runtime Windows already includes.
 • Built-in examples, including a small sample book, show everything the app can do.
 

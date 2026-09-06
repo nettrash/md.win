@@ -67,9 +67,9 @@ it.
   **Keep My Version**; a clean document simply reloads. The title's
   "— Edited" mark is cleared only by an explicit **Save**, as on the Mac.
   If a save fails while a window is closing, the text is written beside the
-  document as `<name> (rescued).md` (then `(rescued 2)`, …) and the window
-  says where it went, so a full disk or a locked file never costs a
-  paragraph.
+  document as `<name> (rescued)` with the original extension — `Notes
+  (rescued).md`, then `(rescued 2)`, … — and the window says where it
+  went, so a full disk or a locked file never costs a paragraph.
 - **Rename…, Move To…, Duplicate and Revert to Saved** in the File menu —
   the commands the Mac inherits from `NSDocument` and Windows has to be
   given by hand. Rename keeps the extension; Move To picks a folder;

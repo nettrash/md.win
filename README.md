@@ -59,8 +59,9 @@ for code).
   the bundle is never written back, so its assets are never lost).
 - **Nothing lost.** If a file changes on disk under unsaved edits nothing is
   clobbered: a bar offers **Reload from Disk** or **Keep My Version**. If a
-  save fails while a window is closing, the text is kept as
-  `<name> (rescued).md` beside the document and the window says so. On a
+  save fails while a window is closing, the text is kept beside the
+  document as `<name> (rescued)` with the original extension — `Notes
+  (rescued).md` — and the window says so. On a
   plain launch md reopens the saved documents you had open, each in its
   layout and where its window was. Untitled drafts are the one thing not
   autosaved — Windows has no equivalent of the Mac's Autosave Information —
@@ -163,7 +164,7 @@ for code).
 - **Print & share.** Print the *rendered* document (**File ▸ Print…**,
   Ctrl+P) through Chromium's print preview inside the window — paper and
   margins are the dialog's; untick its "Headers and footers" once and it
-  stays off. Export it as a themed PDF at A4 (the default), A5, US Letter or
+  stays off. Export it as a PDF at A4 (the default), A5, US Letter or
   US Legal, or a print-on-demand trim size (6 × 9″, 5 × 8″, 5.5 × 8.5″), the
   choice remembered and applied to the book compile too — real pages, white
   paper and dark ink whatever the theme, 11 pt, half-inch margins, breaks
@@ -242,7 +243,7 @@ number, and the family's `1.0` ships as `1.0.0.0`.
 | `src/Md.App.Logic` | The shell's logic without a line of WinUI: the command table and shortcuts, activation routing, the document session (autosave, clobber guard, rescue copies, rename validation), the view-mode and Zen controllers, the export pipeline, the book navigator, the settings keys and the palette. Testable on any OS. |
 | `src/Md.App` | The thin WinUI 3 layer: windows and menus, the `TextBox` editor, the WebView2 preview and export renderers, pickers, Share, print — plus `rich/` (the engines), `Examples/`, `Assets/` and `Package.appxmanifest`. |
 | `tests/Md.Core.Tests` | xUnit golden-fixture suite for the core (`Fixtures/` is the family's shared set). |
-| `tests/Md.App.Logic.Tests` | xUnit suite for the shell's logic; Windows-only facts are exercised on the Windows CI leg and skipped elsewhere. |
+| `tests/Md.App.Logic.Tests` | xUnit suite for the shell's logic — documents, commands, view modes, export pipeline — driven through fakes of the `Seams/` interfaces; runs on any OS. |
 | `tools/xamlcheck` | The off-Windows compile check: a shadow library build plus a XAML lint against the real WinUI metadata. |
 | `store/` | Microsoft Store listing copy, one plain-text file per Partner Center field, with the limits table in its README. |
 
