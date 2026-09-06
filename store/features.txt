@@ -1,0 +1,20 @@
+Edit, Split and Preview layouts (Ctrl+1 / Ctrl+2 / Ctrl+3); in Split the two panes scroll as one, and they stack when the window is narrow.
+Zen mode: full screen, your text in one centred column, a quiet switch between writing and reading.
+Live preview of headings, lists, task lists, tables, quotes, code, links, images, footnotes and YAML or TOML front matter.
+LaTeX math and mhchem chemistry, typeset on your PC by the bundled KaTeX engine.
+Mermaid, Graphviz and PlantUML diagrams, drawn offline by engines built into the app.
+Plot blocks: charts md draws itself from a formula, a parametric curve or a list of points — no engine behind them, a real vector in the page.
+Syntax-highlighted code in a quiet palette that matches the page rather than a bright editor theme.
+CSV and TSV blocks drawn as tables, the first row the header and number columns lined up on the right.
+The Go menu lists every heading and your private author notes; a live word and character count sits under every page.
+Every document reopens in the layout you last had it in.
+Print through Windows' own print preview, or export real pages as PDF at A4, A5, US Letter, US Legal or a paperback trim size.
+Export as one self-contained HTML file, a standard EPUB 3, a LaTeX .tex file, a TextBundle, or a single diagram as an SVG vector.
+Writer mode: a folder is a book — subfolders are chapters, Markdown files are articles — compiled to one PDF, EPUB or LaTeX book.
+Autosave in place a second after you stop typing, with a guard that asks before overwriting a file another program changed.
+Opens .md, .markdown, .txt, .puml, .gv and .textpack files, and TextBundle folders, and saves them in the encoding they arrived in.
+Rename, Move To, Duplicate and Revert to Saved from the File menu; Open Recent feeds the taskbar Jump List.
+Warm paper in light and dark, prose in Georgia and code in Courier New.
+Built-in examples, including a small sample book.
+No accounts, no analytics, no tracking, no ads; the only network use is an image your own document links by URL.
+Built for Windows 11 on x64 and ARM64.

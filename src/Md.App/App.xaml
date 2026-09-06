@@ -1,0 +1,80 @@
+<Application
+    x:Class="Md.App.App"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!--
+        The paper theme (shell-final.md §10) as theme dictionaries, and the TextBox resource
+        overrides that strip the default template's fill, border and focus underline (§3.1) so the
+        editor is bare text on paper. Static XAML only: no x:Bind, no templates, no ThemeResource
+        lookups except the system colours the HighContrast dictionary must use — tools/xamlcheck
+        proves every element and attribute here. The hex values are Md.App.Logic.Settings.Palette's;
+        PaletteTests reads this file and fails when they drift.
+    -->
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light">
+                    <Color x:Key="PaperBackgroundColor">#F4EFE2</Color>
+                    <SolidColorBrush x:Key="PaperBackgroundBrush" Color="#F4EFE2" />
+                    <SolidColorBrush x:Key="PaperBackgroundSecondaryBrush" Color="#EAE2CF" />
+                    <SolidColorBrush x:Key="PaperInkBrush" Color="#2B2620" />
+                    <SolidColorBrush x:Key="AccentBrush" Color="#9C6B2E" />
+                    <SolidColorBrush x:Key="PaperInkSecondaryBrush" Color="#2B2620" Opacity="0.6" />
+                    <SolidColorBrush x:Key="PaperInkTertiaryBrush" Color="#2B2620" Opacity="0.4" />
+                    <SolidColorBrush x:Key="PaperBorderBrush" Color="#2B2620" Opacity="0.16" />
+
+                    <!-- TextBox: no fill, no border, no focus underline; the pane paints paper. -->
+                    <SolidColorBrush x:Key="TextControlBackground" Color="Transparent" />
+                    <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="Transparent" />
+                    <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="Transparent" />
+                    <SolidColorBrush x:Key="TextControlBackgroundDisabled" Color="Transparent" />
+                    <SolidColorBrush x:Key="TextControlBorderBrush" Color="Transparent" />
+                    <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="Transparent" />
+                    <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="Transparent" />
+                    <SolidColorBrush x:Key="TextControlBorderBrushDisabled" Color="Transparent" />
+                    <Thickness x:Key="TextControlBorderThemeThickness">0</Thickness>
+                    <Thickness x:Key="TextControlBorderThemeThicknessFocused">0</Thickness>
+                </ResourceDictionary>
+
+                <!-- "Default" is the dark dictionary. -->
+                <ResourceDictionary x:Key="Default">
+                    <Color x:Key="PaperBackgroundColor">#241E18</Color>
+                    <SolidColorBrush x:Key="PaperBackgroundBrush" Color="#241E18" />
+                    <SolidColorBrush x:Key="PaperBackgroundSecondaryBrush" Color="#2F2820" />
+                    <SolidColorBrush x:Key="PaperInkBrush" Color="#E7DBC2" />
+                    <SolidColorBrush x:Key="AccentBrush" Color="#C99A55" />
+                    <SolidColorBrush x:Key="PaperInkSecondaryBrush" Color="#E7DBC2" Opacity="0.6" />
+                    <SolidColorBrush x:Key="PaperInkTertiaryBrush" Color="#E7DBC2" Opacity="0.4" />
+                    <SolidColorBrush x:Key="PaperBorderBrush" Color="#E7DBC2" Opacity="0.16" />
+
+                    <SolidColorBrush x:Key="TextControlBackground" Color="Transparent" />
+                    <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="Transparent" />
+                    <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="Transparent" />
+                    <SolidColorBrush x:Key="TextControlBackgroundDisabled" Color="Transparent" />
+                    <SolidColorBrush x:Key="TextControlBorderBrush" Color="Transparent" />
+                    <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="Transparent" />
+                    <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="Transparent" />
+                    <SolidColorBrush x:Key="TextControlBorderBrushDisabled" Color="Transparent" />
+                    <Thickness x:Key="TextControlBorderThemeThickness">0</Thickness>
+                    <Thickness x:Key="TextControlBorderThemeThicknessFocused">0</Thickness>
+                </ResourceDictionary>
+
+                <!-- High contrast: the system's colours, and the TextBox keeps its system border. -->
+                <ResourceDictionary x:Key="HighContrast">
+                    <Color x:Key="PaperBackgroundColor">{ThemeResource SystemColorWindowColor}</Color>
+                    <SolidColorBrush x:Key="PaperBackgroundBrush" Color="{ThemeResource SystemColorWindowColor}" />
+                    <SolidColorBrush x:Key="PaperBackgroundSecondaryBrush" Color="{ThemeResource SystemColorButtonFaceColor}" />
+                    <SolidColorBrush x:Key="PaperInkBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="AccentBrush" Color="{ThemeResource SystemColorHighlightColor}" />
+                    <SolidColorBrush x:Key="PaperInkSecondaryBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="PaperInkTertiaryBrush" Color="{ThemeResource SystemColorGrayTextColor}" />
+                    <SolidColorBrush x:Key="PaperBorderBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

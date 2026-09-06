@@ -1,0 +1,1 @@
+A Markdown editor and live previewer for Windows 11. Write on one side and watch the finished page take shape on the other — math, diagrams and charts drawn on your PC — then print it, export it as PDF, HTML, EPUB or LaTeX, or turn a folder of chapters into a book.

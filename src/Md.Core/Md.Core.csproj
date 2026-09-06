@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Md.Core — everything in md that is not a window: the Markdown parser, the themed HTML
+    writer and its stylesheet, the plot engine, the LaTeX / EPUB / HTML / TextBundle
+    exporters, the book model, the per-file view-mode memory and the text codec.
+    Pure .NET, no Windows dependency, so it builds and tests on any OS and is the part
+    of the app that is pinned byte-for-byte against the shared golden fixtures.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Md.Core</RootNamespace>
+    <AssemblyName>Md.Core</AssemblyName>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+</Project>

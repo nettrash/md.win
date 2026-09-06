@@ -1,0 +1,18 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="ARM64" />
+  </Configurations>
+  <Folder Name="/src/">
+    <Project Path="src/Md.App/Md.App.csproj" />
+    <Project Path="src/Md.App.Logic/Md.App.Logic.csproj" />
+    <Project Path="src/Md.Core/Md.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Md.App.Logic.Tests/Md.App.Logic.Tests.csproj" />
+    <Project Path="tests/Md.Core.Tests/Md.Core.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/xamlcheck/xamlcheck.csproj" />
+  </Folder>
+</Solution>

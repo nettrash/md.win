@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Md.App.Logic.Tests — xUnit suite for the shell's portable logic. Runs with `dotnet test` on
+    any OS, in the same CI matrix as the Core tests (windows-latest + ubuntu-latest); facts that
+    hold only on Windows guard themselves with OperatingSystem.IsWindows(). Fakes/ holds one fake
+    per seam in Md.App.Logic.Seams — every work package's tests drive their logic through these,
+    so a fake's behaviour is itself pinned by FakesTests.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Md.App.Logic.Tests</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.9.0" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Md.App.Logic\Md.App.Logic.csproj" />
+  </ItemGroup>
+</Project>

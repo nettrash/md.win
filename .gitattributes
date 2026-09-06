@@ -1,0 +1,14 @@
+# Byte parity is the contract for everything in this repo that another md port also pins,
+# so nothing here may be rewritten on checkout. Source is LF everywhere; fixtures, the
+# vendored engines and the examples are left exactly as committed.
+* text=auto eol=lf
+tests/Md.Core.Tests/Fixtures/** -text
+src/Md.App/rich/** -text
+src/Md.App/Examples/** -text
+*.png binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.jks binary
+*.pfx binary

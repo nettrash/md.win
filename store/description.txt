@@ -1,0 +1,40 @@
+md is a Markdown editor and live previewer built for Windows 11. Write plain Markdown on one side and watch the finished page take shape on the other — then print it, export it, or turn a folder of chapters into a whole book.
+
+WRITE AND SEE
+• Edit, Split and Preview layouts (Ctrl+1 / Ctrl+2 / Ctrl+3). In Split, the two panes scroll as one, so the passage you are reading is the paragraph you are writing; when the window is narrow the panes stack.
+• Zen mode (Ctrl+Shift+Enter): full screen, your text in one centred column and nothing else — with a switch between writing and reading.
+• The preview is the printed page: one renderer draws the preview, the printout and the PDF, the same layout set for paper.
+• Headings, lists, task lists, tables, quotes, code, links and images — plus footnotes, and metadata front matter (YAML or TOML) recognised and kept out of the page.
+• LaTeX math and mhchem chemistry, Mermaid graphs, Graphviz and PlantUML diagrams — all drawn on your PC by engines built into the app — and charts from a plot block, which md draws itself from a formula, a parametric curve or a list of points.
+• Code fenced with a language reads with its keywords, comments and strings set apart, in a quiet palette that matches the page rather than a bright editor theme.
+• Paste a table straight from a spreadsheet into a csv or tsv block and md draws it — the first row the header, number columns lined up on the right.
+• The Go menu lists every heading and jumps both panes to it. Private author notes — an HTML comment on its own line whose text begins with the word note — are listed in the Go menu and never appear in the preview, the PDF or the printout.
+• A live word and character count sits under every page, and a Find bar (Ctrl+F) searches the text.
+• Every document reopens in the layout you last had it in — the notes you write in stay in Edit, the reference you only read stays in Preview — remembered on this PC for the last 200 files you opened.
+
+PRINT AND EXPORT
+• Print or export real A4 pages — or A5, US Letter, US Legal, or a paperback trim size for a book bound for print. Breaks fall between lines, and \newpage starts a fresh page wherever you decide.
+• Export as HTML: one self-contained file that opens anywhere, diagrams as drawings and formulas as real, selectable text.
+• Export as LaTeX: a .tex file where your mathematics stays mathematics, ready to paste into a paper.
+• Export a diagram or a plot as a standalone .svg vector, or the whole document — or a single one — as a standard EPUB 3.
+• Share the rendered PDF or the Markdown source through the Windows Share pane, export through the standard save dialog, or open and export TextBundle and TextPack, the Markdown-with-images container.
+
+WRITER MODE: BOOKS
+• A book is simply a folder: its subfolders are chapters, its Markdown files are articles, ordered by name.
+• The book window keeps the structure in a slim sidebar and the article you are writing beside it — Edit, Split or Preview — saving as you type. Take it full screen (F11) for a writing room with nothing but your book.
+• Walk the manuscript from the keyboard (Ctrl+Alt+Up / Ctrl+Alt+Down). Rename, reorder and delete chapters and articles in place; the order is written back to the file names, so it stays true in File Explorer.
+• Compile the whole book into one PDF at the page size you choose, print it, export it as a standard EPUB 3 with a proper table of contents — math and diagrams travel with it as images — or as a LaTeX book.
+
+A REAL WINDOWS APP
+• Document-based: open, save, autosave, rename, duplicate, move and revert from the File menu, and your open documents come back where you left them. Your files stay ordinary .md, .markdown or .txt, in the encoding they arrived in — and md also opens .puml, .gv and .textpack files, and TextBundle folders from the File menu.
+• Autosave that never clobbers: the file is written in place a second after you stop typing, and if another program changed it first md asks instead of overwriting.
+• Native menus and keyboard shortcuts in every window, drag and drop, the Jump List, the Share pane and Windows' own print preview — no toolbar clutter.
+• Built for Windows 11 on x64 and ARM64, with the WebView2 runtime Windows already includes.
+• Built-in examples, including a small sample book, show everything the app can do.
+
+PRIVATE BY DESIGN
+• No accounts, no sign-in, no analytics, no tracking, no ads.
+• Your documents stay where you put them: on your PC, or in your own cloud-synced folders.
+• Everything is rendered on your PC. The only thing md fetches from the network is an image your own document points at by URL.
+
+Written in C# for WinUI 3. The only outside code is the open-source engines that draw the math, chemistry, diagrams and code — KaTeX, mhchem, Mermaid, Graphviz, PlantUML and highlight.js — bundled in and run on your PC. The source is public.

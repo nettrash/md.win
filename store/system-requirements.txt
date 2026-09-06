@@ -1,0 +1,8 @@
+MINIMUM HARDWARE
+Windows 11 (build 22000) or later, x64 or ARM64
+Microsoft Edge WebView2 Runtime — included with Windows 11, nothing to install
+Keyboard, and a mouse or touchpad
+
+RECOMMENDED HARDWARE
+A window at least 640 pixels wide, so Split can put the editor and the preview side by side
+A printer, or a PDF print target, for File ▸ Print

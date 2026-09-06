@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Md.App.Logic — everything in the Windows shell that can be tested without Windows: the
+    command table, activation routing, the document session, view-mode and Zen controllers,
+    the preview coordinator, the export pipelines, the book navigator, settings and strings.
+    Plain .NET, references Md.Core only, and never a WinUI / WinRT type: Md.App is a thin
+    layer of adapters over the interfaces in Seams/, and those adapters are the only code
+    that needs a Windows build. Tested by tests/Md.App.Logic.Tests on every OS.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Md.App.Logic</RootNamespace>
+    <AssemblyName>Md.App.Logic</AssemblyName>
+    <Nullable>enable</Nullable>
+    <!-- Core's setting: the word counter and natural ordering must see real culture data. -->
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <!-- For the two P/Invoke files (FileIdentity, IcuWordCounter): LibraryImport generates unsafe code. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Md.Core\Md.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Md.App.Logic.Tests" />
+  </ItemGroup>
+</Project>

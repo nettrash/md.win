@@ -1,0 +1,85 @@
+name: Windows Build & Test
+
+on:
+  push:
+    branches: [ "master", "main" ]
+  pull_request:
+    branches: [ "master", "main" ]
+
+jobs:
+  core:
+    name: Core tests (${{ matrix.os }})
+    # The Core library is plain .NET, so its golden-fixture suite runs on every OS. Running it
+    # on Linux as well as Windows is deliberate: the plot oracle once passed on one runtime and
+    # failed on another (pow(10, n) is not correctly rounded everywhere), and only a second
+    # runtime finds that class of bug.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ windows-latest, ubuntu-latest ]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Test Md.Core
+        run: dotnet test tests/Md.Core.Tests/Md.Core.Tests.csproj -c Release --logger "trx;LogFileName=core.trx" --results-directory TestResults
+
+      - name: Upload test results on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: TestResults-${{ matrix.os }}
+          path: TestResults
+          retention-days: 7
+
+  app:
+    name: Build app & MSIX (${{ matrix.platform }})
+    # The WinUI XAML compiler is a Windows executable, so the app builds on Windows only.
+    runs-on: windows-latest
+    needs: core
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ x64, ARM64 ]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Set up MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Restore
+        run: msbuild src/Md.App/Md.App.csproj -t:Restore -p:Configuration=Release -p:Platform=${{ matrix.platform }} -p:RuntimeIdentifier=win-${{ matrix.platform == 'ARM64' && 'arm64' || 'x64' }}
+
+      - name: Build app and produce an unsigned MSIX
+        # Unsigned on purpose: the Store signs what it publishes. For a side-loadable build sign
+        # with your own certificate (AppxPackageSigningEnabled=true + PackageCertificateKeyFile).
+        run: >
+          msbuild src/Md.App/Md.App.csproj
+          -p:Configuration=Release
+          -p:Platform=${{ matrix.platform }}
+          -p:RuntimeIdentifier=win-${{ matrix.platform == 'ARM64' && 'arm64' || 'x64' }}
+          -p:GenerateAppxPackageOnBuild=true
+          -p:AppxPackageSigningEnabled=false
+          -p:AppxBundle=Never
+          -p:AppxPackageDir=${{ github.workspace }}\AppPackages\
+          -p:EnableWinAppRunSupport=false
+          -v:minimal
+
+      - name: Upload MSIX
+        uses: actions/upload-artifact@v4
+        with:
+          name: md-${{ matrix.platform }}-msix
+          path: AppPackages/**/*.msix
+          retention-days: 14

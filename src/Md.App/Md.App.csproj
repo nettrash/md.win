@@ -1,0 +1,87 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Md.App — the Windows edition of md: a WinUI 3 (Windows App SDK) desktop app packaged
+    as MSIX for the Microsoft Store. The editor is a TextBox, the preview a WebView2 that
+    serves the vendored rich/ engines from a virtual host, and every export that is not a
+    print is produced by Md.Core and written through the Windows file pickers.
+
+    Builds only on Windows (the WinUI XAML compiler is a Windows executable); the Core
+    library and its tests build everywhere.
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+    <!-- Windows 11 only: the family's modern-baseline rule (iOS 26 / Android 16), and the
+         WebView2 Evergreen runtime is in the box there, so nothing has to be bootstrapped. -->
+    <TargetPlatformMinVersion>10.0.22000.0</TargetPlatformMinVersion>
+    <RootNamespace>Md.App</RootNamespace>
+    <AssemblyName>md</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Platforms>x64;ARM64</Platforms>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture.ToString().ToLowerInvariant())</RuntimeIdentifier>
+    <PublishProfile Condition="Exists('Properties\PublishProfiles\win-$(Platform).pubxml')">win-$(Platform).pubxml</PublishProfile>
+    <UseWinUI>true</UseWinUI>
+    <WinUISDKReferences>false</WinUISDKReferences>
+    <EnableMsixTooling>true</EnableMsixTooling>
+    <GenerateAppInstallerFile>false</GenerateAppInstallerFile>
+    <AppxPackageSigningEnabled>false</AppxPackageSigningEnabled>
+    <ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
+    <SupportedOSPlatformVersion>10.0.22000.0</SupportedOSPlatformVersion>
+    <!-- Keep the defaults reproducible: no dynamic code generation surprises in the packaged build. -->
+    <PublishReadyToRun Condition="'$(Configuration)' == 'Debug'">False</PublishReadyToRun>
+    <PublishReadyToRun Condition="'$(Configuration)' != 'Debug'">True</PublishReadyToRun>
+    <!-- Trimming is off: WinRT projections and WebView2 interop are reflection-heavy and
+         the Store package size difference is dwarfed by the 13 MB of rich/ engines anyway. -->
+    <PublishTrimmed>False</PublishTrimmed>
+    <!-- Our own Program.Main (§1.1): since Windows App SDK 2.3.1 the switch renames the generated
+         entry point rather than deleting it, so StartupObject is what makes ours the one that runs. -->
+    <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
+    <StartupObject>Md.App.Program</StartupObject>
+    <!-- Interop/NativeMethods.cs: LibraryImport generates unsafe marshalling code. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- The WebView2 self-test (§11.4) is compiled in only when CI asks for it (-p:SelfTest=true);
+         a Store build never carries it. -->
+    <DefineConstants Condition="'$(SelfTest)' == 'true'">$(DefineConstants);SELFTEST</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Md.Core\Md.Core.csproj" />
+    <ProjectReference Include="..\Md.App.Logic\Md.App.Logic.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Visual assets (generated from the macOS 1024-pt master; see README). -->
+    <Content Include="Assets\**\*.png" />
+    <Content Include="Assets\AppIcon.ico" />
+    <!-- The offline math / diagram / highlighting engines, byte-identical with the other md
+         apps. Packaged under web\rich\ so the WebView2 virtual host maps <install>\web — the page
+         can fetch rich/ and nothing else (never md.dll, Examples\ or an assembly). -->
+    <Content Include="rich\**\*" Link="web\rich\%(RecursiveDir)%(Filename)%(Extension)" />
+    <!-- The Examples menu, byte-identical with the other md apps. -->
+    <Content Include="Examples\**\*.md" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Manifest Include="$(ApplicationManifest)" />
+  </ItemGroup>
+
+  <!--
+    Defining the "Msix" ProjectCapability here allows the Single-project MSIX Packaging
+    Tools extension to be activated for this project even if the Windows App SDK Nuget
+    package has not yet been restored.
+  -->
+  <ItemGroup Condition="'$(DisableMsixProjectCapabilityAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
+    <ProjectCapability Include="Msix"/>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.7705" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.4.0" />
+    <!-- `dotnet run` with package identity (registers a debug identity via the winapp CLI). -->
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools.WinApp" Version="0.3.1" />
+  </ItemGroup>
+
+  <PropertyGroup Condition="'$(DisableHasPackageAndPublishMenuAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
+    <HasPackageAndPublishMenu>true</HasPackageAndPublishMenu>
+  </PropertyGroup>
+</Project>

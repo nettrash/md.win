@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  MSIX manifest for md. The Identity Name / Publisher below are placeholders: Partner Center
+  assigns the real package name and the publisher CN when the project is associated with the
+  Store listing (Visual Studio ▸ Package and Publish ▸ Associate App with the Store rewrites
+  them, or copy them from Partner Center ▸ Product identity).
+-->
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
+  xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
+  xmlns:uap10="http://schemas.microsoft.com/appx/manifest/uap/windows10/10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap uap3 uap5 uap10 rescap">
+
+  <Identity
+    Name="nettrash.md"
+    Publisher="CN=nettrash"
+    Version="1.0.0.0" />
+
+  <Properties>
+    <DisplayName>md</DisplayName>
+    <PublisherDisplayName>nettrash</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+    <Description>The simplest Markdown editor — write on the left, read on the right.</Description>
+  </Properties>
+
+  <Dependencies>
+    <!-- Windows 11 only (10.0.22000). -->
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.22000.0" MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="x-generate"/>
+  </Resources>
+
+  <Applications>
+    <Application Id="App"
+      Executable="$targetnametoken$.exe"
+      EntryPoint="$targetentrypoint$">
+      <uap:VisualElements
+        DisplayName="md"
+        Description="The simplest Markdown editor — live preview, math, diagrams, plots, PDF, EPUB and LaTeX export, all offline."
+        BackgroundColor="#241E18"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png">
+        <uap:DefaultTile
+          Wide310x150Logo="Assets\Wide310x150Logo.png"
+          Square71x71Logo="Assets\SmallTile.png"
+          Square310x310Logo="Assets\LargeTile.png"
+          ShortName="md">
+          <uap:ShowNameOnTiles>
+            <uap:ShowOn Tile="square150x150Logo"/>
+            <uap:ShowOn Tile="wide310x150Logo"/>
+          </uap:ShowNameOnTiles>
+        </uap:DefaultTile>
+        <uap:SplashScreen Image="Assets\SplashScreen.png" BackgroundColor="#241E18" />
+      </uap:VisualElements>
+
+      <Extensions>
+        <!-- The document types md edits. Mirrors the macOS CFBundleDocumentTypes: Markdown is
+             ours; PlantUML, Graphviz, TextPack and plain text are offered as an alternate
+             handler. A .textbundle is a folder and cannot be associated on Windows; the app
+             opens one through File ▸ Open TextBundle Folder… instead. -->
+        <uap:Extension Category="windows.fileTypeAssociation">
+          <uap3:FileTypeAssociation Name="markdown" DesiredView="default">
+            <uap:DisplayName>Markdown Document</uap:DisplayName>
+            <uap:Logo>Assets\Square44x44Logo.png</uap:Logo>
+            <uap:InfoTip>A Markdown text document</uap:InfoTip>
+            <uap:EditFlags OpenIsSafe="true" />
+            <uap:SupportedFileTypes>
+              <uap:FileType ContentType="text/markdown">.md</uap:FileType>
+              <uap:FileType ContentType="text/markdown">.markdown</uap:FileType>
+              <uap:FileType ContentType="text/markdown">.mdown</uap:FileType>
+              <uap:FileType ContentType="text/markdown">.markdn</uap:FileType>
+              <uap:FileType ContentType="text/markdown">.mdtext</uap:FileType>
+            </uap:SupportedFileTypes>
+          </uap3:FileTypeAssociation>
+        </uap:Extension>
+        <uap:Extension Category="windows.fileTypeAssociation">
+          <uap3:FileTypeAssociation Name="plantuml" DesiredView="default">
+            <uap:DisplayName>PlantUML Diagram</uap:DisplayName>
+            <uap:Logo>Assets\Square44x44Logo.png</uap:Logo>
+            <uap:InfoTip>A PlantUML diagram source</uap:InfoTip>
+            <uap:EditFlags OpenIsSafe="true" />
+            <uap:SupportedFileTypes>
+              <uap:FileType ContentType="text/plain">.puml</uap:FileType>
+              <uap:FileType ContentType="text/plain">.plantuml</uap:FileType>
+            </uap:SupportedFileTypes>
+          </uap3:FileTypeAssociation>
+        </uap:Extension>
+        <uap:Extension Category="windows.fileTypeAssociation">
+          <uap3:FileTypeAssociation Name="graphviz" DesiredView="default">
+            <uap:DisplayName>Graphviz DOT Graph</uap:DisplayName>
+            <uap:Logo>Assets\Square44x44Logo.png</uap:Logo>
+            <uap:InfoTip>A Graphviz graph source</uap:InfoTip>
+            <uap:EditFlags OpenIsSafe="true" />
+            <uap:SupportedFileTypes>
+              <uap:FileType ContentType="text/vnd.graphviz">.gv</uap:FileType>
+            </uap:SupportedFileTypes>
+          </uap3:FileTypeAssociation>
+        </uap:Extension>
+        <uap:Extension Category="windows.fileTypeAssociation">
+          <uap3:FileTypeAssociation Name="textpack" DesiredView="default">
+            <uap:DisplayName>TextPack</uap:DisplayName>
+            <uap:Logo>Assets\Square44x44Logo.png</uap:Logo>
+            <uap:InfoTip>A zipped TextBundle (Markdown with images)</uap:InfoTip>
+            <uap:EditFlags OpenIsSafe="true" />
+            <uap:SupportedFileTypes>
+              <uap:FileType ContentType="application/zip">.textpack</uap:FileType>
+            </uap:SupportedFileTypes>
+          </uap3:FileTypeAssociation>
+        </uap:Extension>
+        <uap:Extension Category="windows.fileTypeAssociation">
+          <uap3:FileTypeAssociation Name="plaintext" DesiredView="default">
+            <uap:DisplayName>Plain Text</uap:DisplayName>
+            <uap:Logo>Assets\Square44x44Logo.png</uap:Logo>
+            <uap:InfoTip>A plain text document</uap:InfoTip>
+            <uap:EditFlags OpenIsSafe="true" />
+            <uap:SupportedFileTypes>
+              <uap:FileType ContentType="text/plain">.txt</uap:FileType>
+            </uap:SupportedFileTypes>
+          </uap3:FileTypeAssociation>
+        </uap:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>
