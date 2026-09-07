@@ -91,9 +91,10 @@ Windows-specific:
 - LaTeX export **keeps a plot's or diagram's source under a comment** —
   "no chart in the .tex". Never claim plots or diagrams are drawn in the
   `.tex`.
-- **Windows:** the prose face is **Georgia**, a stand-in for the family's
-  American Typewriter, which Windows does not ship and md does not bundle.
-  Never name American Typewriter as something the Windows app has.
+- **Windows:** the prose face is **Lucida Sans Typewriter**, a stand-in for
+  the family's American Typewriter, which Windows does not ship and md does
+  not bundle. Lucida Sans Typewriter ships with Windows, so it may be named;
+  never name American Typewriter as something the Windows app has.
 - **Windows:** `.textbundle` **folders** open through File ▸ Open
   TextBundle Folder… (Windows cannot associate a folder); `.textpack` opens
   by double-click. Never promise a folder association, Versions, or the

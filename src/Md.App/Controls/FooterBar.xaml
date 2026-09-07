@@ -7,7 +7,7 @@
         §7.1's export progress ring to its left — collapsed until an export has been running for
         500 ms, so a fast one never flickers it.
 
-        Structure only: the padding, the Georgia face, the tabular figures, the ring's size and the
+        Structure only: the padding, the prose face, the tabular figures, the ring's size and the
         brushes are set in the code-behind, and the text comes from Md.App.Logic.Strings.Footer.
     -->
     <Border x:Name="Root">

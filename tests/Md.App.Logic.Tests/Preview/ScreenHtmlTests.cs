@@ -15,7 +15,7 @@ public class ScreenHtmlTests
     public void FontStyleIsTheExactBytesTheDesignPins()
     {
         Assert.Equal(
-            "<style id=\"md-win-fonts\">body{font-family:Georgia,\"Courier New\",serif;}</style>",
+            "<style id=\"md-win-fonts\">body{font-family:\"Lucida Sans Typewriter\",\"Courier New\",serif;}</style>",
             ScreenHtml.FontStyle);
     }
 
@@ -24,7 +24,7 @@ public class ScreenHtmlTests
     {
         Assert.Equal(
             "<!DOCTYPE html>\n<html><head><title>t</title>\n"
-            + "<style id=\"md-win-fonts\">body{font-family:Georgia,\"Courier New\",serif;}</style>"
+            + "<style id=\"md-win-fonts\">body{font-family:\"Lucida Sans Typewriter\",\"Courier New\",serif;}</style>"
             + "</head>\n<body>x</body></html>",
             ScreenHtml.WithWindowsFonts(Page));
     }
@@ -69,9 +69,13 @@ public class ScreenHtmlTests
     }
 
     [Fact]
-    public void GeorgiaLeadsAndCourierNewIsTheFallback()
+    public void LucidaSansTypewriterLeadsAndCourierNewIsTheFallback()
     {
-        Assert.Contains("Georgia,\"Courier New\",serif", ScreenHtml.FontStyle, StringComparison.Ordinal);
+        Assert.Contains("\"Lucida Sans Typewriter\",\"Courier New\",serif", ScreenHtml.FontStyle, StringComparison.Ordinal);
+
+        // The face has Regular, Bold and Italic in the box on Windows 11, so nothing here is
+        // synthesised; the Georgia the other ports fall back to is deliberately NOT named.
+        Assert.DoesNotContain("Georgia", ScreenHtml.FontStyle, StringComparison.Ordinal);
     }
 
     [Fact]

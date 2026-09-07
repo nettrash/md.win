@@ -26,7 +26,7 @@ namespace Md.App.Logic.Export;
 /// </para>
 /// <para>
 /// <b>Which HTML each flow loads is the typography decision (§4.3).</b> Print and PDF load
-/// <see cref="RenderKind.Paper"/> — Core's export HTML plus the app's Georgia style, because paper a
+/// <see cref="RenderKind.Paper"/> — Core's export HTML plus the app's typewriter style, because paper a
 /// Windows reader holds should not be Courier New. HTML, EPUB and SVG load
 /// <see cref="RenderKind.Export"/>, the pure Core bytes, because those files are pinned byte for
 /// byte against three other ports and nothing Windows-specific may reach them.
@@ -403,7 +403,7 @@ public sealed class ExportPipeline
     static string ExportDocumentHtml(string source, string title) =>
         MarkdownHtml.Document(source, title, dark: false, export: true);
 
-    /// <summary>The same page with the app's Georgia style: screen and paper only, never a file (§4.3).</summary>
+    /// <summary>The same page with the app's typewriter style: screen and paper only, never a file (§4.3).</summary>
     internal static string PaperHtml(string source, string title) =>
         ScreenHtml.WithWindowsFonts(ExportDocumentHtml(source, title));
 

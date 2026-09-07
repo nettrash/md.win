@@ -1237,7 +1237,9 @@ public class MarkdownHtmlTests
         Has(light, ".hljs-type, .hljs-title, .hljs-section, .hljs-name, .hljs-doctag { color: #9C6B2E; }");
         Has(light, ".hljs-comment, .hljs-quote, .hljs-meta { color: #6B635A; font-style: italic; }");
         Has(light, ".hljs-attr, .hljs-attribute, .hljs-addition { color: #4A4034; }");
-        foreach (var kotlin in new[] { "#6A5433", "#B79A67", "Georgia" })
+        // "Georgia" is the family's screen stand-in and "Lucida Sans Typewriter" is md.win's; both
+        // are grafted on by an app, never by Core, and a golden would die the day either leaked in.
+        foreach (var kotlin in new[] { "#6A5433", "#B79A67", "Georgia", "Lucida Sans Typewriter" })
         {
             Lacks(light, kotlin);
             Lacks(dark, kotlin);

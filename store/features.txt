@@ -14,7 +14,7 @@ Writer mode: a folder is a book — subfolders are chapters, Markdown files are 
 Autosave in place a second after you stop typing, with a guard that asks before overwriting a file another program changed.
 Opens .md, .markdown, .txt, .puml and .gv files and saves them back in the encoding they arrived in; opens .textpack files and TextBundle folders too.
 Rename, Move To, Duplicate and Revert to Saved from the File menu; Open Recent feeds the taskbar Jump List.
-Warm paper in light and dark, prose in Georgia and code in Courier New.
+Warm paper in light and dark, prose in Lucida Sans Typewriter and code in Courier New.
 Built-in examples, including a small sample book.
 No accounts, no analytics, no tracking, no ads; the only network use is an image your own document links by URL.
 Built for Windows 11 on x64 and ARM64.

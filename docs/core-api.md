@@ -270,7 +270,7 @@ byte[]  Build(StructuredBook book, IReadOnlyDictionary<int, IReadOnlyList<RichSn
 
 1. `var plan = EpubExport.PlanDocument(source, title)` (title from `EpubExport.DocumentTitle(source, fileName)`) or `EpubExport.PlanBook(book)` from `BookCompiler.ReadStructuredBook`.
 2. For each `unit in plan.RichUnits` **only** (every other unit needs no browser at all; a heading page's `Document` is deliberately `""`):
-   a. `await surface.LoadAsync(unit.Document, ct)` with `RenderKind.Export` — pure Core HTML, never the Windows Georgia style — waiting for `data-md-render-complete`; a timeout counts as success, as on macOS.
+   a. `await surface.LoadAsync(unit.Document, ct)` with `RenderKind.Export` — pure Core HTML, never the Windows typewriter style — waiting for `data-md-render-complete`; a timeout counts as success, as on macOS.
    b. Grow to content (`scrollHeight` → `SetHeightAsync`) and let it repaint (macOS sleeps 300 ms): the capture is in view coordinates, so every element must lie inside.
    c. `EvalAsync` over `document.querySelectorAll('<EpubExport.RichSelector>')` returning, per element and in DOM order, `[left+scrollX, top+scrollY, width, height, isMath?1:0]`. Keep degenerate rects — dropping one shifts every later image.
    d. **The DOM count must equal `unit.RichElements.Count`.** If it does not, abort with "Could not export EPUB" — do not call Core (Core would throw anyway).

@@ -163,7 +163,7 @@ bug above.
   `char.IsWhiteSpace`, `Trim()`, `Split()` or `\s\w\d` — use `Md.Core.Text.Whitespace` /
   `ScalarText`, or spell the class out. These are not style preferences: each one is a
   cross-port divergence the other four ports already paid for.
-- **`ScreenHtml.WithWindowsFonts` (the Georgia stand-in for American Typewriter) must never reach an
+- **`ScreenHtml.WithWindowsFonts` (the Lucida Sans Typewriter stand-in for American Typewriter) must never reach an
   export.** Screen and paper get it; HTML, EPUB and SVG get pure Md.Core output. A test pins it —
   that is how byte parity would die quietly.
 - Never weaken or delete a test to make something pass.

@@ -19,14 +19,14 @@ using Windows.UI.Core;
 namespace Md.App.Controls;
 
 /// <summary>
-/// The Georgia-on-paper editor. Owns the <see cref="TextBox"/> and nothing else: the text it hands
+/// The typewriter-on-paper editor. Owns the <see cref="TextBox"/> and nothing else: the text it hands
 /// out and takes in is always LF (§3.2), the caret jump is performed once per id and one dispatcher
 /// turn late (§3.3), and the scroll half reports and applies fractions through
 /// <see cref="ScrollSync"/> (§3.4).
 /// </summary>
 public sealed class EditorPane : UserControl
 {
-    /// <summary>15 pt × 4/3. The Mac's American Typewriter is not on Windows; Georgia is the family's stand-in (§10).</summary>
+    /// <summary>15 pt × 4/3. The Mac's American Typewriter is not on Windows; Lucida Sans Typewriter stands in (§10).</summary>
     public const double FontSizeEpx = 20;
 
     readonly TextBox _box = new();
@@ -256,13 +256,18 @@ internal static class PaneBrushes
 }
 
 /// <summary>
-/// The Georgia sizes §10 fixes, in effective pixels (the Mac's points × 4/3). Menus, dialogs and
+/// The prose sizes §10 fixes, in effective pixels (the Mac's points × 4/3). Menus, dialogs and
 /// CommandBar labels keep Segoe UI Variable and are not here.
 /// </summary>
 internal static class PaneTypography
 {
-    /// <summary>No font is bundled; Georgia is the stand-in for American Typewriter the README states plainly.</summary>
-    public const string Family = "Georgia";
+    /// <summary>
+    /// No font is bundled. Lucida Sans Typewriter is Windows's own typewriter face — Regular, Bold
+    /// and Italic all ship with the OS, which markdown prose needs all three of — and it stands in
+    /// for the Mac's American Typewriter here and in <c>ScreenHtml.FontStyle</c>, so the editor and
+    /// the preview agree with each other on screen. The README states the stand-in plainly.
+    /// </summary>
+    public const string Family = "Lucida Sans Typewriter";
 
     /// <summary>11 pt — the footer.</summary>
     public const double FooterEpx = 14.7;

@@ -186,14 +186,17 @@ does on the Mac.
   like the Mac's Autosave Information) and are asked about on close. The
   process exits with its last window rather than lingering without a menu
   bar.
-- **Georgia stands in for American Typewriter** in the editor, the preview
-  and on paper, with Courier New for code. Windows does not ship the Apple
-  face and md bundles no font; the rule is appended by the app to the screen
-  and print pages only, so the shared stylesheet and every export stay
+- **Lucida Sans Typewriter stands in for American Typewriter** in the editor,
+  the preview and on paper, with Courier New for code. Windows does not ship
+  the Apple face and md bundles no font, so md.win uses the typewriter face
+  Windows does ship — Regular, Bold and Italic all in the box — rather than
+  the family's Georgia screen fallback. The rule is appended by the app to the
+  screen and print pages only, so the shared stylesheet and every export stay
   byte-identical with the other ports.
 - **PDFs are Chromium's.** WebView2 lays pages out at 96 CSS pixels per
-  inch where WebKit paginated at 72, in Georgia, with half-inch margins on
-  every side (the Mac inherits its Page Setup) — same page sizes, same
+  inch where WebKit paginated at 72, in Lucida Sans Typewriter, with
+  half-inch margins on every side (the Mac inherits its Page Setup) — same
+  page sizes, same
   content, same line-aware breaks, a different rasterizer, so a PDF from
   Windows and a PDF from a Mac are not the same bytes. The HTML, EPUB, SVG,
   LaTeX and TextBundle exports are.

@@ -37,9 +37,9 @@ ellipsis, U+2014 em dash, U+00B7 middle dot, U+201C/U+201D curly quotes where th
 | Chrome | `MenuBar` as the first row of every window under the **standard system title bar**, tinted paper/ink through `AppWindowTitleBar` colour properties; no toolbar on document windows; the Book window keeps its detail `CommandBar` | The Mac's whole chrome is the menu bar; the standard title bar needs no drag-region maths that only a Windows run can verify (judges, risk-first) |
 | Commands | One declarative `CommandTable` in `Md.App.Logic`; menus built in code from it; every chord registered once as a `KeyboardAccelerator` on the window root with a per-chord 150 ms debounce | Fires while the `TextBox` or the `WebView2` has focus; the debounce absorbs the documented double-fire when WebView2 forwards accelerators (microsoft-ui-xaml #6231) |
 | Menu items the Mac gets from NSDocument | **Rename…, Move To…, Duplicate, Revert to Saved** implemented (`StorageFile.RenameAsync` / `MoveAsync`, a new untitled window, the last-explicit-save snapshot) | product.md §1.1: "Windows must supply Save As / Rename"; Save As alone is not a rename |
-| Editor | `TextBox`, **Georgia 20 epx** (= 15 pt), `PlaceholderText "# Start writing…"`, Tab inserted in `KeyDown` (no `AcceptsTab` exists), `\r` normalised in the session | facts: Georgia is the family's stand-in; sizes are epx not pt |
+| Editor | `TextBox`, **Lucida Sans Typewriter 20 epx** (= 15 pt), `PlaceholderText "# Start writing…"`, Tab inserted in `KeyDown` (no `AcceptsTab` exists), `\r` normalised in the session | facts: Lucida Sans Typewriter is Windows's own typewriter face; sizes are epx not pt |
 | Preview origin | **No virtual-host mapping.** One `WebResourceRequested` filter over `https://md.assets/*` (3-argument, `Context.All`): `index.html` from memory (`Cache-Control: no-store`), `rich/…` off `<install>\web` through `AssetMime`; `Reload()` re-requests it | Byte-identical HTML with relative `rich/…`; `web\` (not the install root) so `md.dll` is not fetchable by the page. A mapping was the first design and does **not** work — see §4.2 |
-| Two HTML entry points | **Screen/paper** HTML = Core HTML + the app-appended `<style id="md-win-fonts">` (live preview, Print, PDF); **Export** HTML = pure Core HTML (HTML/EPUB/SVG exports) | facts "Typography decision": Georgia on screen and paper, byte-pure exports |
+| Two HTML entry points | **Screen/paper** HTML = Core HTML + the app-appended `<style id="md-win-fonts">` (live preview, Print, PDF); **Export** HTML = pure Core HTML (HTML/EPUB/SVG exports) | facts "Typography decision": the typewriter face on screen and paper, byte-pure exports |
 | Re-render | 350 ms trailing debounce → `window.scrollY` → `Reload()` → restore in `NavigationCompleted`; first load and token change immediate; stale-while-collapsed | Verbatim Mac policy |
 | Links | Pure `LinkPolicy.Decide` (host check **before** the http(s) branch: `https://md.assets/other` → Cancel) + injected capture-phase click/auxclick guard for everything that is not `#…` or http(s) | Chromium runs a clicked `javascript:` href in-page without any navigation event |
 | Render-complete | Poll `data-md-render-complete` every 250 ms, 480 attempts, JSON `"1"` with quotes, timeout = success | `md-init.js` stays byte-identical |
@@ -415,7 +415,7 @@ highlight.js 11.11.1). Never the phrase "no third-party dependencies".
 | --- | --- |
 | plain text, no rich text / graphics / font panel | default `TextBox` (plain) |
 | `allowsUndo` with the document's undo manager | built-in undo (`CanUndo`, `Undo()`, `CanRedo`, `Redo()`); the Book pane calls `ClearUndoRedoHistory()` on every article switch (the Mac's fresh `UndoManager`) |
-| American Typewriter 15 pt | `FontFamily = new FontFamily("Georgia")`, `FontSize = 20` (epx = 15 pt × 4/3) |
+| American Typewriter 15 pt | `FontFamily = new FontFamily("Lucida Sans Typewriter")`, `FontSize = 20` (epx = 15 pt × 4/3) |
 | ink text, accent caret | `Foreground = PaperInkBrush`; the caret follows `Foreground` (no caret brush on the WinUI `TextBox` — §12) |
 | clear backgrounds, paper behind | `Background = Transparent`, `BorderThickness = 0`, `BorderBrush = Transparent`; the pane `Grid` paints paper. The focus underline/background of the default template is removed by overriding the `TextControlBackground*` / `TextControlBorderBrush*` theme resources in `App.xaml` (resource keys, not a template) |
 | smart quotes/dashes/replacement/spelling off | `IsSpellCheckEnabled = false`, `IsTextPredictionEnabled = false` — the only two auto-correct sources WinUI has |
@@ -461,7 +461,7 @@ If `ViewChanged` proves asynchronous on Windows, `ScrollSyncGuard` switches to a
 
 ### 3.5 Find bar (Win)
 
-A one-row `Grid` above the footer, hidden by default: query `TextBox` (Georgia 17.3 epx = 13 pt), "Next",
+A one-row `Grid` above the footer, hidden by default: query `TextBox` (17.3 epx = 13 pt), "Next",
 "Previous", "Done". `TextSearch.Next(text, query, from)` / `Previous(...)` (Md.App.Logic): ordinal,
 case-insensitive (`OrdinalIgnoreCase`), wrapping, returns `(index, length)` in the `TextBox`'s own string;
 the pane calls `box.Select(index, length)` and focuses the editor. Enter = next, Shift+Enter = previous,
@@ -571,7 +571,7 @@ Chromium has no file extension to infer a content type from.
 `Md.App.Logic.Preview.ScreenHtml.WithWindowsFonts(string coreHtml)` inserts, before the first `</head>`:
 
 ```
-\n<style id="md-win-fonts">body{font-family:Georgia,"Courier New",serif;}</style>
+\n<style id="md-win-fonts">body{font-family:"Lucida Sans Typewriter","Courier New",serif;}</style>
 ```
 
 The shared stylesheet's `code, pre { font-family: "Courier New", monospace; }` rule is untouched, so code
@@ -768,7 +768,7 @@ editor. The window's `MinWidth 480 / MinHeight 320` applies only in the windowed
 
 ### 5.5 Footer and derived text
 
-`Border` (`PaperBackgroundSecondaryBrush`, `Padding 12,5`) → right-aligned `TextBlock` Georgia **14.7 epx**
+`Border` (`PaperBackgroundSecondaryBrush`, `Padding 12,5`) → right-aligned `TextBlock` **14.7 epx**
 (11 pt), `PaperInkSecondaryBrush`, `Typography.SetNumeralAlignment(block, FontNumeralAlignment.Tabular)`
 (the attached property — there is no `FontNumeralAlignment` property on `TextBlock`), text
 `$"{words} words · {characters} characters"` (U+00B7, no pluralisation). Hidden in Zen.
@@ -950,7 +950,7 @@ with `export: true` **plus** `ScreenHtml.WithWindowsFonts`), `Export` (HTML / EP
 ### 7.2 Print… (document and book) — `PrintOverlay`
 
 1. `html = ScreenHtml.WithWindowsFonts(MarkdownHtml.Document(source, title, dark: false, export: true))`
-   (paper: white, 11 pt, Georgia; no page-size rewrite — paper is the printer's business, as on the Mac).
+   (paper: white, 11 pt, the typewriter face; no page-size rewrite — paper is the printer's business, as on the Mac).
 2. Show `PrintOverlay` inside the calling window: a full-content `Grid` (dimmed paper) holding a **visible**
    `WebView2` (same environment and `AssetHost`, the DPI override, no injected scripts) and a small bar with
    **Print…** (re-show the dialog) and **Done**. `LoadAsync` + render-complete wait.
@@ -968,7 +968,7 @@ with `export: true` **plus** `ScreenHtml.WithWindowsFonts`), `Export` (HTML / EP
 
 ```
 html = PdfExport.StyledForExport(MarkdownHtml.Document(source, title, false, export: true), pageSize)   // Core: first "padding: 48px 56px;" → cssPadding
-html = ScreenHtml.WithWindowsFonts(html)                                                                 // paper → Georgia
+html = ScreenHtml.WithWindowsFonts(html)                                                                 // paper → typewriter
 await renderer.LoadAsync(html)
 settings = env.CreatePrintSettings();  Orientation = CoreWebView2PrintOrientation.Portrait
 PageWidth = pageSize.Width / 72.0;  PageHeight = pageSize.Height / 72.0                                  // inches
@@ -1070,7 +1070,7 @@ PDF", "Could not export PDF", "Could not export HTML", "Could not export LaTeX",
 `SplitView { DisplayMode = SplitViewDisplayMode.Inline, IsPaneOpen = true, OpenPaneLength = 240, PanePlacement = SplitViewPanePlacement.Left }`
 (Mac ideal 240; no user resize — WinUI ships no splitter and third-party toolkits are off limits): pane =
 sidebar (§8.3); content = detail `CommandBar` (§8.4) + detail (§8.5). Empty state when no book: `FontIcon`
-`` (36 epx, secondary), "No Book Open" (Georgia 22.7 epx), "A book is a folder: its subfolders are
+`` (36 epx, secondary), "No Book Open" (22.7 epx), "A book is a folder: its subfolders are
 chapters and its Markdown files are articles." (16 epx, secondary, centred, `MaxWidth 420`), button
 "Open Book…". Full screen via F11 is the distraction-free room (no Zen here — the Mac publishes none).
 
@@ -1097,7 +1097,7 @@ token keeps us at one.
 ### 8.3 Sidebar (built in code — no templates for xamlcheck to miss)
 
 A `ListView` (`SelectionMode = Single`) whose items `BookSidebarBuilder` creates from `Book`: root article
-rows, a "New Article…" row, then per chapter a non-selectable header row (full folder name, Georgia
+rows, a "New Article…" row, then per chapter a non-selectable header row (full folder name,
 17.3 epx) with `ContextFlyout` = the management menu, its article rows and its "New Article…" row.
 Article row = `ListViewItem { Content = StackPanel(FontIcon , TextBlock article.Name 17.3 epx), Tag = path }`
 with `ContextFlyout`: **Open in New Window**, divider, **Rename…**, **Move Up** (disabled at index 0),
@@ -1149,7 +1149,7 @@ outside the book."; **Empty** → ``, "Select an Article", "Choose an article
 here. Ctrl+Alt+Up and Ctrl+Alt+Down move through the book in reading order." (the shortcut is the only
 string change).
 
-Footer (Georgia 14.7 epx, `PaperBackgroundSecondaryBrush`): conflict → "The file changed on disk." (warning
+Footer (14.7 epx, `PaperBackgroundSecondaryBrush`): conflict → "The file changed on disk." (warning
 glyph ``, orange) + **Reload from Disk** + **Keep My Version**; save error → "Couldn’t save — {err}"
 + **Retry**; right: words · characters. Mode = `md.bookViewMode` (app-wide, default split) overridden by a
 transient nudge; a pick stores the raw value; books never touch `md.viewModeMemory`.
@@ -1234,8 +1234,8 @@ is paper on the Mac. The MSIX manifest already uses `#241E18` for tile and splas
 
 **Fonts (the facts file's settled decision).** The shared stylesheet bytes stay
 `"American Typewriter", "Courier New", serif`. On screen and on paper the app appends
-`<style id="md-win-fonts">body{font-family:Georgia,"Courier New",serif;}</style>` (§4.3); exports are pure.
-XAML text that the Mac sets in American Typewriter uses **Georgia**, sizes converted ×4/3:
+`<style id="md-win-fonts">body{font-family:"Lucida Sans Typewriter","Courier New",serif;}</style>` (§4.3); exports are pure.
+XAML text that the Mac sets in American Typewriter uses **Lucida Sans Typewriter**, sizes converted ×4/3:
 
 | Surface | Mac pt | WinUI epx |
 | --- | --- | --- |
@@ -1247,7 +1247,7 @@ XAML text that the Mac sets in American Typewriter uses **Georgia**, sizes conve
 | placeholder messages | 12 | **16** |
 
 Menus, dialogs, `CommandBar` labels keep Segoe UI Variable (the Mac's menus are the system font too). No
-font is bundled (a licence decision nettrash has not made); the README states the Georgia stand-in as
+font is bundled (a licence decision nettrash has not made); the README states the typewriter stand-in as
 md.vscode's does. Icons: Segoe Fluent Icons (`FontIcon.Glyph`) mapped from SF Symbols — `square.and.pencil`
 ``, `rectangle.split.2x1` ``, `eye` ``, `arrow.down.right.and.arrow.up.left` ``,
 `chevron.up/down` ``/``, `list.bullet` ``, `note.text` ``, `square.and.arrow.up`
@@ -1356,8 +1356,8 @@ Ranked by how late the failure would be noticed.
    copy); CDP `Page.captureScreenshot` availability (canvas fallback); `ShowPrintUI` with no close event
    (Done button); WebView2 runtime first-launch latency (~0.5–1 s) painted paper, not white.
 3. **Not byte-identical, by platform fact**: PDF and print (Chromium lays out at 96 CSS px/in where WebKit
-   paginated at 72; Georgia instead of American Typewriter; 0.5 in margins vs inherited Page Setup); the
-   on-screen preview typeface (Georgia via the appended style); word counts for scripts ICU and
+   paginated at 72; Lucida Sans Typewriter instead of American Typewriter; 0.5 in margins vs inherited Page Setup); the
+   on-screen preview typeface (the typewriter face via the appended style); word counts for scripts ICU and
    CFStringTokenizer segment differently (rare; both are ICU-derived); the `localizedStandardCompare`
    fallback order (Core's `NaturalCompare`, parity with Android, not Finder); Windows name sanitising
    extended with reserved names; the compile decoder unified on the codec. **What is byte-identical**:
@@ -1541,7 +1541,7 @@ public sealed class TextFileSession(IFileSystem fs, IFileWatcher watcher, ISched
 ```csharp
 namespace Md.App.Logic.Preview;
 public enum RenderKind { Screen, Paper, Export }
-public static class ScreenHtml { public const string FontStyle = "<style id=\"md-win-fonts\">body{font-family:Georgia,\"Courier New\",serif;}</style>"; public static string WithWindowsFonts(string coreHtml); }
+public static class ScreenHtml { public const string FontStyle = "<style id=\"md-win-fonts\">body{font-family:\"Lucida Sans Typewriter\",\"Courier New\",serif;}</style>"; public static string WithWindowsFonts(string coreHtml); }
 public enum LinkDecision { Allow, Cancel, OpenExternally }
 public static class LinkPolicy { public static LinkDecision Decide(Uri uri, bool isUserInitiated, Uri indexUrl); }
 public sealed class PreviewCoordinator(IPreviewSurface surface, IScheduler scheduler)
@@ -1594,7 +1594,7 @@ interfaces above plus three concrete classes other packages instantiate: `TextFi
 | --- | --- | --- |
 | 0 Tooling (WP0) | both projects, CI, xamlcheck, `Program.cs` | launches packaged and unpackaged; a second `.md` double-click opens in the running instance and comes to the foreground |
 | 1 Editor (WP1+WP2+WP3 minimum) | window, `MenuBar`, accelerators, open/save/Save As/Rename/Move/Duplicate/Revert, autosave + conflict `InfoBar` + rescue, MRU, title, session restore | `\r` behaviour; Tab inserts a tab; Ctrl+Shift+Enter does not insert a newline; autosave keeps LF/CRLF; conflict bar on external edit; Rename keeps identity in `md.viewModeMemory` re-decision |
-| 2 Preview & modes (WP4+WP5) | virtual host, debounce/reload/scroll restore, links, scroll sync, Split/Edit/Preview, per-file memory, Contents/Notes, footer | fonts and `plantuml.js` load (MIME); `#slug` hops; a `javascript:` link does nothing; http link opens the browser; `[x](other.md)` does nothing; Ctrl+1 with the preview focused fires **once**; dark mode reload; Georgia on screen |
+| 2 Preview & modes (WP4+WP5) | virtual host, debounce/reload/scroll restore, links, scroll sync, Split/Edit/Preview, per-file memory, Contents/Notes, footer | fonts and `plantuml.js` load (MIME); `#slug` hops; a `javascript:` link does nothing; http link opens the browser; `[x](other.md)` does nothing; Ctrl+1 with the preview focused fires **once**; dark mode reload; the typewriter face on screen |
 | 3 Exports (WP6) | HTML, LaTeX, SVG, PDF export/share, Print overlay, EPUB, TextBundle folder, page-size radios, alerts, `--selftest` | render-complete poll ends; PDF MediaBox/page count; CDP capture works at 150 % DPI; print preview appears in the overlay and Done closes it; Share sheet opens; exported HTML has no `md-win-fonts` |
 | 4 Zen, theme, polish | Zen grid + capsule + fade, F11, theme switch, placement, About/Help | leaving full screen via F11/Esc/Win+Down drops Zen; no white flash on theme switch; title bar tinted |
 | 5 Books (WP7) | Book window, sidebar, session hosting, management, stepper, outputs, FAL grant, Example Book | watcher events on the UI thread; case-only rename; handoff when an article is opened in a window; reorder swap |
@@ -1633,7 +1633,7 @@ Every deliberate deviation, with its reason. Everything not listed is ported as 
 | 8 | Untitled drafts autosaved to `Autosave Information` and reopened | not autosaved; prompt on close | No equivalent store; a fake one would silently lose text |
 | 9 | Edit menu Find / Spelling from `NSTextView` | own Find bar (Ctrl+F, F3, Shift+F3, Ctrl+E); no spelling, no replace | `TextBox` has neither; spell check is off on the Mac too |
 | 10 | Accent-coloured caret | ink caret | `TextBox` has no caret brush |
-| 11 | American Typewriter 15 pt in the editor and (via the shared CSS) the preview/paper | Georgia 20 epx in the editor; Georgia via an app-appended `<style>` on screen and paper; exports pure | Windows ships no American Typewriter; the facts file's settled decision; exports must stay byte-identical |
+| 11 | American Typewriter 15 pt in the editor and (via the shared CSS) the preview/paper | **Lucida Sans Typewriter** 20 epx in the editor and via an app-appended `<style>` on screen and paper; exports pure | Windows ships no American Typewriter; the facts file's settled decision; exports must stay byte-identical |
 | 12 | PDF margins inherited from Page Setup; WebKit at 72 CSS px/in | 0.5 in on all sides; Chromium at 96 | The Mac inherits, Android sets 0.5, VS Code 0 — a choice had to be made; PDF bytes can never match |
 | 13 | Print panel presets A4 | Chromium's dialog defaults (headers/footers on until unticked once) | `ShowPrintUI` accepts no presets; the product copy already allows "whatever the printer holds" |
 | 14 | `.textbundle` is a document type (double-click, Open panel) | File ▸ Open TextBundle Folder… or folder drop | A folder cannot be associated or picked by `FileOpenPicker` |

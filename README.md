@@ -25,8 +25,8 @@ for code).
 > `src/Md.Core`. The difference worth knowing is where the bytes stop:
 > Windows has neither American Typewriter nor WebKit. Everything Core
 > *writes* is the family's output to the byte, but the on-screen preview and
-> the printed page set the prose in **Georgia** (the family's stand-in, as
-> md.vscode uses it) through a style rule the app appends to the screen and
+> the printed page set the prose in **Lucida Sans Typewriter** (Windows's own
+> typewriter face) through a style rule the app appends to the screen and
 > paper pages only, and PDFs are paginated by Chromium inside WebView2 —
 > same page sizes, same content, same line-aware breaks, a different
 > rasterizer. And Windows has no `NSDocument`, so what the Mac gets from its
@@ -151,11 +151,11 @@ for code).
   Windows addition: the WinUI `TextBox` ships without one.
 - **Typewriter feel.** Warm paper background (light "fresh paper" / dark
   "carbon paper", following the system theme) with prose set in
-  **Georgia** and code in **Courier New** — the Windows stand-ins for the
-  family's American Typewriter, which Windows does not ship and md does not
-  bundle. The shared stylesheet stays byte-identical with the other ports;
-  the app appends the Georgia rule to the screen and print pages only, so
-  every export carries the family's font stack untouched.
+  **Lucida Sans Typewriter** and code in **Courier New** — the Windows
+  stand-ins for the family's American Typewriter, which Windows does not ship
+  and md does not bundle. The shared stylesheet stays byte-identical with the
+  other ports; the app appends the typewriter rule to the screen and print
+  pages only, so every export carries the family's font stack untouched.
 - **Editing you'd expect.** A plain, undo-aware `TextBox` editor driven by
   the standard **Edit ▸ Undo / Redo**, Tab inserting a tab, Markdown
   punctuation left literal (no smart quotes, no dash substitution, no

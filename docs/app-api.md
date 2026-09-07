@@ -369,7 +369,7 @@ public static class AssetOrigin {
     public const string RichFolderName = "rich"; }
 
 public static class ScreenHtml {
-    public const string FontStyle = "<style id=\"md-win-fonts\">body{font-family:Georgia,\"Courier New\",serif;}</style>";
+    public const string FontStyle = "<style id=\"md-win-fonts\">body{font-family:\"Lucida Sans Typewriter\",\"Courier New\",serif;}</style>";
     public const string IdMarker  = "id=\"md-win-fonts\"";
     public static string WithWindowsFonts(string coreHtml); }      // inserts "\n" + FontStyle before the first </head>
 

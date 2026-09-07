@@ -4,8 +4,12 @@ namespace Md.App.Logic.Preview;
 /// The Windows typography graft (§4.3). The shared stylesheet's prose family is
 /// <c>"American Typewriter", "Courier New", serif</c> and stays byte-identical across the ports, so
 /// on Windows prose would fall all the way to Courier New. The app — never Md.Core — appends one
-/// style element that puts Georgia in front, the family's stand-in wherever American Typewriter is
-/// absent (md.vscode, md.Android, the shared EPUB CSS). Code is untouched: the stylesheet's
+/// style element that puts <b>Lucida Sans Typewriter</b> in front: a typewriter face that ships with
+/// Windows itself in Regular, Bold and Italic, so md reads as a typewriter on Windows the way
+/// American Typewriter does on the Mac. It is deliberately <em>not</em> the family's Georgia
+/// stand-in (md.vscode, md.Android, the shared EPUB CSS) — nettrash chose the typewriter over
+/// matching the other ports' screen fallback, and nothing about it is load-bearing for parity
+/// because it never reaches a file. Code is untouched: the stylesheet's
 /// <c>code, pre { font-family: "Courier New", monospace; }</c> rule wins by specificity, and KaTeX,
 /// Mermaid, Graphviz and PlantUML carry their own faces.
 ///
@@ -18,7 +22,7 @@ namespace Md.App.Logic.Preview;
 public static class ScreenHtml
 {
     /// <summary>The style element, exactly as it goes into the page.</summary>
-    public const string FontStyle = "<style id=\"md-win-fonts\">body{font-family:Georgia,\"Courier New\",serif;}</style>";
+    public const string FontStyle = "<style id=\"md-win-fonts\">body{font-family:\"Lucida Sans Typewriter\",\"Courier New\",serif;}</style>";
 
     /// <summary>What the inserted text is looked up by, so a second call is a no-op.</summary>
     public const string IdMarker = "id=\"md-win-fonts\"";

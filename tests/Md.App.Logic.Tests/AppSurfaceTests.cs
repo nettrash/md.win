@@ -47,9 +47,9 @@ public sealed class AppSurfaceTests
     // ── §3.1 the TextBox configuration ────────────────────────────────────────────────────────
 
     [Fact]
-    public void TheEditorIsGeorgiaAtTwentyEffectivePixelsOnASixteenPixelInset()
+    public void TheEditorIsLucidaSansTypewriterAtTwentyEffectivePixelsOnASixteenPixelInset()
     {
-        // §10: 15 pt × 4/3 = 20 epx, and Georgia is American Typewriter's stand-in.
+        // §10: 15 pt × 4/3 = 20 epx, and Lucida Sans Typewriter is American Typewriter's stand-in.
         Pins("EditorPane.cs", "§3.1, §10",
             "public const double FontSizeEpx = 20;",
             "_box.FontFamily = new FontFamily(PaneTypography.Family);",
@@ -181,7 +181,7 @@ public sealed class AppSurfaceTests
     // ── §5.5 the footer, §3.5 the find bar ────────────────────────────────────────────────────
 
     [Fact]
-    public void TheFooterIsGeorgiaElevenPointRightAlignedWithTabularFigures()
+    public void TheFooterIsElevenPointRightAlignedWithTabularFigures()
     {
         // 11 pt × 4/3 = 14.7 epx; NumeralAlignment is an ATTACHED property — TextBlock has none.
         Assert.Equal(14.7, ReadDouble("EditorPane.cs", "public const double FooterEpx = "));
@@ -194,7 +194,7 @@ public sealed class AppSurfaceTests
     }
 
     [Fact]
-    public void TheFindBarIsGeorgiaThirteenPointAndAnswersEnterAndEscape()
+    public void TheFindBarIsThirteenPointAndAnswersEnterAndEscape()
     {
         // 13 pt × 4/3 = 17.3 epx.
         Assert.Equal(17.3, ReadDouble("EditorPane.cs", "public const double SmallEpx = "));
