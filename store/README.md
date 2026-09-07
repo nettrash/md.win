@@ -20,6 +20,7 @@ because the apps differ; this one never mentions the others.
 | — | Supplemental ▸ Short title / Sort title / Voice title | 50 / 255 / 255 — Xbox-facing, leave blank | blank |
 | `privacy-policy-url.txt` | Properties ▸ Privacy policy URL | **Mandatory** for a `runFullTrust` (desktop) app — policy 10.5.1 | 43 |
 | `support-url.txt` | Properties ▸ Website and Support contact info | a URL; the same page the app opens from Help ▸ md Help | 43 |
+| `restricted-capabilities.txt` | Submission options ▸ Restricted capabilities ▸ "Why do you need the runFullTrust capability, and how will it be used in your product?" | no documented limit; keep it one screen and specific | 2204 |
 | `certification-notes.txt` | Submission options ▸ Notes for certification | no documented limit; the form has capped it at 2 000 chars — stay under | 1993 |
 | `screenshots/` (not yet captured) | Store listing ▸ Screenshots | at least 1; desktop up to 10; PNG, **1366 × 768 or larger** (4K allowed), ≤ 50 MB each; a caption ≤ 200 chars each | — |
 | — | Store listing ▸ Store logos ▸ 1:1 app tile icon | 300 × 300 PNG, strongly recommended (otherwise the Store uses the package's logo) | — |

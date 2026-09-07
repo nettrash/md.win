@@ -1,0 +1,19 @@
+md declares one restricted capability, runFullTrust, and no other. It was not added in error, and the app cannot ship without it.
+
+WHY IT IS REQUIRED
+md is a desktop application built with WinUI 3 on the Windows App SDK and packaged as MSIX. Its Application entry point is Windows.FullTrustApplication, which is the packaged desktop app model rather than the UWP one. Windows requires runFullTrust for that entry point: a package declaring Windows.FullTrustApplication without it does not deploy or launch. No lesser capability covers this app model, so the declaration follows from md being a desktop app and is not a request for extra reach.
+
+HOW IT IS USED
+md is a Markdown editor with a live preview. Under full trust it does only what a desktop text editor does:
+1. Opens and saves the user's own documents, always through the Windows file open, save and folder pickers, through drag and drop onto the window, or through the file types md registers. md does not enumerate or scan the file system on its own.
+2. Hosts a WebView2 control that draws the preview and produces the PDF, HTML, EPUB, LaTeX and image output the export commands write.
+3. Prints through the standard Windows print dialog.
+4. Keeps its settings, its recent-file list and its window session in the app's own local data folder.
+
+WHAT IT DOES NOT DO
+md installs no service, driver, scheduled task or startup entry, and never requests elevation. It writes nothing outside the files the user chose and its own app data. It declares no camera, microphone, location or contacts capability, and no broad file system access. It has no accounts, sign-in, purchases, analytics or advertising, and no servers of ours.
+
+CODE AND NETWORK
+The rendering engines (KaTeX with mhchem, Mermaid, Graphviz via Viz.js, PlantUML and highlight.js) are open source and bundled inside the package. They are served to WebView2 from the package itself, and nothing is downloaded, updated or executed from a remote source at run time. The only network use is the WebView2 renderer fetching an image that a user's own document references by URL. The WebView2 Runtime is the one Windows 11 ships.
+
+Privacy policy: https://nettrash.me/msstore/md/privacy.html
