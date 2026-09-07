@@ -22,40 +22,40 @@ internal static class AssetHost
 
     static bool _servedIndex;
 
-    const string AssetFilter = "https://" + AssetOrigin.Host + "/" + AssetOrigin.RichFolderName + "/*";
+    /// <summary>Every URL on the origin: the document, the engines, the fonts KaTeX's CSS asks for.</summary>
+    const string OriginFilter = "https://" + AssetOrigin.Host + "/*";
 
     /// <summary>
-    /// Map the host and serve <c>index.html</c> from memory on the same origin.
+    /// Serve the whole <c>md.assets</c> origin: <c>index.html</c> from memory, everything else from
+    /// <see cref="WebRoot"/> on disk.
     /// <paramref name="html"/> is read on every request, so <c>Reload()</c> picks up the new document
     /// — which is precisely what the coordinator's 350 ms debounce relies on.
     /// </summary>
-    /// <param name="serveAssetsFromDisk">
-    /// The written-and-off contingency of §4.2. Chromium infers a folder-mapped file's type from its
-    /// extension, and that is expected to be enough; if a clean Windows install ever serves
-    /// <c>.js</c> or <c>.woff2</c> as something the page rejects, turning this on serves
-    /// <c>rich/</c> from disk with <see cref="AssetMime"/>'s types instead.
-    /// </param>
-    public static void Attach(CoreWebView2 core, Func<string> html, bool serveAssetsFromDisk = false)
+    public static void Attach(CoreWebView2 core, Func<string> html)
     {
         ArgumentNullException.ThrowIfNull(core);
         ArgumentNullException.ThrowIfNull(html);
 
-        // Deny is safe because the document *is* this origin: every fetch the page makes is
-        // same-origin, and no other origin is ever loaded.
-        core.SetVirtualHostNameToFolderMapping(AssetOrigin.Host, WebRoot, CoreWebView2HostResourceAccessKind.Deny);
-
-        // The three-argument overload: the two-argument one is documented as deprecated. The filter
-        // is matched without the fragment, so index.html#slug matches too.
+        // ONE filter over the whole origin, and no SetVirtualHostNameToFolderMapping.
+        //
+        // The mapping was the original design, with index.html served from memory on the same host
+        // through WebResourceRequested — resting on Microsoft's how-to, which says the event is
+        // still raised "when a requested resource does not exist in the folder that is virtually
+        // hosted". On Windows 11 it is not, at least for the top-level document: the first run of
+        // this app ever made logged `preview navigation FAILED Unknown` and `ConnectionAborted`
+        // with no request reaching the handler, so the mapping took the navigation, found no
+        // <install>\web\index.html on disk, and failed it. (The behaviour is undocumented in the
+        // reference and the subject of MicrosoftEdge/WebView2Feedback #2103 and #4201.)
+        //
+        // Serving every byte ourselves is simpler than it sounds and loses nothing: the document
+        // comes from memory, rich/ comes off disk through Asset() — the path that was already
+        // written as the MIME contingency — and both arrive on the SAME origin, which is the only
+        // thing the design actually needs. What was a fallback is now the mechanism, so AssetMime
+        // is load-bearing: without a mapping Chromium has no file extension to infer a type from.
         core.AddWebResourceRequestedFilter(
-            AssetOrigin.IndexUrl,
-            CoreWebView2WebResourceContext.Document,
+            OriginFilter,
+            CoreWebView2WebResourceContext.All,
             CoreWebView2WebResourceRequestSourceKinds.Document);
-
-        if (serveAssetsFromDisk)
-            core.AddWebResourceRequestedFilter(
-                AssetFilter,
-                CoreWebView2WebResourceContext.All,
-                CoreWebView2WebResourceRequestSourceKinds.Document);
 
         core.WebResourceRequested += (sender, e) =>
         {
@@ -105,7 +105,7 @@ internal static class AssetHost
     static bool IsIndex(Uri uri) =>
         uri.GetLeftPart(UriPartial.Query).Equals(AssetOrigin.IndexUrl, StringComparison.Ordinal);
 
-    /// <summary>The contingency path: the file under <see cref="WebRoot"/>, or a 404 for anything outside it.</summary>
+    /// <summary>A file under <see cref="WebRoot"/>, or a 404 for anything outside it.</summary>
     static CoreWebView2WebResourceResponse Asset(CoreWebView2 core, Uri uri)
     {
         string file;

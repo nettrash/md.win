@@ -115,8 +115,12 @@ internal sealed partial class DocumentWindow : Window
         ApplyTheme();
         ApplyLayout();
         RefreshRecent();
+        _ready = true;
         Publish();
     }
+
+    /// <summary>Set once the constructor is done; see <see cref="Publish"/>.</summary>
+    bool _ready;
 
     /// <summary>This window's identity in <see cref="WindowRegistry"/> and in the Window menu.</summary>
     public Guid Id { get; } = Guid.NewGuid();
@@ -1013,8 +1017,12 @@ internal sealed partial class DocumentWindow : Window
 
     void Publish()
     {
-        // SetTitle below re-enters through the registry's Changed; one pass is enough.
-        if (_publishing) return;
+        // Not before the constructor has finished. A TextBox raises SelectionChanged while it is
+        // being initialised and again when its text is first set, and SubscribeEvents has already
+        // routed that to Publish by then — so Build() ran against a window still assembling itself
+        // and threw a NullReferenceException onto the XAML dispatcher. A snapshot of a half-built
+        // window has no meaning anyway; the constructor takes the first one itself, last.
+        if (!_ready || _publishing) return;
         _publishing = true;
         try
         {
