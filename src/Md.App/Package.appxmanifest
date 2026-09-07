@@ -17,7 +17,7 @@
   <Identity
     Name="nettrash.md"
     Publisher="CN=nettrash"
-    Version="1.0.3.0" />
+    Version="1.0.4.0" />
 
   <Properties>
     <DisplayName>md</DisplayName>
