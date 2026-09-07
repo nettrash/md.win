@@ -35,7 +35,39 @@ internal sealed class PreviewHost : UserControl
 
         _web.NavigationCompleted += OnNavigationCompleted;
         _web.CoreProcessFailed += OnCoreProcessFailed;
-        Loaded += (_, _) => _ = EnsureInitialisedAsync();
+        // Loaded, not the constructor: a pane the layout has collapsed is never realised, so a
+        // window that opens in Edit (the open rule's answer for an empty document) creates no
+        // WebView2 at all until the writer first asks for Split or Preview. That is the intended
+        // shape — nothing pays for a runtime it is not showing — and it holds together because
+        // ArticlePanes raises LayoutChanged during the layout pass that realises this control:
+        // DocumentWindow.ShowPreview has already told the coordinator the pane is on screen, so the
+        // Navigate lands in _pendingUrl and InitialiseAsync performs it.
+        Loaded += (_, _) => Start();
+    }
+
+    /// <summary>
+    /// Kick the runtime off and make sure a failure is heard. A discarded Task swallows its
+    /// exception whole: creating the environment or the core can fail (a locked user-data folder, a
+    /// runtime that is not there, an argument the runtime rejects) and every symptom of that is
+    /// identical to the symptom of nothing having been asked for at all — an empty log and a blank
+    /// pane. This is the one place that can tell the two apart.
+    /// </summary>
+    void Start() => _ = StartAsync();
+
+    async Task StartAsync()
+    {
+        try
+        {
+            await EnsureInitialisedAsync();
+        }
+        catch (Exception e)
+        {
+            // The next Loaded — or any caller of EnsureInitialisedAsync — may try again; a faulted
+            // task cached in _initialising would hand the same failure back for the life of the
+            // window instead.
+            _initialising = null;
+            App.Diagnostics.Write($"preview runtime did not start: {e}");
+        }
     }
 
     /// <summary>What <see cref="PreviewCoordinator"/> drives.</summary>
@@ -77,7 +109,12 @@ internal sealed class PreviewHost : UserControl
 
     async Task InitialiseAsync()
     {
+        // Three lines that between them place any startup failure: no "starting" means Loaded never
+        // reached this control, "starting" without "environment ready" means the runtime itself did
+        // not come up, and "environment ready" without "preview assets:" means the core did not.
+        App.Diagnostics.Write("preview runtime starting");
         var environment = await WebViewEnvironment.GetAsync();
+        App.Diagnostics.Write("preview runtime environment ready");
         await _web.EnsureCoreWebView2Async(environment);
 
         var core = _web.CoreWebView2;

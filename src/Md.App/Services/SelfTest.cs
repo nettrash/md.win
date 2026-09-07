@@ -105,16 +105,25 @@ internal static partial class SelfTest
         "```",
     ]);
 
+    /// <summary>
+    /// Two curves, so <c>plot.twoSeries</c> means something. They are <em>formulas</em>: the plot
+    /// grammar has `x:`, `y:`, `title:`, `xlabel:`, `ylabel:`, `legend`, `grid`, `axes`, `width`,
+    /// `height`, `samples` and a line per curve — and no `data:` directive at all. The fixture used
+    /// to spell one, so the engine drew nothing and both plot checks failed while
+    /// <c>Examples\08-Plots.md</c>, which is written in the real grammar, rendered perfectly.
+    /// </summary>
     static readonly string PlotSource = string.Join("\n",
     [
         "# Plot",
         "",
         "```plot",
+        "x: -10..10",
+        "y: -1.2..1.2",
         "title: Two series",
         "xlabel: x",
         "ylabel: y",
-        "data: 0,0 1,1 2,4 3,9",
-        "data: 0,1 1,2 2,3 3,4",
+        "sin(x)",
+        "cos(x)",
         "```",
     ]);
 

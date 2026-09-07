@@ -22,10 +22,21 @@ internal sealed class ShareBridge(Window window) : IShare
     DataTransferManager? _manager;
     TypedEventHandler<DataTransferManager, DataRequestedEventArgs>? _handler;
 
-    public async Task ShareFileAsync(string path, string title)
+    /// <summary>
+    /// The window's thread. The sheet is asked for by HWND and shown for that window, and
+    /// <c>ExportPipeline</c> shares from a thread-pool continuation — see
+    /// <c>Md.App.Services.UiDispatch</c>.
+    /// </summary>
+    readonly Microsoft.UI.Dispatching.DispatcherQueue _ui = window.DispatcherQueue;
+
+    public Task ShareFileAsync(string path, string title)
     {
         ArgumentException.ThrowIfNullOrEmpty(path);
+        return Md.App.Services.UiDispatch.OnAsync(_ui, () => ShareFileCoreAsync(path, title));
+    }
 
+    async Task ShareFileCoreAsync(string path, string title)
+    {
         var file = await StorageFile.GetFileFromPathAsync(path);
         var handle = WinRT.Interop.WindowNative.GetWindowHandle(window);
 

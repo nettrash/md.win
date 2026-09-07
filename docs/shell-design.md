@@ -38,7 +38,7 @@ ellipsis, U+2014 em dash, U+00B7 middle dot, U+201C/U+201D curly quotes where th
 | Commands | One declarative `CommandTable` in `Md.App.Logic`; menus built in code from it; every chord registered once as a `KeyboardAccelerator` on the window root with a per-chord 150 ms debounce | Fires while the `TextBox` or the `WebView2` has focus; the debounce absorbs the documented double-fire when WebView2 forwards accelerators (microsoft-ui-xaml #6231) |
 | Menu items the Mac gets from NSDocument | **Rename…, Move To…, Duplicate, Revert to Saved** implemented (`StorageFile.RenameAsync` / `MoveAsync`, a new untitled window, the last-explicit-save snapshot) | product.md §1.1: "Windows must supply Save As / Rename"; Save As alone is not a rename |
 | Editor | `TextBox`, **Georgia 20 epx** (= 15 pt), `PlaceholderText "# Start writing…"`, Tab inserted in `KeyDown` (no `AcceptsTab` exists), `\r` normalised in the session | facts: Georgia is the family's stand-in; sizes are epx not pt |
-| Preview origin | `SetVirtualHostNameToFolderMapping("md.assets", <install>\web, Deny)`; `index.html` served from memory on the **same** host through `WebResourceRequested` (3-argument filter, `Cache-Control: no-store`); `Reload()` re-requests it | Byte-identical HTML with relative `rich/…`; `web\` (not the install root) so `md.dll` is not fetchable by the page |
+| Preview origin | **No virtual-host mapping.** One `WebResourceRequested` filter over `https://md.assets/*` (3-argument, `Context.All`): `index.html` from memory (`Cache-Control: no-store`), `rich/…` off `<install>\web` through `AssetMime`; `Reload()` re-requests it | Byte-identical HTML with relative `rich/…`; `web\` (not the install root) so `md.dll` is not fetchable by the page. A mapping was the first design and does **not** work — see §4.2 |
 | Two HTML entry points | **Screen/paper** HTML = Core HTML + the app-appended `<style id="md-win-fonts">` (live preview, Print, PDF); **Export** HTML = pure Core HTML (HTML/EPUB/SVG exports) | facts "Typography decision": Georgia on screen and paper, byte-pure exports |
 | Re-render | 350 ms trailing debounce → `window.scrollY` → `Reload()` → restore in `NavigationCompleted`; first load and token change immediate; stale-while-collapsed | Verbatim Mac policy |
 | Links | Pure `LinkPolicy.Decide` (host check **before** the http(s) branch: `https://md.assets/other` → Cancel) + injected capture-phase click/auxclick guard for everything that is not `#…` or http(s) | Chromium runs a clicked `javascript:` href in-page without any navigation event |
@@ -496,20 +496,38 @@ it is type-checked and documented; the env var stays a diagnostic override.
 ### 4.2 Origin and `index.html` — `Md.App.Web.AssetHost.Attach(CoreWebView2 core, Func<string> html)`
 
 ```csharp
-core.SetVirtualHostNameToFolderMapping("md.assets", WebRoot, CoreWebView2HostResourceAccessKind.Deny);
-core.AddWebResourceRequestedFilter("https://md.assets/index.html",
-    CoreWebView2WebResourceContext.Document, CoreWebView2WebResourceRequestSourceKinds.Document);
+// NO SetVirtualHostNameToFolderMapping. One filter over the whole origin; we serve every byte.
+core.AddWebResourceRequestedFilter("https://md.assets/*",
+    CoreWebView2WebResourceContext.All, CoreWebView2WebResourceRequestSourceKinds.Document);
 core.WebResourceRequested += (s, e) =>
 {
-    var bytes  = Encoding.UTF8.GetBytes(html());
-    var stream = new InMemoryRandomAccessStream();                            // Windows.Storage.Streams
-    using (var w = new DataWriter(stream.GetOutputStreamAt(0))) { w.WriteBytes(bytes); w.StoreAsync().GetResults(); }
-    stream.Seek(0);
-    e.Response = core.Environment.CreateWebResourceResponse(stream, 200, "OK",
-        "Content-Type: text/html; charset=utf-8\r\nCache-Control: no-store");
+    if (!Uri.TryCreate(e.Request.Uri, UriKind.Absolute, out var uri)) return;
+    if (IsIndex(uri))                                                         // the document, from memory
+    {
+        var bytes  = Encoding.UTF8.GetBytes(html());
+        var stream = new InMemoryRandomAccessStream();                        // Windows.Storage.Streams
+        using (var w = new DataWriter(stream.GetOutputStreamAt(0))) { w.WriteBytes(bytes); w.StoreAsync().GetResults(); }
+        stream.Seek(0);
+        e.Response = core.Environment.CreateWebResourceResponse(stream, 200, "OK",
+            "Content-Type: text/html; charset=utf-8\r\nCache-Control: no-store");
+        return;
+    }
+    e.Response = Asset(core, uri);                                            // rich/… off disk, AssetMime
 };
 core.Navigate(IndexUrl);   // "https://md.assets/index.html"
 ```
+
+**Why no mapping — measured on Windows, not reasoned about.** The mapping was the original design,
+with `index.html` served from memory on the same host, resting on Microsoft's how-to: the event is
+still raised "when a requested resource does not exist in the folder that is virtually hosted". It is
+not, at least not for the top-level document. The first Windows run of this app logged
+`preview navigation FAILED Unknown` then `ConnectionAborted` with **no request reaching the handler**
+and no `preview index served from memory` line: the mapping took the navigation, found no
+`<install>\web\index.html` on disk, and failed it. (Undocumented in the reference; MicrosoftEdge/
+WebView2Feedback #2103 and #4201.) Serving every byte ourselves loses nothing — the document and
+`rich/` still arrive on the *same* origin, which is the only thing the design needs — and it promotes
+what this section called a contingency: **`AssetMime` is now load-bearing**, because without a mapping
+Chromium has no file extension to infer a content type from.
 
 - `WebRoot = Path.Combine(AppContext.BaseDirectory, "web")`. `Md.App.csproj` carries the engines as
   `<Content Include="rich\**\*" Link="web\rich\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />`
@@ -530,24 +548,23 @@ core.Navigate(IndexUrl);   // "https://md.assets/index.html"
   `import('./plantuml.js')` inside `md-init.js`, `url(fonts/…)` inside `katex.min.css` and `href="#slug"`
   all resolve with the generated HTML **unchanged** — no `<base href>`, no string rewriting, no edit to
   `md-init.js`; the bytes stay the golden bytes.
-- `Deny` is safe because the document *is* the virtual-host origin; every fetch is same-origin, and no
-  other origin ever loads. `https://` gives a secure context (the engines' WASM is happier; matches
-  Android's `appassets.androidplatform.net`).
+- Nothing but `md.assets` ever loads, and every fetch on it is same-origin. `https://` gives a secure
+  context (the engines' WASM is happier; matches Android's `appassets.androidplatform.net`).
+  `Asset()` keeps the old mapping's containment guarantee itself: a resolved path that does not start
+  with `WebRoot + "\"` is a 404, never a read, so `rich/` remains the only prefix the page can reach.
 - The **three-argument** `AddWebResourceRequestedFilter` (the two-argument overload is documented as
   deprecated). The filter is matched against the URI *without* fragment, so `index.html#slug` also matches.
-- Why not a temp file in the mapped folder: the MSIX install folder is read-only, a second mapped host
-  would put `rich/` on another origin (module import breaks), and copying 13 MB of engines into
+- Why not a temp file on disk: the MSIX install folder is read-only, and copying 13 MB of engines into
   `LocalFolder` to co-host one HTML file is waste. Why not `NavigateToString`: opaque origin.
 - `Reload()` re-requests `index.html` and picks up the new HTML — the debounce relies on this;
   `Cache-Control: no-store` guarantees Chromium never serves its cache.
-- MIME for folder-mapped files is inferred by Chromium from the extension (`.js` → `text/javascript`,
-  `.css`, `.woff2`, `.ttf`, `.svg`, `.json`). Day-1 check on a clean Windows install: KaTeX fonts load, the
-  PlantUML import succeeds. **Contingency (written, off): `AssetMime`** — extend the filter to
-  `https://md.assets/rich/*` (`CoreWebView2WebResourceContext.All`) and serve from disk with the Mac's
-  exact MIME table (`js, mjs → text/javascript; css → text/css; html → text/html; json → application/json;
-  svg → image/svg+xml; woff2 → font/woff2; woff → font/woff; ttf → font/ttf; else application/octet-stream`),
-  path containment (`StartsWith(WebRoot + "\\", OrdinalIgnoreCase)`), 404 otherwise. Pure table + tests in
-  Md.App.Logic; 30 lines in `AssetHost`.
+- **`AssetMime` is the mechanism, not a contingency.** With no mapping there is nothing for Chromium to
+  infer a type from, so every `rich/…` response names one from the Mac's exact table (`js, mjs →
+  text/javascript; css → text/css; html → text/html; json → application/json; svg → image/svg+xml;
+  woff2 → font/woff2; woff → font/woff; ttf → font/ttf; else application/octet-stream`). Pure table +
+  tests in Md.App.Logic. **Verified on Windows 2026-09-07**: KaTeX (inline, display and `\ce{}` via
+  mhchem), highlight.js, Mermaid, Graphviz and PlantUML all draw in the live preview, as does a `plot`
+  fence, with `preview index served from memory` and `preview navigation ok status=200` in `md.log`.
 
 ### 4.3 Two HTML entry points (the typography decision)
 

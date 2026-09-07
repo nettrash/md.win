@@ -25,16 +25,29 @@ internal sealed class Pickers : IPickers
     /// Optional. A <c>FolderPicker</c> has no prompt of its own, so when a caller passes a title
     /// (§7.7's "Choose where to keep the TextBundle") it is shown as an alert first.
     /// </param>
+    /// <summary>
+    /// The window's thread. A picker is initialised with an HWND and shown by the shell on the
+    /// thread that owns it, and <c>ExportPipeline</c> reaches Save As from a thread-pool
+    /// continuation — see <see cref="UiDispatch"/>.
+    /// </summary>
+    readonly Microsoft.UI.Dispatching.DispatcherQueue ui;
+
     public Pickers(Window window, IAlerts? alerts = null)
     {
         ArgumentNullException.ThrowIfNull(window);
         this.window = window;
         this.alerts = alerts;
+        ui = window.DispatcherQueue;
     }
 
-    public async Task<IReadOnlyList<string>> OpenFilesAsync(IReadOnlyList<string> extensions)
+    public Task<IReadOnlyList<string>> OpenFilesAsync(IReadOnlyList<string> extensions)
     {
         ArgumentNullException.ThrowIfNull(extensions);
+        return UiDispatch.OnAsync(ui, () => OpenFilesCoreAsync(extensions));
+    }
+
+    async Task<IReadOnlyList<string>> OpenFilesCoreAsync(IReadOnlyList<string> extensions)
+    {
         var picker = new FileOpenPicker
         {
             ViewMode = PickerViewMode.List,
@@ -55,10 +68,15 @@ internal sealed class Pickers : IPickers
         return paths;
     }
 
-    public async Task<string?> SaveFileAsync(string suggestedName, IReadOnlyList<(string Label, IReadOnlyList<string> Extensions)> choices, string defaultExtension)
+    public Task<string?> SaveFileAsync(string suggestedName, IReadOnlyList<(string Label, IReadOnlyList<string> Extensions)> choices, string defaultExtension)
     {
         ArgumentNullException.ThrowIfNull(suggestedName);
         ArgumentNullException.ThrowIfNull(choices);
+        return UiDispatch.OnAsync(ui, () => SaveFileCoreAsync(suggestedName, choices, defaultExtension));
+    }
+
+    async Task<string?> SaveFileCoreAsync(string suggestedName, IReadOnlyList<(string Label, IReadOnlyList<string> Extensions)> choices, string defaultExtension)
+    {
         var picker = new FileSavePicker
         {
             SuggestedStartLocation = PickerLocationId.DocumentsLibrary,
@@ -72,7 +90,9 @@ internal sealed class Pickers : IPickers
         return string.IsNullOrEmpty(file?.Path) ? null : file.Path;
     }
 
-    public async Task<string?> PickFolderAsync(string? title)
+    public Task<string?> PickFolderAsync(string? title) => UiDispatch.OnAsync(ui, () => PickFolderCoreAsync(title));
+
+    async Task<string?> PickFolderCoreAsync(string? title)
     {
         if (title is { Length: > 0 } && alerts is not null) await alerts.WarnAsync(title, "");
         var picker = new FolderPicker { SuggestedStartLocation = PickerLocationId.DocumentsLibrary };

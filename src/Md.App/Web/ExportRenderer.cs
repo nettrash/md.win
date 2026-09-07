@@ -16,6 +16,8 @@ using Md.App.Logic;
 using Md.App.Logic.Export;
 using Md.App.Logic.Preview;
 using Md.App.Logic.Seams;
+using Md.App.Services;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.Web.WebView2.Core;
@@ -37,6 +39,14 @@ internal sealed class ExportRenderer : IRenderSurface
     readonly RenderCompletePoller _poller;
     readonly IScheduler _scheduler;
 
+    /// <summary>
+    /// The thread this renderer's WebView2, its host panel and its scheduler all belong to. Every
+    /// public member hops onto it through <see cref="UiDispatch"/>, because <c>ExportPipeline</c> is
+    /// thread-agnostic by design and calls in from wherever <c>ConfigureAwait(false)</c> left it —
+    /// see <see cref="UiDispatch"/> for the whole story.
+    /// </summary>
+    readonly DispatcherQueue _ui;
+
     CoreWebView2 _core = null!;          // assigned by InitialiseAsync before any caller sees the renderer
     string _html = string.Empty;
     int _captures;
@@ -46,6 +56,7 @@ internal sealed class ExportRenderer : IRenderSurface
         ArgumentNullException.ThrowIfNull(scheduler);
         _host = host;
         _scheduler = scheduler;
+        _ui = host.DispatcherQueue;
         _poller = new RenderCompletePoller(scheduler);
     }
 
@@ -146,7 +157,10 @@ internal sealed class ExportRenderer : IRenderSurface
     /// <see cref="LoadAsync"/> — the index URL, whose bytes <c>AssetHost</c> serves from memory — but
     /// the self-test also has to open an exported <c>file://</c> page to prove it stands alone.
     /// </summary>
-    public async Task NavigateAsync(string url, CancellationToken ct)
+    public Task NavigateAsync(string url, CancellationToken ct) =>
+        UiDispatch.OnAsync(_ui, () => NavigateCoreAsync(url, ct));
+
+    async Task NavigateCoreAsync(string url, CancellationToken ct)
     {
         ArgumentException.ThrowIfNullOrEmpty(url);
         ct.ThrowIfCancellationRequested();
@@ -175,7 +189,7 @@ internal sealed class ExportRenderer : IRenderSurface
         await _poller.WaitAsync(this, ct);
     }
 
-    public async Task<string> EvalAsync(string script)
+    public Task<string> EvalAsync(string script) => UiDispatch.OnAsync(_ui, async () =>
     {
         try
         {
@@ -187,15 +201,15 @@ internal sealed class ExportRenderer : IRenderSurface
             // has a defined behaviour for it.
             return "null";
         }
-    }
+    });
 
-    public async Task SetHeightAsync(double cssPx)
+    public Task SetHeightAsync(double cssPx) => UiDispatch.OnAsync(_ui, async () =>
     {
         var height = Math.Max(PageHeightCssPx, cssPx);
         _web.Height = height;
         _web.UpdateLayout();
         await ApplyMetricsAsync(height);
-    }
+    });
 
     /// <summary>
     /// A genuine 2× bitmap of one page-space rectangle — WebView2's analogue of
@@ -205,7 +219,10 @@ internal sealed class ExportRenderer : IRenderSurface
     /// scrolled into view, and a scale that re-renders rather than upscales — which is what lets it
     /// photograph a KaTeX formula, HTML and CSS with no vector in it at all.
     /// </summary>
-    public async Task<byte[]> CaptureRegionPngAsync(RectD cssRect, double scale)
+    public Task<byte[]> CaptureRegionPngAsync(RectD cssRect, double scale) =>
+        UiDispatch.OnAsync(_ui, () => CaptureRegionPngCoreAsync(cssRect, scale));
+
+    async Task<byte[]> CaptureRegionPngCoreAsync(RectD cssRect, double scale)
     {
         var ordinal = _captures++;
         var clip = string.Create(CultureInfo.InvariantCulture,
@@ -261,10 +278,14 @@ internal sealed class ExportRenderer : IRenderSurface
     const int CanvasRasteriseAttempts = 40;
     static readonly TimeSpan CanvasRasteriseInterval = TimeSpan.FromMilliseconds(50);
 
-    public async Task<byte[]> PdfAsync(PrintGeometry geometry)
+    public Task<byte[]> PdfAsync(PrintGeometry geometry)
     {
         ArgumentNullException.ThrowIfNull(geometry);
+        return UiDispatch.OnAsync(_ui, () => PdfCoreAsync(geometry));
+    }
 
+    async Task<byte[]> PdfCoreAsync(PrintGeometry geometry)
+    {
         var settings = _core.Environment.CreatePrintSettings();
         settings.Orientation = CoreWebView2PrintOrientation.Portrait;
         settings.PageWidth = geometry.PageWidthIn;
@@ -305,12 +326,13 @@ internal sealed class ExportRenderer : IRenderSurface
     /// <summary>The system dialog: no preview, but it is displayed even for a control that is not visible.</summary>
     public void ShowSystemPrintUi() => _core.ShowPrintUI(CoreWebView2PrintDialogKind.System);
 
-    public ValueTask DisposeAsync()
+    public ValueTask DisposeAsync() => new(UiDispatch.OnAsync(_ui, () =>
     {
+        // Both of these are the control's own thread's business, and an export that has just come
+        // back from a thread-pool continuation is exactly where a renderer is disposed.
         _host.Children.Remove(_web);
         _web.Close();
-        return ValueTask.CompletedTask;
-    }
+    }));
 }
 
 /// <summary>
@@ -321,6 +343,12 @@ internal sealed class ExportRenderer : IRenderSurface
 /// </summary>
 internal sealed class ExportRendererFactory(Canvas host, IScheduler scheduler) : IRenderSurfaceFactory
 {
-    public async Task<IRenderSurface> CreateAsync(RenderKind kind) =>
-        await ExportRenderer.OffCanvasAsync(host, scheduler);
+    /// <summary>
+    /// The first hop of every export. A WebView2 must be constructed, parented and initialised on the
+    /// UI thread, and this is the one call the pipeline is still guaranteed to make from there — so
+    /// marshalling here is belt to <see cref="ExportRenderer"/>'s braces, not instead of them: the
+    /// pipeline's next await resumes on the thread pool whatever this one did.
+    /// </summary>
+    public Task<IRenderSurface> CreateAsync(RenderKind kind) =>
+        UiDispatch.OnAsync<IRenderSurface>(host.DispatcherQueue, async () => await ExportRenderer.OffCanvasAsync(host, scheduler));
 }

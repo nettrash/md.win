@@ -1,9 +1,10 @@
 namespace Md.App.Logic.Preview;
 
 /// <summary>
-/// The one origin the preview ever loads (§4.2). The virtual host is mapped to the install's
-/// <c>web\</c> folder and the page itself is served from memory on the <em>same</em> host, which is
-/// what lets the generated HTML keep its relative <c>rich/…</c> URLs unchanged: <c>md-init.js</c>'s
+/// The one origin the preview ever loads (§4.2). <c>AssetHost</c> serves every byte of it through
+/// <c>WebResourceRequested</c> — the page from memory, <c>rich/…</c> off the install's <c>web\</c>
+/// folder — on the <em>same</em> host, which is what lets the generated HTML keep its relative
+/// <c>rich/…</c> URLs unchanged: <c>md-init.js</c>'s
 /// <c>import('./plantuml.js')</c> and <c>katex.min.css</c>'s <c>url(fonts/…)</c> resolve because the
 /// document and the engines share an origin. <c>https</c> so the page is a secure context.
 /// Shared by <c>AssetHost</c>, <c>PreviewHost</c>, <see cref="PreviewCoordinator"/> and

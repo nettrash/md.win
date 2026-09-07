@@ -73,44 +73,76 @@ the document was served, and every navigation failure with its `WebErrorStatus`.
 
 ## State as of 2026-09-07 — read this before anything else
 
-The app **launches and the editor works**. Everything below is live.
+The app **launches, the editor works, the preview works and every export works**. All four gates and
+`md.exe --selftest` are green on this machine (ARM64, WebView2 Runtime 152.0.4191.66).
 
-**Just changed on the Mac, committed or not, and NEVER RUN on Windows** — verifying these is the next
-job:
+### Verified on Windows on 2026-09-07 — do not re-litigate these
 
-1. **The preview origin was redesigned.** The first Windows run proved the design's core assumption
-   false: with `SetVirtualHostNameToFolderMapping` in place, `WebResourceRequested` was **never
-   raised** for the top-level document, so the navigation failed (`Unknown`, then
-   `ConnectionAborted`) and the preview was blank. Microsoft's how-to claims the event still fires
-   "when a requested resource does not exist in the folder that is virtually hosted"; it does not,
-   at least not for the document. See WebView2Feedback #2103 and #4201.
-   `src/Md.App/Web/AssetHost.cs` now uses **no mapping at all**: one filter over
-   `https://md.assets/*`, the document served from memory, `rich/` served off disk through
-   `Asset()` with `AssetMime`'s types. Same origin, so relative `rich/…`,
-   `import('./plantuml.js')` and KaTeX's `url(fonts/…)` still resolve.
-   **Verify:** the preview renders text at all; `md.log` carries `preview index served from memory,
-   N bytes`; math, Mermaid, Graphviz, PlantUML, highlight.js and a `plot` fence all draw (open
-   `Examples ▸ 07-Diagrams` and `08-Plots`).
-2. **`DocumentWindow.Publish()` now waits for a `_ready` flag** set at the end of the constructor. A
-   `TextBox` raises `SelectionChanged` while it is initialising, which reached `Build()` on a
-   half-built window and threw `NullReferenceException` onto the XAML dispatcher. **Which member was
-   null was inferred, not observed** — if it recurs, the fresh `md.log` entry names it.
-3. **`IsShown` was wrong and is fixed.** `ArticlePanes.Apply()` collapses `PreviewSlot`, but
-   `IsShown` read the host's and the WebView2's own `Visibility`, which WinUI does not inherit — so
-   it always answered "shown" and the "stale while collapsed" rule never engaged. It now walks the
-   visual tree. **Verify:** switching to Edit and back to Split reloads the preview exactly once.
+1. **The preview origin redesign is correct and running.** With
+   `SetVirtualHostNameToFolderMapping` in place, `WebResourceRequested` was **never raised** for the
+   top-level document, so the navigation failed (`Unknown`, then `ConnectionAborted`) and the
+   preview was blank. Microsoft's how-to claims the event still fires "when a requested resource does
+   not exist in the folder that is virtually hosted"; it does not, at least not for the document. See
+   WebView2Feedback #2103 and #4201. `src/Md.App/Web/AssetHost.cs` uses **no mapping at all**: one
+   filter over `https://md.assets/*`, the document served from memory, `rich/` served off disk
+   through `Asset()` with `AssetMime`'s types. `md.log` carries `preview index served from memory,
+   N bytes` and `preview navigation ok status=200`; KaTeX (inline, display, mhchem `\ce{}`),
+   highlight.js, Mermaid, Graphviz, PlantUML and a `plot` fence all draw.
+   **The first session here lost an hour to a stale build**: the fix was committed on the Mac but the
+   `bin\` output predated it, so the symptom on screen was the *old* code. Check
+   `AppX\md.dll`'s timestamp against the source before believing a symptom.
+2. **`IsShown` is fixed and the stale-while-collapsed rule engages.** Measured: Edit → Split with no
+   edit in between causes **no** reload; typing while collapsed and then switching back causes
+   **exactly one**, with the new HTML.
+3. **The window opens in Edit for an empty document, and that is the Mac's rule**
+   (`ViewModeRule.OpenViewMode`: `isEmptyDocument` → `Edit`). A collapsed pane is never realised, so
+   the WebView2 is not created until the writer first asks for Split or Preview — intended, and it
+   holds together because `ArticlePanes` raises `LayoutChanged` before `Loaded`. "No preview at
+   startup" is not a bug; "no preview after Ctrl+2" would be.
+4. **Every export works, in the self-test and in the real app.** `--selftest` is 44/44: the
+   self-contained HTML (stands alone, no engines, no `rich/` URLs), the EPUB (7 real PNG snapshots
+   for 7 rich elements, via CDP `Page.captureScreenshot`), and PDF at A4 and 6×9 (correct MediaBox,
+   three `\newpage` sections → three pages). Driven from the menu, File ▸ Export ▸ PDF… opened the
+   real `FileSavePicker` and wrote a 2-page A4 PDF.
 
-**Nothing in the WinUI layer beyond launch and the editor has ever been executed.** In rough order of
-how much is riding on it: the preview (above), Print (`ShowPrintUI(Browser)` draws inside the
-control's own rectangle — the overlay exists for that), PDF export via `PrintToPdfAsync`, the EPUB
-snapshot path via CDP `Page.captureScreenshot`, share via `IDataTransferManagerInterop`, the pickers,
-file-type activation, single-instance redirection, `FutureAccessList` for books, and the MSIX itself,
-which has never been built or opened.
+### The bug that hid behind all of that — read before touching an adapter
 
-`md.exe --selftest <outDir>` (built with `-p:SelfTest=true -p:WindowsPackageType=None`) drives the
-real export pipeline over the fixture documents and writes `report.json`. It is the only automated
-proof these paths can get; CI runs it on `windows-latest`. **Run it early** — it exercises more
-WebView2 surface in one go than clicking will.
+`ExportPipeline` is pure logic and awaits with `ConfigureAwait(false)` end to end, which is right:
+it must run where a Mac test can put it. But every seam it drives is implemented in `Md.App` by a
+WinUI control, a WinRT picker or a `ContentDialog`, and all three have thread affinity. The first
+genuinely asynchronous step in an export moved the rest of the flow onto a thread-pool thread and
+every call after it failed with `RPC_E_WRONG_THREAD` — "The application called an interface that was
+marshalled for a different thread." HTML, EPUB and both PDFs failed that way; only the checks that
+drive `ExportRenderer` straight from the UI thread passed.
+
+The seams are frozen and the pipeline is right, so the marshalling lives at the **adapter boundary**:
+`src/Md.App/Services/UiDispatch.cs` hops onto the owning `DispatcherQueue` (inline when already
+there), and `ExportRenderer`, `ExportRendererFactory`, `Pickers`, `WinUiAlerts` and `ShareBridge` all
+go through it. **Any new adapter behind a frozen seam must do the same** — it will be called from a
+thread-pool continuation sooner or later, and a Mac can never catch it.
+
+### Still never executed on Windows
+
+Print (`ShowPrintUI(Browser)` draws inside the control's own rectangle — the overlay exists for
+that), share via `IDataTransferManagerInterop`, the open/folder pickers, file-type activation,
+single-instance redirection, `FutureAccessList` for books, the Book window end to end, and the MSIX
+itself, which has never been built or opened.
+
+`md.exe --selftest <outDir>` drives the real export pipeline over the fixture documents and writes
+`report.json`; CI runs it on `windows-latest` (x64 only — the runner cannot execute the ARM64 binary
+it builds). On this ARM64 machine it runs natively:
+
+```powershell
+dotnet build src\Md.App\Md.App.csproj -p:Platform=ARM64 -p:RuntimeIdentifier=win-arm64 `
+  -p:WindowsPackageType=None -p:WindowsAppSDKSelfContained=true -p:SelfTest=true `
+  -p:EnableWinAppRunSupport=false -p:OutDir=<dir>\
+# md.exe is a GUI subsystem binary, so the shell does not wait for it and $LASTEXITCODE stays empty:
+Start-Process <dir>\md.exe -ArgumentList "--selftest","<report>" -PassThru -Wait
+```
+
+**Run it after any change to an export, a renderer or an adapter** — it exercises more WebView2
+surface in one go than clicking will, and it is the only thing that catches the threading class of
+bug above.
 
 ## Rules that are not negotiable
 

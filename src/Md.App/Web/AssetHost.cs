@@ -64,11 +64,11 @@ internal static class AssetHost
             if (IsIndex(uri))
             {
                 var bytes = Encoding.UTF8.GetBytes(html());
-                // The one interaction no documentation states outright and no test on a Mac can
-                // reach: a virtual host mapping is consulted BEFORE WebResourceRequested, and the
-                // event is raised only because <install>\web\index.html does not exist on disk. If
-                // that ever changes, this line stops appearing and the preview goes blank — so the
-                // first time it happens is worth recording.
+                // The line that says the origin is ours. A blank preview has two shapes and they
+                // look identical from outside: the page was served and rendered nothing, or the
+                // request never reached this handler at all. This is written once per process, and
+                // its absence — alongside a `preview navigation FAILED` — is the signature of the
+                // second, which is exactly how the virtual-host design was caught.
                 if (!_servedIndex)
                 {
                     _servedIndex = true;

@@ -19,13 +19,23 @@ internal sealed class WinUiAlerts : IAlerts
     readonly Window window;
     readonly SemaphoreSlim gate = new(1, 1);
 
+    /// <summary>
+    /// The window's thread. Every dialog here builds XAML controls and shows them, and
+    /// <c>ExportPipeline</c> reports a failed export from a thread-pool continuation — see
+    /// <see cref="UiDispatch"/>.
+    /// </summary>
+    readonly Microsoft.UI.Dispatching.DispatcherQueue ui;
+
     public WinUiAlerts(Window window)
     {
         ArgumentNullException.ThrowIfNull(window);
         this.window = window;
+        ui = window.DispatcherQueue;
     }
 
-    public async Task WarnAsync(string title, string message)
+    public Task WarnAsync(string title, string message) => UiDispatch.OnAsync(ui, () => WarnCoreAsync(title, message));
+
+    async Task WarnCoreAsync(string title, string message)
     {
         var dialog = Dialog(title, message.Length == 0 ? null : message);
         dialog.CloseButtonText = Strings.Buttons.OK;
@@ -33,7 +43,10 @@ internal sealed class WinUiAlerts : IAlerts
         await ShowAsync(dialog);
     }
 
-    public async Task<string?> PromptNameAsync(string title, string message, string initial, string acceptLabel)
+    public Task<string?> PromptNameAsync(string title, string message, string initial, string acceptLabel) =>
+        UiDispatch.OnAsync(ui, () => PromptNameCoreAsync(title, message, initial, acceptLabel));
+
+    async Task<string?> PromptNameCoreAsync(string title, string message, string initial, string acceptLabel)
     {
         var box = new TextBox { Text = initial };
         // Selecting on Loaded, not in the initialiser: the control re-applies its own default
@@ -54,7 +67,10 @@ internal sealed class WinUiAlerts : IAlerts
         return result == ContentDialogResult.Primary ? box.Text : null;
     }
 
-    public async Task<bool> ConfirmDeleteAsync(string title, string message)
+    public Task<bool> ConfirmDeleteAsync(string title, string message) =>
+        UiDispatch.OnAsync(ui, () => ConfirmDeleteCoreAsync(title, message));
+
+    async Task<bool> ConfirmDeleteCoreAsync(string title, string message)
     {
         var dialog = Dialog(title, message);
         dialog.PrimaryButtonText = Strings.Buttons.Delete;
@@ -63,7 +79,10 @@ internal sealed class WinUiAlerts : IAlerts
         return await ShowAsync(dialog) == ContentDialogResult.Primary;
     }
 
-    public async Task<CloseChoice> AskSaveChangesAsync(string title)
+    public Task<CloseChoice> AskSaveChangesAsync(string title) =>
+        UiDispatch.OnAsync(ui, () => AskSaveChangesCoreAsync(title));
+
+    async Task<CloseChoice> AskSaveChangesCoreAsync(string title)
     {
         var dialog = Dialog(title, null);
         dialog.PrimaryButtonText = Strings.Buttons.Save;
@@ -78,7 +97,10 @@ internal sealed class WinUiAlerts : IAlerts
         };
     }
 
-    public async Task<bool> ConfirmReplaceAsync(string message)
+    public Task<bool> ConfirmReplaceAsync(string message) =>
+        UiDispatch.OnAsync(ui, () => ConfirmReplaceCoreAsync(message));
+
+    async Task<bool> ConfirmReplaceCoreAsync(string message)
     {
         var dialog = Dialog(message, null);
         dialog.PrimaryButtonText = Strings.Buttons.Replace;
