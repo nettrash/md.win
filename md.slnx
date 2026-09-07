@@ -4,7 +4,20 @@
     <Platform Name="ARM64" />
   </Configurations>
   <Folder Name="/src/">
-    <Project Path="src/Md.App/Md.App.csproj" />
+    <!--
+      Md.App is the only project with <Platforms>x64;ARM64</Platforms>; every other project here is
+      AnyCPU. A .slnx stores no per-project configuration list the way a .sln does — it stores rules,
+      and with no rule at all a project is mapped to AnyCPU whatever the solution platform is. That
+      is a configuration Md.App does not have, so Visual Studio refuses to open the solution ("The
+      solution file md.slnx specifies a project configuration for project Md.App.csproj that does
+      not exist"), and `dotnet build md.slnx -p:Platform=x64` silently built ARM64 into bin\Debug\
+      instead of bin\x64\. These two rules are the whole fix; the AnyCPU projects need none, because
+      AnyCPU is already what they get.
+    -->
+    <Project Path="src/Md.App/Md.App.csproj">
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|ARM64" Project="ARM64" />
+    </Project>
     <Project Path="src/Md.App.Logic/Md.App.Logic.csproj" />
     <Project Path="src/Md.Core/Md.Core.csproj" />
   </Folder>

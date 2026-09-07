@@ -8,6 +8,32 @@
     Builds only on Windows (the WinUI XAML compiler is a Windows executable); the Core
     library and its tests build everywhere.
   -->
+  <!--
+    Building this project from VISUAL STUDIO's MSBuild fails without the C++ workload, and the
+    failure is a crash rather than a diagnostic. `Microsoft.UI.Xaml.Markup.Compiler.interop.targets`
+    (WindowsAppSDK.WinUI 2.3.6, line 295) runs its GetVCInstallPath target whenever VCInstallPath32
+    and VCInstallPath64 are both empty, and that target calls
+
+        Directory.EnumerateDirectories("$(VsInstallRoot)\VC\Tools\MSVC").Last()
+
+    with no guard at all — so on a VS install without "Desktop development with C++" it throws
+    MSB4018 / DirectoryNotFoundException instead of degrading. VS's MSBuild sets VsInstallRoot; the
+    .NET SDK's does not, which is the only reason `dotnet build` and CI have never hit it.
+
+    The two properties it is trying to compute are paths to vcmeta.dll, which the XAML compiler uses
+    to read C++ metadata. This project is C# (ManagedAssembly), so they are unused — leaving them
+    empty is exactly the state every `dotnet build` in this repo has compiled XAML in.
+
+    Blanking VsInstallRoot here makes the target no-op instead of crashing. It is scoped to this
+    project (the only one importing those targets) and self-disabling: install the C++ workload and
+    the Exists() check stops matching, so VS and CI behave identically again. Installing that
+    workload is the other, supported fix — it also silences the `mspdbcmf.exe` warning that skips
+    the MSIX symbols package.
+  -->
+  <PropertyGroup Condition="'$(VsInstallRoot)' != '' and !Exists('$(VsInstallRoot)\VC\Tools\MSVC')">
+    <VsInstallRoot></VsInstallRoot>
+  </PropertyGroup>
+
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>

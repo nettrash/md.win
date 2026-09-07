@@ -285,6 +285,9 @@ internal sealed class WindowManager
     /// </summary>
     static void TintTitleBar(Window window)
     {
+        // The icon is set here rather than in TitleBarTint because it is not a colour: it is applied
+        // once and does not follow the theme.
+        WindowIcon.Apply(window.AppWindow);
         if (window.Content is not FrameworkElement root) return;
         TitleBarTint.Apply(window.AppWindow, root.ActualTheme == ElementTheme.Dark);
         root.ActualThemeChanged += (element, _) => TitleBarTint.Apply(window.AppWindow, element.ActualTheme == ElementTheme.Dark);

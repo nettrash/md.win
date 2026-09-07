@@ -309,6 +309,8 @@ internal sealed partial class DocumentWindow : Window
 
     void BuildContent()
     {
+        // Once per window, and not from ApplyTheme: the icon is not part of the palette.
+        WindowIcon.Apply(AppWindow);
         MenuSlot.Content = _menu.Build();
         AcceleratorInstaller.Install(Root, _dispatcher);
         // §6.1: drag & drop onto the window root. The root, not a pane — a document dropped anywhere
