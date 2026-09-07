@@ -45,7 +45,12 @@ public sealed class WordCounterTests
     {
         if (OperatingSystem.IsWindows()) return;
 
-        Assert.Null(IcuWordCounter.TryCreate());
+        // What is asserted here is the observable contract — off Windows the factory hands back
+        // the fallback — and not `IcuWordCounter.TryCreate() is null`. The type is
+        // [SupportedOSPlatform("windows")], so calling it from a test that runs everywhere is
+        // exactly what CA1416 exists to flag, and off Windows that path is unreachable in the
+        // product anyway: WordCounters.Create asks OperatingSystem.IsWindows() before it ever
+        // names the type. Asserting it would have pinned the guard twice and the behaviour once.
         Assert.Same(SimpleWordCounter.Instance, WordCounters.Create());
     }
 

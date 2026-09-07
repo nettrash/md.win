@@ -87,7 +87,7 @@ public class LocalFileSystemTests : IDisposable
 
         File.WriteAllText(path, "after, and longer");
 
-        Assert.True(WaitFor(() => !events.IsEmpty), "no file-change notification arrived in 15 s — the runner has none");
+        Assert.True(WaitFor(() => !events.IsEmpty, ui), "no file-change notification arrived in 15 s — the runner has none");
         Assert.True(ui.Posts > 0);                                 // never raised on the watcher's thread
         Assert.Contains(events, p => string.Equals(Path.GetFileName(p), "watched.md", StringComparison.Ordinal));
     }
@@ -108,6 +108,7 @@ public class LocalFileSystemTests : IDisposable
 
         File.WriteAllText(path, "after");
         Thread.Sleep(250);
+        ui.Pump();                                                 // nothing to run, and nothing enqueued
         Assert.True(events.IsEmpty);
 
         watcher.Dispose();
@@ -144,16 +145,19 @@ public class LocalFileSystemTests : IDisposable
         scheduler.Advance(TextFileSession.AutosaveDelay);
         Assert.Equal("# Start\nand more, which is longer\n", File.ReadAllText(path));
 
-        // Give the watcher time to deliver the echo of that write, then prove it changed nothing.
-        WaitFor(() => ui.Posts > 0);
-        Thread.Sleep(250);
+        // Wait for the watcher to deliver the echo of that write, then run the handler HERE —
+        // on the thread that just finished the autosave, which is where the app runs it and the
+        // only place it cannot interleave with the DiskStamp the autosave just set. A fixed sleep
+        // in its place is a wall-clock bound that a loaded machine walks straight through.
+        Assert.True(WaitFor(() => ui.Posts > 0), "the watcher never reported our own write");
+        Assert.True(ui.Pump() > 0, "the echo was posted but never ran");
         Assert.False(session.Conflicted);
         Assert.False(session.HasUnsavedChanges);
 
         // A real external write, by contrast, is seen.
         session.Edit("# Start\nmine\n");
         File.WriteAllText(path, "somebody else entirely, at another length\n");
-        Assert.True(WaitFor(() => session.Conflicted), "the external write was never reported");
+        Assert.True(WaitFor(() => session.Conflicted, ui), "the external write was never reported");
         Assert.Equal("# Start\nmine\n", session.Text);
     }
 
@@ -174,7 +178,7 @@ public class LocalFileSystemTests : IDisposable
         watcher.Watch(path);
         File.WriteAllText(path, "created out of nothing");
 
-        Assert.True(WaitFor(() => events.Any(p => string.Equals(Path.GetFileName(p), "appears-later.md", StringComparison.Ordinal))),
+        Assert.True(WaitFor(() => events.Any(p => string.Equals(Path.GetFileName(p), "appears-later.md", StringComparison.Ordinal)), ui),
             "the file's creation was never reported as a change");
     }
 
@@ -200,31 +204,64 @@ public class LocalFileSystemTests : IDisposable
         File.Delete(ours);
         File.Move(stranger, ours);                                 // lands on the watched name
 
-        Assert.True(WaitFor(() => !changes.IsEmpty), "the replacement was never reported at all");
+        Assert.True(WaitFor(() => !changes.IsEmpty, ui), "the replacement was never reported at all");
         Assert.Empty(renames);                                     // never "our file moved to X"
         Assert.All(changes, p => Assert.Equal("ours.md", Path.GetFileName(p)));
     }
 
-    static bool WaitFor(Func<bool> condition)
+    /// <summary>
+    /// Wait for something a watcher event brings about, pumping the UI thread as we go — the
+    /// events arrive on a thread pool thread and the handlers run where <paramref name="ui"/> is
+    /// pumped, so a condition that depends on one can only become true if somebody pumps.
+    /// </summary>
+    static bool WaitFor(Func<bool> condition, RecordingUiThread? ui = null)
     {
         var deadline = DateTime.UtcNow.AddSeconds(15);
         while (DateTime.UtcNow < deadline)
         {
+            ui?.Pump();
             if (condition()) return true;
             Thread.Sleep(25);
         }
-        return false;
+        ui?.Pump();
+        return condition();
     }
 
+    /// <summary>
+    /// The UI thread as the seam promises it: <c>Post</c> QUEUES, and the work runs later on the
+    /// thread that pumps — which here is the test's own thread, the one driving the session.
+    ///
+    /// It used to call <c>action()</c> inline, on whatever thread the watcher raised the event on,
+    /// and that is not what <c>DispatcherQueue.TryEnqueue</c> does. The difference is not academic:
+    /// the echo filter compares the file's stamp against <c>DiskStamp</c>, and the autosave sets
+    /// <c>DiskStamp</c> right after it writes. On the UI thread those cannot interleave. Inline,
+    /// they can — the watcher's thread read the pre-write stamp mid-autosave and reported the
+    /// session's own bytes as somebody else's. It failed three runs out of three on a loaded
+    /// machine and passed every time on a quiet one, which is the signature of a wall-clock race
+    /// rather than a flake.
+    /// </summary>
     sealed class RecordingUiThread : IUiThread
     {
+        readonly ConcurrentQueue<Action> pending = new();
         int posts;
         public int Posts => Volatile.Read(ref posts);
         public bool IsCurrent => true;
         public void Post(Action action)
         {
             Interlocked.Increment(ref posts);
-            action();
+            pending.Enqueue(action);
+        }
+
+        /// <summary>Run what has been posted, here, now. Returns how many actions ran.</summary>
+        public int Pump()
+        {
+            var ran = 0;
+            while (pending.TryDequeue(out var action))
+            {
+                action();
+                ran++;
+            }
+            return ran;
         }
     }
 }

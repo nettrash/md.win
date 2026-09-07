@@ -74,7 +74,7 @@ public sealed class SessionStoreTests
 
         Assert.DoesNotContain("\"path\":\"\"", json, StringComparison.Ordinal);
         Assert.DoesNotContain("\"path\":\"   \"", json, StringComparison.Ordinal);
-        Assert.Equal(1, System.Text.RegularExpressions.Regex.Matches(json, "\"path\":").Count);
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(json, "\"path\":"));
     }
 
     [Fact]

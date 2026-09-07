@@ -173,6 +173,52 @@ public class PlotTests
     private static bool IsNaNBits(string bits) =>
         double.IsNaN(BitConverter.Int64BitsToDouble(unchecked((long)ulong.Parse(bits, NumberStyles.HexNumber, Inv))));
 
+    /// <summary>
+    /// The functions of the plot language that IEEE-754 lists as RECOMMENDED rather than
+    /// required (clause 9.2), plus <c>^</c>. Every implementation is free to be up to an ulp
+    /// off on these, and the platforms really do disagree: the oracle in
+    /// <c>plot-vectors.json</c> was recorded by the site's Rust on Darwin, and CI found
+    /// <c>atanh(0.5)</c> one ulp low on Linux/glibc (3fe193ea7aad030a vs ...030b) and
+    /// <c>asin(0.5)</c> one ulp high on Windows/UCRT (3fe0c152382d7366 vs ...7365).
+    ///
+    /// So a row that reaches one of these is held to "within one ulp of the oracle" and every
+    /// other row stays bit-exact. That is not a softened assertion but the right one: the four
+    /// operations IEEE-754 DOES require to be correctly rounded (+ - * /), <c>sqrt</c>, the
+    /// comparisons, the roundings and the decimal conversions are all still pinned to the bit,
+    /// which is what catches a wrong formula, a wrong precedence or a wrong constant. What the
+    /// figure promises — that every port draws the same bytes — is pinned separately and
+    /// exactly by the golden-figure tests, because a coordinate is written to two decimals and
+    /// an ulp cannot move one.
+    /// </summary>
+    private static readonly string[] RecommendedOperations =
+    [
+        "sin", "cos", "tan", "asin", "acos", "atan", "atan2",
+        "sinh", "cosh", "tanh", "asinh", "acosh", "atanh",
+        "exp", "exp2", "ln", "log", "log2", "log10", "pow", "hypot", "cbrt",
+    ];
+
+    /// <summary>Does this expression reach a function whose last bit the platform owns?</summary>
+    private static bool UsesRecommendedOperation(string expr)
+    {
+        if (expr.Contains('^', StringComparison.Ordinal)) return true;   // pow, by another spelling
+        foreach (Match m in Regex.Matches(expr, "[A-Za-z_][A-Za-z0-9_]*", RegexOptions.CultureInvariant))
+            if (Array.IndexOf(RecommendedOperations, m.Value) >= 0) return true;
+        return false;
+    }
+
+    /// <summary>
+    /// Distance in representable doubles. <c>long.MaxValue</c> when the two are not even on the
+    /// same side of zero, so a sign flip (or +0 against -0, which the corpus records apart) can
+    /// never pass as "close enough".
+    /// </summary>
+    private static long UlpDistance(double a, double b)
+    {
+        var ia = BitConverter.DoubleToInt64Bits(a);
+        var ib = BitConverter.DoubleToInt64Bits(b);
+        if ((ia < 0) != (ib < 0)) return ia == ib ? 0 : long.MaxValue;
+        return Math.Abs(ia - ib);
+    }
+
     private static double Value(string expr, double x) => Plot.Evaluate(Plot.ParseExpression(expr, "x"), "x", x);
 
     private static double Literal(string text) => double.Parse(text, NumberStyles.Float, Inv);
@@ -582,6 +628,7 @@ public class PlotTests
         Assert.Equal(162, V.Eval.Length);
         var seenCorrections = new HashSet<string>(StringComparer.Ordinal);
         var seenAbsences = new HashSet<string>(StringComparer.Ordinal);
+        var divergences = new List<string>();
 
         foreach (var row in V.Eval)
         {
@@ -617,8 +664,22 @@ public class PlotTests
                 Assert.True(double.IsNaN(value), label);
                 continue;
             }
-            Assert.True(row.ResultBits == Bits(value), label + " = " + Bits(value) + ", want " + row.ResultBits);
+            if (row.ResultBits == Bits(value)) continue;
+
+            // Report every divergent row, not just the first: one CI run on a second libm
+            // should tell us the whole story rather than one line of it.
+            var slack = UsesRecommendedOperation(row.Expr)
+                ? UlpDistance(value, BitConverter.Int64BitsToDouble(
+                      unchecked((long)ulong.Parse(row.ResultBits!, NumberStyles.HexNumber, Inv))))
+                : long.MaxValue;
+            if (slack > 1)
+                divergences.Add(label + " = " + Bits(value) + ", want " + row.ResultBits
+                    + (slack == long.MaxValue ? "" : " (" + slack.ToString(Inv) + " ulp)"));
         }
+
+        // An ulp of drift in a recommended operation is the platform's, and is recorded rather
+        // than asserted away; anything else fails, with every offending row named.
+        Assert.True(divergences.Count == 0, string.Join("\n", divergences));
 
         // Both tables are fully exercised by the corpus.
         var distinct = new HashSet<string>(StringComparer.Ordinal);

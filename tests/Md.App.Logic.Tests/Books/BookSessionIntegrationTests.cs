@@ -85,27 +85,27 @@ public class BookSessionIntegrationTests : IDisposable
     }
 
     [Fact]
-    public void AnOutputCompilesWhatTheGateJustSaved()
+    public async Task AnOutputCompilesWhatTheGateJustSaved()
     {
         session.Edit("Front matter, unsaved.");
         using var binding = new BookFlushGateBinding(() => session.FlushNow(explicitSave: false));
         var outputs = new FakeBookOutputs();
         var output = new BookOutput(outputs, settings, () => navigator.Book);
 
-        output.ExportPdfAsync().GetAwaiter().GetResult();
+        await output.ExportPdfAsync();
 
         Assert.Contains("Front matter, unsaved.", outputs.Pdfs.Single().Source, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void AVetoStopsTheOutputAndTheBufferSurvives()
+    public async Task AVetoStopsTheOutputAndTheBufferSurvives()
     {
         session.Edit("Not going anywhere.");
         using var binding = new BookFlushGateBinding(() => false);
         var outputs = new FakeBookOutputs();
         var output = new BookOutput(outputs, settings, () => navigator.Book);
 
-        output.ExportPdfAsync().GetAwaiter().GetResult();
+        await output.ExportPdfAsync();
 
         Assert.Empty(outputs.Pdfs);
         Assert.Equal("Not going anywhere.", session.Text);
