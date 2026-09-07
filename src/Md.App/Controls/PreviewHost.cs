@@ -8,6 +8,7 @@ using Md.App.Logic.Settings;
 using Md.App.Web;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.Web.WebView2.Core;
 
 namespace Md.App.Controls;
@@ -91,6 +92,7 @@ internal sealed class PreviewHost : UserControl
             _attached = core;
 
             AssetHost.Attach(core, () => _surface.Html);
+            AssetHost.LogRoot();
             ApplySettings(core);
             ApplyTheme(_dark);
 
@@ -186,8 +188,25 @@ internal sealed class PreviewHost : UserControl
                 items.RemoveAt(i);
     }
 
-    void OnNavigationCompleted(WebView2 sender, CoreWebView2NavigationCompletedEventArgs e) =>
+    void OnNavigationCompleted(WebView2 sender, CoreWebView2NavigationCompletedEventArgs e)
+    {
+        // A blank preview is otherwise silent: the page either never loaded or loaded empty, and
+        // from the outside those look identical. The first few navigations and every failure go to
+        // md.log — enough to tell them apart without following a reload on every keystroke.
+        if (!e.IsSuccess || _logged < LoggedNavigations)
+        {
+            _logged++;
+            App.Diagnostics.Write(
+                $"preview navigation {(e.IsSuccess ? "ok" : "FAILED " + e.WebErrorStatus)}"
+                + $" status={e.HttpStatusCode} html={_surface.Html.Length} bytes shown={_surface.IsShown}");
+        }
+
         _surface.RaiseNavigationCompleted(e.IsSuccess);
+    }
+
+    /// <summary>How many successful navigations are worth a line before md.log would just repeat itself.</summary>
+    const int LoggedNavigations = 3;
+    int _logged;
 
     /// <summary>
     /// A process in the WebView2 group died or stopped answering. Only two kinds are ours to act on,
@@ -263,9 +282,12 @@ internal sealed class PreviewHost : UserControl
     {
         public string Html { get; set; } = "";
 
-        // The truth about visibility, and what "stale while collapsed" is decided on: in Edit mode
-        // the control stays in the tree with Visibility.Collapsed rather than being re-created.
-        public bool IsShown => host.Visibility == Visibility.Visible && host._web.Visibility == Visibility.Visible;
+        // What "stale while collapsed" is decided on. It must ask the TREE, not this control: the
+        // layout collapses the ContentControl the host sits in (ArticlePanes.Apply collapses
+        // PreviewSlot), and a collapsed parent leaves the child's own Visibility untouched at
+        // Visible. Reading host.Visibility therefore answered "shown" in Edit mode as well, so the
+        // coordinator reloaded a page nobody could see and never recorded the pane as stale.
+        public bool IsShown => IsEffectivelyVisible(host);
 
         public event Action<bool> NavigationCompleted = delegate { };
 
@@ -285,5 +307,17 @@ internal sealed class PreviewHost : UserControl
         public Task<string> EvalAsync(string script) => host.EvalAsync(script);
 
         public void RaiseNavigationCompleted(bool isSuccess) => NavigationCompleted(isSuccess);
+
+        /// <summary>
+        /// Visible, and every ancestor visible too. WinUI has no WPF-style IsVisible, and
+        /// Visibility is not inherited — a collapsed parent hides its children without changing
+        /// their property — so the chain has to be walked.
+        /// </summary>
+        static bool IsEffectivelyVisible(DependencyObject? node)
+        {
+            for (; node is not null; node = VisualTreeHelper.GetParent(node))
+                if (node is UIElement { Visibility: Visibility.Collapsed }) return false;
+            return true;
+        }
     }
 }

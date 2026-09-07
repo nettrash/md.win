@@ -20,6 +20,8 @@ internal static class AssetHost
     /// </summary>
     public static string WebRoot { get; } = Path.Combine(AppContext.BaseDirectory, AssetOrigin.WebFolderName);
 
+    static bool _servedIndex;
+
     const string AssetFilter = "https://" + AssetOrigin.Host + "/" + AssetOrigin.RichFolderName + "/*";
 
     /// <summary>
@@ -59,10 +61,45 @@ internal static class AssetHost
         {
             if (!Uri.TryCreate(e.Request.Uri, UriKind.Absolute, out var uri)) return;
 
-            e.Response = IsIndex(uri)
-                ? Response(sender, Encoding.UTF8.GetBytes(html()), "text/html; charset=utf-8", noStore: true)
-                : Asset(sender, uri);
+            if (IsIndex(uri))
+            {
+                var bytes = Encoding.UTF8.GetBytes(html());
+                // The one interaction no documentation states outright and no test on a Mac can
+                // reach: a virtual host mapping is consulted BEFORE WebResourceRequested, and the
+                // event is raised only because <install>\web\index.html does not exist on disk. If
+                // that ever changes, this line stops appearing and the preview goes blank — so the
+                // first time it happens is worth recording.
+                if (!_servedIndex)
+                {
+                    _servedIndex = true;
+                    App.Diagnostics.Write($"preview index served from memory, {bytes.Length} bytes");
+                }
+
+                e.Response = Response(sender, bytes, "text/html; charset=utf-8", noStore: true);
+                return;
+            }
+
+            e.Response = Asset(sender, uri);
         };
+    }
+
+    /// <summary>
+    /// One line, once, about the folder everything the page fetches comes from. If <c>web\rich</c>
+    /// is not beside md.exe the preview still renders text and silently loses every formula and
+    /// diagram, which is a long way to chase from the symptom.
+    /// </summary>
+    public static void LogRoot()
+    {
+        try
+        {
+            var rich = Path.Combine(WebRoot, AssetOrigin.RichFolderName);
+            var engines = Directory.Exists(rich) ? Directory.GetFiles(rich).Length : -1;
+            App.Diagnostics.Write($"preview assets: {WebRoot} exists={Directory.Exists(WebRoot)} rich={engines} files");
+        }
+        catch (Exception e)
+        {
+            App.Diagnostics.Write($"preview assets: could not be read: {e.Message}");
+        }
     }
 
     static bool IsIndex(Uri uri) =>
