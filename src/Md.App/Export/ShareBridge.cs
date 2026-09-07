@@ -37,6 +37,24 @@ internal sealed class ShareBridge(Window window) : IShare
 
     async Task ShareFileCoreAsync(string path, string title)
     {
+        try
+        {
+            await ShowSheetAsync(path, title);
+        }
+        catch (Exception e)
+        {
+            // Rethrown, never handled here: Share ▸ Source… is silent on every port (§7.8, and
+            // macOS's shareSource has no alert), so the reader must still see nothing. But the whole
+            // of this file is COM interop that only Windows can run, and "no sheet appeared" is
+            // otherwise indistinguishable from "the sheet appeared and was dismissed". One line in
+            // md.log is the difference between a bug report and a mystery.
+            App.Diagnostics.Write($"share failed for {path}: {e}");
+            throw;
+        }
+    }
+
+    async Task ShowSheetAsync(string path, string title)
+    {
         var file = await StorageFile.GetFileFromPathAsync(path);
         var handle = WinRT.Interop.WindowNative.GetWindowHandle(window);
 

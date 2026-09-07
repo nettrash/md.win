@@ -104,6 +104,37 @@ The app **launches, the editor works, the preview works and every export works**
    for 7 rich elements, via CDP `Page.captureScreenshot`), and PDF at A4 and 6×9 (correct MediaBox,
    three `\newpage` sections → three pages). Driven from the menu, File ▸ Export ▸ PDF… opened the
    real `FileSavePicker` and wrote a 2-page A4 PDF.
+5. **Print works, §7.2 exactly as designed.** Ctrl+P shows the overlay, Chromium's Browser dialog is
+   drawn inside the visible WebView2's rectangle with md's Print… / Done bar under it, and a real
+   print to "Microsoft Print to PDF" produced a 2-page file. **Paper comes from the dialog, not from
+   md**: that print is 612×792 pt (US Letter, the printer's default) where Export ▸ PDF… is
+   594.96×841.92 (md's A4). That difference is the design, not a bug — §7.2 rewrites no page size,
+   as on the Mac. Chromium's "Headers and footers" default-on is also expected and documented in
+   §7.2 and the README: the date and title print until the reader unticks it once, and the choice
+   sticks in our user-data folder. Done disposes the renderer — no WebView2 process is left behind.
+6. **Share works, both entries (§7.8).** `IDataTransferManagerInterop` → `GetForWindow(hwnd, ref
+   iid)` → `MarshalInterface<DataTransferManager>.FromAbi` → `ShowShareUIForWindow` all do what the
+   documented desktop sample says: the Windows 11 sheet opens anchored to the md window with the
+   file on it. Share ▸ Source… on an untitled document wrote the UTF-8 (no BOM) copy and offered
+   `Untitled.md`, 572 bytes; Share ▸ Rendered PDF… rendered first and offered `Untitled.pdf`,
+   110.6 KB — a real 2-page PDF at **594.96×841.92 (md's A4)**, which is the right contrast with
+   Print's 612×792: Share uses md's page size, Print uses the dialog's.
+   **The temp copy is not in `%TEMP%`.** Packaged, `Path.GetTempPath()` is virtualised, so the file
+   lands in `…\Packages\nettrash.md_*\TempState\`. Looking in the unvirtualised `%TEMP%` and finding
+   nothing is not evidence that the share failed.
+7. **All three pickers work, and so does `WinUiAlerts`.** Ctrl+O opened a `.md` through
+   `FileOpenPicker` (title, text and word count all matched the file on disk, preview rendered);
+   File ▸ Open TextBundle Folder… selected a `.textbundle` through `FolderPicker` and
+   `LoadBundleFolder` opened it in a window named for the bundle stem; Export ▸ TextBundle… ran
+   §7.7's full sequence — the `ContentDialog` "Choose where to keep the TextBundle" (the first
+   `WinUiAlerts` dialog ever shown), then the folder picker, then a correct bundle on disk
+   (`Sample.textbundle/text.md` + a v2 `info.json` + `assets/`). Save had already run via
+   Export ▸ PDF…. Open Recent populated itself along the way.
+
+**A benign log line, so it is not chased twice:** `preview navigation FAILED OperationCanceled`
+appears when a reload supersedes an in-flight navigation — opening a document navigates, and the
+next `Update` reloads over it. Chromium cancels the first. The preview renders correctly afterwards;
+`OperationCanceled` here is not a failure to investigate. Any other `WebErrorStatus` is.
 
 ### The bug that hid behind all of that — read before touching an adapter
 
@@ -117,16 +148,29 @@ drive `ExportRenderer` straight from the UI thread passed.
 
 The seams are frozen and the pipeline is right, so the marshalling lives at the **adapter boundary**:
 `src/Md.App/Services/UiDispatch.cs` hops onto the owning `DispatcherQueue` (inline when already
-there), and `ExportRenderer`, `ExportRendererFactory`, `Pickers`, `WinUiAlerts` and `ShareBridge` all
-go through it. **Any new adapter behind a frozen seam must do the same** — it will be called from a
-thread-pool continuation sooner or later, and a Mac can never catch it.
+there), and `ExportRenderer`, `ExportRendererFactory`, `Pickers`, `WinUiAlerts`, `ShareBridge` and
+`PrintOverlay.ShowAsync` all go through it. **Any new adapter behind a frozen seam must do the same**
+— it will be called from a thread-pool continuation sooner or later, and a Mac can never catch it.
+
+`PrintOverlay.ShowAsync` is the subtle one, and it is worth knowing why it is on the list. It is
+handed to `ExportPipeline.PrintAsync` as the `showPrintOverlay` delegate, and the pipeline's gate is
+`await _gate.WaitAsync().ConfigureAwait(false)`. Uncontended, that completes synchronously and Print
+arrives on the UI thread — which is why clicking Print on an idle window always looked fine. Press
+Print while an EPUB is being photographed and the gate is contended, the continuation lands on the
+thread pool, and the overlay's first line (`Visibility = Visibility.Visible`) throws. Contention is
+the only trigger, so this class of bug will not show up in casual clicking.
 
 ### Still never executed on Windows
 
-Print (`ShowPrintUI(Browser)` draws inside the control's own rectangle — the overlay exists for
-that), share via `IDataTransferManagerInterop`, the open/folder pickers, file-type activation,
-single-instance redirection, `FutureAccessList` for books, the Book window end to end, and the MSIX
-itself, which has never been built or opened.
+File-type activation, single-instance redirection, `FutureAccessList` for books, the Book window end
+to end, and the MSIX itself, which has never been built or opened.
+
+**Watch out for the silent ones.** `ExportPipeline.ShareSourceAsync` swallows every exception with no
+alert, deliberately — macOS's `shareSource` has none and §7.9 defines no title for one. So a share
+that fails looks exactly like a share the reader dismissed. `ShareBridge` therefore logs
+`share failed for <path>: …` to `md.log` and rethrows, which changes nothing the reader sees and is
+the only way this path is diagnosable at all. Any future silent-by-design flow wants the same
+treatment.
 
 `md.exe --selftest <outDir>` drives the real export pipeline over the fixture documents and writes
 `report.json`; CI runs it on `windows-latest` (x64 only — the runner cannot execute the ARM64 binary

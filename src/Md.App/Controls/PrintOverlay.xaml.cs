@@ -6,7 +6,9 @@
 using Md.App.Logic;
 using Md.App.Logic.Seams;
 using Md.App.Logic.Settings;
+using Md.App.Services;
 using Md.App.Web;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 
@@ -22,9 +24,19 @@ public sealed partial class PrintOverlay : UserControl
     ExportRenderer? _renderer;
     TaskCompletionSource? _dismissed;
 
+    /// <summary>
+    /// This control's thread. <see cref="ShowAsync"/> is handed to <c>ExportPipeline.PrintAsync</c>
+    /// as a delegate, and the pipeline's own gate (<c>await _gate.WaitAsync().ConfigureAwait(false)</c>)
+    /// resumes on the thread pool whenever an export is already in flight — so Print pressed during
+    /// an EPUB arrives here off the UI thread and the first `Visibility =` would throw. Same rule as
+    /// every other adapter behind a frozen seam; see <see cref="UiDispatch"/>.
+    /// </summary>
+    readonly DispatcherQueue _ui;
+
     public PrintOverlay()
     {
         InitializeComponent();
+        _ui = DispatcherQueue;
 
         Visibility = Visibility.Collapsed;
         Root.Padding = new Thickness(24);
@@ -53,9 +65,14 @@ public sealed partial class PrintOverlay : UserControl
     /// (with Print… disabled) rather than leaving the window looking as if nothing happened — the Mac
     /// swallows print failures and so does the pipeline, so this is the only trace there is.
     /// </summary>
-    public async Task ShowAsync(string paperHtml)
+    public Task ShowAsync(string paperHtml)
     {
         ArgumentNullException.ThrowIfNull(paperHtml);
+        return UiDispatch.OnAsync(_ui, () => ShowCoreAsync(paperHtml));
+    }
+
+    async Task ShowCoreAsync(string paperHtml)
+    {
         if (_dismissed is not null) return;            // already up; ShowPrintUI would refuse a second dialog anyway
 
         var dismissed = new TaskCompletionSource();
