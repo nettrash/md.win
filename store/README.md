@@ -16,11 +16,11 @@ because the apps differ; this one never mentions the others.
 | `system-requirements.txt` | Supplemental ▸ Additional system requirements | up to 11 items each for Minimum and Recommended hardware, ≤ 200 chars each, no bullets | 3 minimum, 2 recommended, longest 91 |
 | `search-terms.txt` | Properties ▸ Search terms | ≤ 7 unique terms or phrases (policy 10.1.3); the form has capped each at 30 chars and the set at 21 unique words | 7 terms |
 | `copyright.txt` | Supplemental ▸ Copyright and trademark info | 200 chars | 30 |
-| — | Supplemental ▸ Additional license terms | 10 000 chars; leave blank — MIT is in the repo and the package | blank |
+| — | Supplemental ▸ Additional license terms | 10 000 chars; leave blank — md is MIT, and `LICENSE` ships at the root of the MSIX as well as in the repo (`Md.App.csproj` includes it as Content) | blank |
 | — | Supplemental ▸ Short title / Sort title / Voice title | 50 / 255 / 255 — Xbox-facing, leave blank | blank |
 | `privacy-policy-url.txt` | Properties ▸ Privacy policy URL | **Mandatory** for a `runFullTrust` (desktop) app — policy 10.5.1 | 43 |
 | `support-url.txt` | Properties ▸ Website and Support contact info | a URL; the same page the app opens from Help ▸ md Help | 43 |
-| `certification-notes.txt` | Submission options ▸ Notes for certification | no documented limit; the form has capped it at 2 000 chars — stay under | 1995 |
+| `certification-notes.txt` | Submission options ▸ Notes for certification | no documented limit; the form has capped it at 2 000 chars — stay under | 1993 |
 | `screenshots/` (not yet captured) | Store listing ▸ Screenshots | at least 1; desktop up to 10; PNG, **1366 × 768 or larger** (4K allowed), ≤ 50 MB each; a caption ≤ 200 chars each | — |
 | — | Store listing ▸ Store logos ▸ 1:1 app tile icon | 300 × 300 PNG, strongly recommended (otherwise the Store uses the package's logo) | — |
 
@@ -72,7 +72,13 @@ Windows-specific:
   Mermaid, Graphviz, PlantUML and highlight.js. Say "the only outside code
   is the open-source engines … bundled in and run on your PC". Say the
   engines are open source and bundled; do **not** claim their licence texts
-  are published (that file is still pending family-wide).
+  are published (that file is still pending family-wide). The `LICENSE` the
+  package carries is **md's own MIT licence**, nothing more — it is not an
+  engine notice file, and no listing sentence may imply that it is. (Two
+  engine notices do ship, and only inside a document: an exported HTML page
+  carries KaTeX's MIT and OFL notice when it embeds the KaTeX faces, and
+  Mermaid's MIT notice when a Mermaid diagram brings its theme stylesheet with
+  it. That is an export's content, not a listing claim.)
 - **Not** "zero permissions", "no network", "no network access" or "makes
   no network connections" — the preview fetches an image a document names
   by URL, and WebView2 is Microsoft's runtime with its own diagnostics.
@@ -157,6 +163,44 @@ board. The wording of the questions changes; answer the substance.
   Bridge / full-trust products always need one). The site page must be
   live — `nettrash-me/frontend/assets/msstore/md/privacy.html`, served at
   the URL in `privacy-policy-url.txt` — *before* the submission is sent.
+  The site now builds it: `frontend/index.html` carries
+  `rel="copy-dir" href="assets/msstore"` beside the `appstore` and `play`
+  lines, and `trunk build --release` writes `dist/msstore/md/{privacy,support}.html`
+  (verified). What remains is the **deploy** — check both URLs answer 200.
+
+## Before submitting: what can only be done on Windows or in Partner Center
+
+Everything above is in the repo and reviewable here. The following cannot
+be: each needs a Windows machine, or the Partner Center form itself. None
+of them is done. Tick them off in order.
+
+- [ ] **Screenshots.** At least one is required and none exists — there is
+      no `store/screenshots/` folder yet. PNG, **1366 × 768 or larger**
+      (shoot 1920 × 1080), ≤ 50 MB each, up to 10; capture the six shots
+      listed under *Screenshots to capture* above, on a fresh local Windows
+      account, following the recipe there. Also consider the optional
+      300 × 300 PNG store logo.
+- [ ] **IARC age-rating questionnaire.** Answered in the submission form,
+      not in this repo (policy 11.11). The intended answers are written out
+      under *Age rating (IARC)* above — answer the substance, since the
+      wording of the questions changes.
+- [ ] **Reserve the product name.** Partner Center ▸ *Create a new app* →
+      reserve **md**; if it is taken, **md by nettrash** (never a
+      descriptive name — policy 10.1.1).
+- [ ] **Swap the `Identity` placeholders.** `src/Md.App/Package.appxmanifest`
+      ships `Name="nettrash.md"` and `Publisher="CN=nettrash"` as
+      placeholders, with a comment at the top of the file saying so. Replace
+      both with the values Partner Center ▸ *Product identity* shows for the
+      reserved name (or let Visual Studio ▸ *Associate App with the Store*
+      rewrite them). The MSIX will not be accepted until they match.
+- [ ] **Justify `runFullTrust`.** Partner Center asks why the restricted
+      capability is declared. Paste the CAPABILITIES paragraph from
+      `certification-notes.txt`: a WinUI 3 desktop app using the Windows file
+      pickers, drag and drop, file associations and WebView2, reading and
+      writing only the user's own documents.
+- [ ] **Deploy the two site pages.** `https://nettrash.me/msstore/md/privacy.html`
+      and `.../support.html` must answer 200 before the submission is sent;
+      the build already writes them (see *Properties and declarations*).
 
 ## First submission
 

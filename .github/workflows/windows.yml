@@ -104,6 +104,34 @@ jobs:
           -p:EnableWinAppRunSupport=false
           -v:minimal
 
+      # A regression guard for the one packaging bug that is invisible in a green build:
+      # the <Content> groups (Assets\, rich\ -> web\rich\, Examples\, LICENSE) only reach the
+      # payload because they carry CopyToOutputDirectory. Drop that metadata and everything still
+      # compiles, still packages, still uploads — and the installed app has no engines. An .msix is
+      # a zip, so the payload can simply be listed.
+      - name: Check the MSIX payload carries the engines, the examples and the licence
+        shell: pwsh
+        run: |
+          $msix = Get-ChildItem -Path "${{ github.workspace }}\AppPackages" -Recurse -Filter *.msix | Select-Object -First 1
+          if (-not $msix) { throw "no .msix was produced" }
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $zip = [System.IO.Compression.ZipFile]::OpenRead($msix.FullName)
+          # Zip entries use '/', but normalise anyway and unescape the URI encoding MakeAppx
+          # applies to names with spaces, so the comparison never turns on a quoting detail.
+          try {
+            $names = $zip.Entries.FullName |
+              ForEach-Object { [System.Uri]::UnescapeDataString($_).Replace('\', '/') }
+          } finally { $zip.Dispose() }
+          $required = @(
+            'web/rich/katex.min.js', 'web/rich/md-init.js', 'web/rich/mermaid.min.js',
+            'web/rich/viz-global.js', 'web/rich/plantuml.js', 'web/rich/highlight.min.js',
+            'web/rich/fonts/KaTeX_Main-Regular.woff2',
+            'Examples/01-Welcome.md', 'Examples/08-Plots.md',
+            'LICENSE')
+          $missing = $required | Where-Object { $names -notcontains $_ }
+          if ($missing) { throw "MSIX payload is missing: $($missing -join ', ')" }
+          Write-Host "MSIX payload OK: $($names.Count) entries, all required files present."
+
       - name: Upload MSIX
         uses: actions/upload-artifact@v4
         with:
@@ -137,6 +165,25 @@ jobs:
           -p:EnableWinAppRunSupport=false
           -p:OutDir=${{ github.workspace }}\SelfTestBuild\
           -v:minimal
+
+      # The same guard for the unpackaged half. This build is what --selftest runs, and it resolves
+      # web\ and Examples\ from AppContext.BaseDirectory — so an empty OutDir means the self-test
+      # would fail with a confusing WebView2 error instead of a plain "the build copied nothing".
+      - name: Check the unpackaged output carries the engines and the examples
+        if: matrix.platform == 'x64'
+        shell: pwsh
+        run: |
+          $out = "${{ github.workspace }}\SelfTestBuild"
+          $required = @(
+            'md.exe',
+            'web\rich\katex.min.js', 'web\rich\md-init.js', 'web\rich\mermaid.min.js',
+            'web\rich\viz-global.js', 'web\rich\plantuml.js', 'web\rich\highlight.min.js',
+            'web\rich\fonts\KaTeX_Main-Regular.woff2',
+            'Examples\01-Welcome.md', 'Examples\08-Plots.md',
+            'LICENSE')
+          $missing = $required | Where-Object { -not (Test-Path (Join-Path $out $_)) }
+          if ($missing) { throw "unpackaged build is missing: $($missing -join ', ')" }
+          Write-Host "Unpackaged output OK beside md.exe."
 
       # The report is written to the directory named after the flag, as SelfTest.TryStart reads it:
       # the argument that follows --selftest, or %TEMP%\md-selftest when none is given.

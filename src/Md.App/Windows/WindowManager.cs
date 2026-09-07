@@ -255,6 +255,10 @@ internal sealed class WindowManager
             OpenPath: path => OpenPath(path),
             ActivateWindow: id => Activate(id),
             Examples: _services.Examples.Examples,
+            Recent: _services.Recent,
+            // §6.1: the Book window's drop routes through the same resolution a document window's
+            // does — one drop rule for the app, not one per window.
+            PerformDrop: PerformDrop,
             Decorate: TintTitleBar));
 
         // §7: the same export half a document window has, over the Book window's own canvas and its
@@ -262,7 +266,8 @@ internal sealed class WindowManager
         var overlay = new Controls.PrintOverlay();
         window.OverlaySlot.Content = overlay;
         var exports = new DocumentExports(window, window.ExportRoot, overlay, scheduler, binding);
-        window.Exports = exports;
+        // Hands over the export half AND subscribes §7.1's footer ring to its pipeline.
+        window.AttachExports(exports);
         binding.Bind(window, exports, window.TrackOutput, ShowOverlay);
 
         RegisterShellCommands(window, binding);
@@ -290,7 +295,7 @@ internal sealed class WindowManager
     /// every window carries (§2.1), and §7's print, share and export acting on the article being
     /// written — which is what the Mac's book pane publishes as its active document (§8.5).
     /// </summary>
-    void RegisterShellCommands(BookWindow window, IPickers pickers)
+    void RegisterShellCommands(BookWindow window, BookWindowBinding binding)
     {
         var commands = window.Commands;
         var exports = window.Exports!;
@@ -298,8 +303,16 @@ internal sealed class WindowManager
         // File (§2.2). Everything that opens a document opens a document WINDOW: the Book window
         // edits articles of the book it is showing and nothing else.
         commands.Register(CommandId.New, () => OpenUntitled());
-        commands.Register(CommandId.Open, () => _ = OpenWithPickerAsync(pickers));
-        commands.Register(CommandId.OpenTextBundleFolder, () => _ = OpenBundleFolderAsync(pickers));
+        commands.Register(CommandId.Open, () => _ = OpenWithPickerAsync(binding));
+        // Open Recent belongs to EVERY window (§2.1), and the MRU behind it is the app's, not a
+        // window's — the same rows a document window shows, opening into a document window.
+        commands.Register(CommandId.OpenRecentEntry, argument => _ = OpenRecentAsync(window, argument as string, binding));
+        commands.Register(CommandId.ClearRecent, () =>
+        {
+            _services.Recent.Clear();
+            window.RefreshRecent();
+        });
+        commands.Register(CommandId.OpenTextBundleFolder, () => _ = OpenBundleFolderAsync(binding));
         commands.Register(CommandId.Example, argument => OpenExample(argument as string));
         commands.Register(CommandId.Close, () => _ = CloseBookWindowAsync(window));
         commands.Register(CommandId.Save, window.SaveArticle);
@@ -377,6 +390,26 @@ internal sealed class WindowManager
         {
             window.OverlaySlot.Visibility = Visibility.Collapsed;
         }
+    }
+
+    /// <summary>
+    /// File ▸ Open Recent ▸ a row, from the Book window (§6.6). A token is a promise, not a path: a
+    /// row whose file has been moved or deleted is forgotten and named, and the rows are re-read
+    /// either way — exactly what a document window's own handler does, because it is the same MRU.
+    /// </summary>
+    async Task OpenRecentAsync(BookWindow window, string? token, IAlerts alerts)
+    {
+        if (token is null) return;
+        var name = window.RecentRows.FirstOrDefault(e => string.Equals(e.Token, token, StringComparison.Ordinal))?.Name ?? token;
+        if (await _services.Recent.ResolveAsync(token) is not { } file)
+        {
+            _services.Recent.Remove(token);
+            window.RefreshRecent();
+            await alerts.WarnAsync(Strings.Documents.FileNotFound(name), "");
+            return;
+        }
+        OpenPath(file.Path);
+        window.RefreshRecent();
     }
 
     async Task OpenWithPickerAsync(IPickers pickers)

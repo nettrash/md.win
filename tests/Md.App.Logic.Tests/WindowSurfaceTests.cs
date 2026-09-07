@@ -220,6 +220,111 @@ public sealed class WindowSurfaceTests
         Assert.DoesNotContain("SetTitleBar", code, StringComparison.Ordinal);
     }
 
+    const string DocumentWindowFile = "DocumentWindow.xaml.cs";
+    const string BookWindowFile = "BookWindow.xaml.cs";
+    const string ManagerFile = "WindowManager.cs";
+
+    // ── §6.1, §6.6, §7.1: the affordances every window carries ────────────────────────────────
+
+    /// <summary>
+    /// §6.1 gives drag &amp; drop to <em>any</em> window root, and the README says so too. The Book
+    /// window had none, so a dropped file landed nowhere at all — a silent no-op is exactly what a
+    /// source pin catches off Windows. Both windows now run one classification and one manager call,
+    /// so a drop cannot drift from a double-click.
+    /// </summary>
+    [Theory]
+    [InlineData(DocumentWindowFile)]
+    [InlineData(BookWindowFile)]
+    public void BothWindowsAcceptADroppedDocument(string file)
+    {
+        Pins(file, "§6.1",
+            "Root.AllowDrop = true;",
+            "Root.DragOver += OnDragOver;",
+            "Root.Drop += OnDrop;",
+            "args.DataView.Contains(StandardDataFormats.StorageItems)",
+            "DataPackageOperation.Copy",
+            "await args.DataView.GetStorageItemsAsync()",
+            "ActivationRouter.Classify(new ActivationItem(item.Path ?? \"\", item is StorageFolder))",
+            // GetStorageItemsAsync is awaited: without the deferral the data view can be released
+            // under the handler, and the drop silently yields nothing.
+            "args.GetDeferral()",
+            "deferral.Complete();");
+    }
+
+    /// <summary>
+    /// §2.1: "every window carries the same seven menus". Open Recent's rows are the app's MRU, so
+    /// the Book window publishes them and the manager wires both of its commands — without the rows
+    /// the row is permanently greyed, and without the commands it is enabled and inert.
+    /// </summary>
+    [Fact]
+    public void TheBookWindowPublishesAndWiresOpenRecent()
+    {
+        Pins(BookWindowFile, "§2.1, §6.6",
+            "RecentEntries = _recent,",
+            "public void RefreshRecent()",
+            "_services.Recent.Entries");
+        Pins(ManagerFile, "§2.1, §6.6",
+            "commands.Register(CommandId.OpenRecentEntry,",
+            "commands.Register(CommandId.ClearRecent,",
+            "window.RefreshRecent();");
+    }
+
+    /// <summary>
+    /// §7.1: "a ProgressRing appears in the footer after 500 ms". The delay and the UI-thread hop are
+    /// <c>Md.App.Logic.Export.BusyRing</c>'s (and tested there); what cannot be tested off Windows is
+    /// that each window actually subscribes one to its pipeline — which is what left
+    /// <c>BusyChanged</c> with no consumer at all.
+    /// </summary>
+    [Fact]
+    public void BothWindowsShowTheExportRingInTheirFooter()
+    {
+        Pins(DocumentWindowFile, "§7.1",
+            "_busy = new BusyRing(_scheduler, _ui, Footer.ShowBusy);",
+            "_exports.Pipeline.BusyChanged += _busy.BusyChanged;",
+            "_busy.Cancel();");
+        Pins(BookWindowFile, "§7.1",
+            "_busy = new BusyRing(services.Scheduler, services.UiThread, _counts.ShowBusy);",
+            "_busy.Cancel();");
+        // The Book window's pipeline does not exist when its constructor runs — the manager builds it
+        // — so the subscription lives in the hand-over rather than in the constructor.
+        Pins(BookWindowFile, "§7.1", "exports.Pipeline.BusyChanged += _busy.BusyChanged;");
+        Pins(ManagerFile, "§7.1", "window.AttachExports(exports);");
+    }
+
+    /// <summary>
+    /// One spelling of the two things §9 and §1.3 give the Book window: its "WxH" client size and its
+    /// title. Both were hand-built copies in <c>BookWindow.xaml.cs</c> — the codec beside
+    /// <c>WindowPlacement</c>'s own, the title beside <c>WindowTitle.ForBook</c> — and the copies
+    /// disagreed with the originals about an empty book name and about a size below the minimum.
+    /// </summary>
+    [Fact]
+    public void TheBookWindowUsesTheSharedTitleAndSizeCodecs()
+    {
+        Pins(BookWindowFile, "§1.3, §9",
+            "WindowTitle.ForBook(book?.Name,",
+            "WindowPlacement.ParseSize(_services.Settings.GetString(SettingsKeys.BookWindowSize), WindowPlacement.BookDefault)",
+            "WindowPlacement.FormatSize(new WindowSize(");
+        // And the second copy is gone rather than merely unused.
+        Assert.DoesNotContain("static (int Width, int Height) ParseSize(", Source(BookWindowFile), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// <c>Canvas.Left</c> is an attached property a <em>Canvas parent</em> reads. Both export canvases
+    /// are children of a <c>Grid</c>, so setting it on the canvas itself positioned nothing; it is the
+    /// WebView2 INSIDE that ExportRenderer parks off-screen (§7.1). The Book window used to set both,
+    /// which read as "the canvas is parked" and was not true.
+    /// </summary>
+    [Fact]
+    public void NeitherWindowPositionsItsExportCanvasWithCanvasAttachedProperties()
+    {
+        foreach (var file in new[] { DocumentWindowFile, BookWindowFile })
+        {
+            var code = CodeOnly(file);
+            Assert.DoesNotContain("Canvas.SetLeft(ExportCanvas", code, StringComparison.Ordinal);
+            Assert.DoesNotContain("Canvas.SetTop(ExportCanvas", code, StringComparison.Ordinal);
+        }
+    }
+
     // ── the wiring contract: no menu row reaches nothing ──────────────────────────────────────
 
     /// <summary>
@@ -231,10 +336,6 @@ public sealed class WindowSurfaceTests
     /// </summary>
     static IReadOnlyList<string> RegisteredIn(params string[] files) =>
         [.. files.SelectMany(file => Regex.Matches(Source(file), @"\.Register\(CommandId\.(\w+)").Select(m => m.Groups[1].Value)).Distinct()];
-
-    const string DocumentWindowFile = "DocumentWindow.xaml.cs";
-    const string BookWindowFile = "BookWindow.xaml.cs";
-    const string ManagerFile = "WindowManager.cs";
 
     [Fact]
     public void EveryCommandIsWiredInAWindow()
@@ -277,12 +378,37 @@ public sealed class WindowSurfaceTests
         var wired = RegisteredIn(BookWindowFile, ManagerFile).ToHashSet(StringComparer.Ordinal);
         var dead = Missing(BookSnapshot, wired);
 
-        // The exceptions, and why each one is a DESIGN gap rather than a wiring one — §8.1 gives the
-        // Book window a menu row, a SplitView, a footer and an InfoBar, and no find bar; and §2.2's
-        // Save As has no meaning for an article that must stay inside its book folder. Both rows are
-        // enabled by §2.2/§2.4's tables all the same. They are named here so that a fourth one
-        // cannot appear unnoticed — the day either is decided, delete it from this list.
-        Assert.Equal(["Find", "SaveAs", "UseSelectionForFind"], dead);
+        // Empty, and it was not always: Find…, Save As… and Use Selection for Find were enabled here
+        // by §2.2/§2.4's tables while no file wired them, and were named in this list so a fourth
+        // could not appear unnoticed. They are settled now — CommandEnablement refuses all three in
+        // the Book window (§8.1 gives it no find bar; an article that must stay inside its book
+        // folder has nowhere to be saved AS) — so the list is gone rather than grown.
+        Assert.Equal([], dead);
+
+        // And the row this snapshot exists to catch: Open Recent belongs to every window (§2.1), so
+        // a Book window with entries lights it up and the manager must wire it.
+        Assert.True(CommandEnablement.IsEnabled(CommandId.OpenRecentEntry, BookSnapshot));
+        Assert.True(CommandEnablement.IsEnabled(CommandId.ClearRecent, BookSnapshot));
+    }
+
+    /// <summary>
+    /// The three §2.4/§2.2 rows the Book window may not light up, asserted from the other end: not
+    /// "no file registers them" (which is what <see cref="TheBookWindowWiresEveryRowItsOwnMenusCanEnable"/>
+    /// reads) but "the enablement itself says no", on a snapshot where every condition §2's tables
+    /// name is true. A handler quietly appearing for one of them would leave that test green and
+    /// this one is what would then have to be deleted on purpose.
+    /// </summary>
+    [Fact]
+    public void TheBookWindowNeverEnablesTheThreeRowsItHasNoSurfaceFor()
+    {
+        var everything = BookSnapshot with { HasFindQuery = true, RecentEntries = [] };
+        Assert.False(CommandEnablement.IsEnabled(CommandId.SaveAs, everything));
+        Assert.False(CommandEnablement.IsEnabled(CommandId.Find, everything));
+        Assert.False(CommandEnablement.IsEnabled(CommandId.UseSelectionForFind, everything));
+        // The same three in a document window, so this is about the Book window and not the snapshot.
+        Assert.True(CommandEnablement.IsEnabled(CommandId.SaveAs, DocumentSnapshot));
+        Assert.True(CommandEnablement.IsEnabled(CommandId.Find, DocumentSnapshot));
+        Assert.True(CommandEnablement.IsEnabled(CommandId.UseSelectionForFind, DocumentSnapshot));
     }
 
     /// <summary>The ids §2's tables light up for this window that no file wires — the dead rows.</summary>
@@ -328,6 +454,8 @@ public sealed class WindowSurfaceTests
         EditorVisible = true,
         CanUndo = true,
         CanRedo = true,
+        // §2.1: Open Recent's rows are every window's, the Book window included (§6.6).
+        RecentEntries = [new RecentEntry("tok", "notes.md", @"C:\Users\n\Documents")],
         WindowTitles = [(Guid.NewGuid(), "Book", true)],
         HasSelection = true,
         SidebarOpen = true,

@@ -10,7 +10,7 @@ ONE-MINUTE WALKTHROUGH
 
 NETWORK: No servers of ours; no analytics, advertising or telemetry. The only network use is the WebView2 renderer fetching an image a user's own document references by URL (the Images example does).
 
-CODE: The engines (KaTeX with mhchem, Mermaid, Graphviz via Viz.js, PlantUML, highlight.js) are open-source JavaScript bundled in the package and served to WebView2 from a virtual host mapped to the install folder. Nothing is downloaded or updated at run time. The WebView2 Runtime is Windows 11's own.
+CODE: The engines (KaTeX with mhchem, Mermaid, Graphviz via Viz.js, PlantUML, highlight.js) are open-source JavaScript bundled in the package and served to WebView2 from a virtual host mapped to their own folder. Nothing is downloaded or updated at run time. The WebView2 Runtime is Windows 11's own.
 
 CAPABILITIES: runFullTrust only. A WinUI 3 desktop app using the Windows file pickers, drag and drop, file associations and WebView2; it reads and writes only the documents the user opens or saves. No camera, microphone, location or contacts.
 

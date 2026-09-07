@@ -178,9 +178,9 @@ internal sealed partial class BookWindow : Window
 
         _commands = new CommandDispatcher(services.Clock, Snapshot);
         _menus = new MenuBarBuilder(_commands, new MenuBarSources(services.Examples, NotePreview.Of));
-        // §7.1's footer ring. The pipeline it listens to does not exist yet — the manager builds this
-        // window's export half the moment the constructor returns (see Exports) — so the ring is
-        // created here and subscribed there.
+        // §7.1's footer ring. The pipeline it listens to does not exist yet — the manager builds
+        // this window's export half the moment the constructor returns — so the ring is created here
+        // and subscribed in AttachExports.
         _busy = new BusyRing(services.Scheduler, services.UiThread, _counts.ShowBusy);
 
         // Before the menu bar is built: the File ▸ Open Recent run is filled from the snapshot, and

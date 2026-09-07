@@ -3,10 +3,12 @@ using Md.App.Logic.Seams;
 namespace Md.App.Logic.Preview;
 
 /// <summary>
-/// Md.Core's HTML writer as the coordinator needs it. It is a seam only because
-/// <c>Md.Core.Markdown.MarkdownHtml</c> (core-api.md Part B) is still being written: when it lands,
-/// <see cref="DocumentHtml.Default"/> becomes <c>new CoreDocumentHtml()</c> whose body is the one
-/// line <c>MarkdownHtml.Document(source, title, dark)</c>, and nothing else moves.
+/// Md.Core's HTML writer as the coordinator needs it. It stays a seam now that
+/// <c>Md.Core.Markdown.MarkdownHtml</c> exists (core-api.md Part B) so a coordinator test can hand
+/// in its own writer and assert what was rendered without going through Core; the app's
+/// implementation is <c>App.CoreDocumentHtml</c>, whose body is the one line
+/// <c>MarkdownHtml.Document(source, title, dark)</c>, set into <see cref="DocumentHtml.Default"/>
+/// at start-up.
 /// </summary>
 public interface IDocumentHtml
 {

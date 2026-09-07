@@ -278,11 +278,18 @@ Windows.
 
 ### 2.3 Examples rows
 
-`ExampleLibrary` (Md.App.Logic) enumerates `<install>\Examples\*.md` (`SearchOption.TopDirectoryOnly` —
-`Example Book\` is not listed), sorts with Core's `BookOrdering.NaturalCompare` (the Kotlin natural
-comparator, parity with Android rather than Explorer), titles rows with
-`ExampleName.DisplayName(fileName)`: strip `^[0-9]+-` **only if something remains** (`[0-9]`, never
-`\d`). Expected rows: Welcome, Formatting, Tables, Code, Images, Math, Diagrams, Plots, Writer Tools.
+`ExampleLibrary` (Md.App.**Services**) enumerates `<install>\Examples\*.md`
+(`SearchOption.TopDirectoryOnly` — `Example Book\` is not listed) and hands the bare file names to
+Core's `ExampleLibrary.FromListing`, which is what both sorts and titles them: `CompareNatural`
+(Finder's `localizedStandardCompare`, hand-written so no culture or ICU table is consulted) and
+`DisplayName(fileName)` — strip `^[0-9]+-` **only if something remains** (`[0-9]`, never `\d`, and
+the `-` must be a single grapheme, so a dash wearing a combining mark is not a separator).
+
+> Earlier drafts of this section named `Md.App.Logic.Text.ExampleName.DisplayName` and a
+> `BookOrdering.NaturalCompare`. Neither exists: `ExampleName` was a second, subtly different copy of
+> the prefix rule that nothing called (it compared `char`s where Core compares grapheme clusters) and
+> was deleted; the sorter is `ExampleLibrary.CompareNatural`. `docs/core-api.md` is the authority for
+> both (see its `ExampleLibrary` line and the `BookOrder.NaturalCompare` note). Expected rows: Welcome, Formatting, Tables, Code, Images, Math, Diagrams, Plots, Writer Tools.
 Opening reads UTF-8 and creates a new **untitled, dirty** window with the text (title "Untitled — Edited";
 mode Split by the open rule because the text is non-empty).
 
@@ -505,10 +512,20 @@ core.Navigate(IndexUrl);   // "https://md.assets/index.html"
 ```
 
 - `WebRoot = Path.Combine(AppContext.BaseDirectory, "web")`. `Md.App.csproj` carries the engines as
-  `<Content Include="rich\**\*" Link="web\rich\%(RecursiveDir)%(Filename)%(Extension)" />` so the package
-  holds `web\rich\…` and the page can fetch **only** `rich/` — never `md.dll`, `Examples\` or any assembly
+  `<Content Include="rich\**\*" Link="web\rich\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />`
+  so the package holds `web\rich\…` and the page can fetch **only** `rich/` — never `md.dll`, `Examples\` or any assembly
   (mapping the install root, as two designs did, exposed them). `AppContext.BaseDirectory` is right both
   packaged and unpackaged (`Package.Current` throws unpackaged — never use it for paths).
+  **`CopyToOutputDirectory` is load-bearing, not decoration.** MSBuild lifts a `ContentWithTargetPath`
+  item into `AllItemsFullPathWithTargetPath` only when that metadata is `Always` / `PreserveNewest` /
+  `IfDifferent` (`Microsoft.Common.CurrentVersion.targets`,
+  `_GetCopyToOutputDirectoryItemsFromThisProject`), and that item set is exactly what
+  `GetCopyToOutputDirectoryItemsOutputGroup` hands to the MSIX tooling's `GetPackagingOutputs`
+  (`Microsoft.Windows.SDK.BuildTools.MSIX.Packaging.targets`, which never calls
+  `ContentFilesProjectOutputGroup`). Without it the engines reach **neither** the output directory nor
+  the package: `web\` is empty beside `md.exe`, and §11.4's unpackaged `--selftest` leg
+  (`-p:WindowsPackageType=None`) finds no engines at all. The same holds for `Examples\` (§2.3, read
+  from `AppContext.BaseDirectory`) and `Assets\`.
 - Same host for page and assets is what makes `href="rich/katex.min.css"`, `src="rich/md-init.js"`,
   `import('./plantuml.js')` inside `md-init.js`, `url(fonts/…)` inside `katex.min.css` and `href="#slug"`
   all resolve with the generated HTML **unchanged** — no `<base href>`, no string rewriting, no edit to
@@ -1239,7 +1256,7 @@ md.vscode's does. Icons: Segoe Fluent Icons (`FontIcon.Glyph`) mapped from SF Sy
 | `Documents/FileIdentity.cs` **(P/Invoke, Windows-only at run time)** | §5.2 canonical path | two spellings → one identity; junction equality (`[Fact]` skipped off Windows) |
 | `Documents/FileSystemWatcherAdapter.cs`, `Documents/SystemIoFileSystem.cs` | `IFileWatcher`, `IFileSystem` over `System.IO` | stamp-filtered echo with a temp folder |
 | `View/DocumentWindowState.cs`, `View/ViewModeController.cs`, `View/ZenController.cs`, `View/SplitLayout.cs`, `View/DerivedTextScheduler.cs`, `View/DerivedText.cs`, `View/ScrollSync.cs`, `View/ScrollSyncGuard.cs` | §5 | the seven Swift view-mode cases + migrate / re-decide / sticky book exemption / nudge cleared by a pick / Zen never stores; presenter-observer ordering; 640 rule; 250 ms scheduler with a fake clock |
-| `Text/NotePreview.cs`, `Text/ExampleName.cs`, `Text/IWordCounter.cs`, `Text/SimpleWordCounter.cs`, `Text/IcuWordCounter.cs` **(P/Invoke)** | §5.5, §5.6, §2.3 | emoji/combining marks; `01-` stays `01-`; the five vectors for both counters; CJK vector for ICU (Windows leg) |
+| `Text/NotePreview.cs`, `Text/IWordCounter.cs`, `Text/SimpleWordCounter.cs`, `Text/IcuWordCounter.cs` **(P/Invoke)** | §5.5, §5.6 | emoji/combining marks; the five vectors for both counters; CJK vector for ICU (Windows leg). §2.3's `01-` stays `01-` vector lives in `Md.Core.Tests/ExampleLibraryTests`, with the bundled nine pinned by `BundledExamplesTests`. |
 | `Preview/PreviewCoordinator.cs`, `Preview/IPreviewSurface.cs`, `Preview/PreviewNavigation.cs`, `Preview/EditorJump.cs`, `Preview/LinkPolicy.cs`, `Preview/ScreenHtml.cs`, `Preview/AssetMime.cs`, `Preview/Scripts.cs`, `Preview/JsonScript.cs` | §4 | first load / coalescing / token change / restore only when > 0 / stale-while-collapsed / parked navigation / dedupe by id; the link matrix incl. `https://md.assets/other → Cancel`; exact `md-win-fonts` bytes + idempotence; MIME table; the scroll script equals the Mac's except the one substitution; JSON decoding of `"1"`, `null`, numbers |
 | `Export/ExportPipeline.cs`, `Export/IRenderSurface.cs`, `Export/RenderCompletePoller.cs`, `Export/PrintGeometry.cs`, `Export/ExportFileNames.cs`, `Export/RenderKind.cs` | §7 | every flow against a fake surface (picker-before-render order for EPUB, render-before-picker for PDF); 250 ms × 480 and timeout = success; inches = pt/72, margins 0.5; export HTML never contains `md-win-fonts` |
 | `Books/BookNavigatorModel.cs`, `Books/BookStepper.cs`, `Books/BookFlushGate.cs`, `Books/BookOutput.cs`, `Books/BookSidebarModel.cs` | §8.5–§8.7 | book.md §13.7 algorithms against temp folders; stepper entering from front/back; gate veto |
@@ -1281,7 +1298,9 @@ in code with a typed fallback). Everything dynamic is set from code.
 
 - `Md.App.csproj`: `DISABLE_XAML_GENERATED_MAIN` + `<StartupObject>Md.App.Program</StartupObject>`;
   `<ProjectReference Include="..\Md.App.Logic\Md.App.Logic.csproj" />`; replace `<Content Include="rich\**\*" />`
-  with `<Content Include="rich\**\*" Link="web\rich\%(RecursiveDir)%(Filename)%(Extension)" />`;
+  with `<Content Include="rich\**\*" Link="web\rich\%(RecursiveDir)%(Filename)%(Extension)" />`; give **every**
+  `<Content>` group (`Assets\`, `rich\`, `Examples\`, `LICENSE`) `CopyToOutputDirectory="PreserveNewest"`,
+  without which none of them reaches the output directory or the MSIX payload (§4.2);
   `<AllowUnsafeBlocks>true</AllowUnsafeBlocks>` for the interop file. Capabilities unchanged (`runFullTrust`).
 - `Package.appxmanifest`: unchanged (associations already declared; `.textbundle` stays unassociated;
   `Identity` from Partner Center).
@@ -1537,7 +1556,7 @@ the §13.2 interfaces (which **WP0 checks in first, frozen**). Fakes for every s
 
 | WP | Scope | Owns (Logic) | Owns (App) | Depends on | Mac-verifiable deliverable |
 | --- | --- | --- | --- | --- | --- |
-| **WP0 Foundation** | csproj/slnx/CI, seams, fakes, palette, strings, Program/App skeleton, theme resources | `Md.App.Logic.csproj`, `Seams/*`, `Settings/*`, `Strings.cs`, `Text/ExampleName.cs`; `tests/Md.App.Logic.Tests` project + `Fakes/*` | `Program.cs`, `Redirection.cs`, `App.xaml(.cs)`, `Services/LocalSettingsStore.cs`, `Services/DispatcherScheduler.cs`, `Services/UiThread.cs`, `Interop/NativeMethods.cs`, csproj/manifest edits, `windows.yml` | — | both projects build; xamlcheck green; CI matrix runs Logic tests |
+| **WP0 Foundation** | csproj/slnx/CI, seams, fakes, palette, strings, Program/App skeleton, theme resources | `Md.App.Logic.csproj`, `Seams/*`, `Settings/*`, `Strings.cs`; `tests/Md.App.Logic.Tests` project + `Fakes/*` | `Program.cs`, `Redirection.cs`, `App.xaml(.cs)`, `Services/LocalSettingsStore.cs`, `Services/DispatcherScheduler.cs`, `Services/UiThread.cs`, `Interop/NativeMethods.cs`, csproj/manifest edits, `windows.yml` | — | both projects build; xamlcheck green; CI matrix runs Logic tests |
 | **WP1 Commands & menus** | §2 | `Commands/*` | `Menus/MenuBarBuilder.cs`, `Menus/AcceleratorInstaller.cs`, `Controls/AboutDialog.cs` | WP0 | table invariants; enablement rows; debounce |
 | **WP2 Documents** | §6, §3.2 | `Documents/*` (incl. `FileIdentity`, `FileSystemWatcherAdapter`, `SystemIoFileSystem`) | `Services/Pickers.cs`, `Services/RecentFiles.cs`, `Services/WinUiAlerts.cs`, `Services/ExampleLibrary.cs` | WP0 | 14 session tests + document rows; newline/BOM round trips; rescue; identity (Windows leg) |
 | **WP3 Windows & activation** | §1 | `Activation/*`, `Windows/*` (registry, title, placement, session store) | `Windows/DocumentWindow.xaml(.cs)`, `Windows/WindowManager.cs`, `Windows/TitleBarTint.cs` | WP0; consumes WP1/WP2/WP4/WP5 through interfaces | router table; registry; session.json round trip |
@@ -1573,7 +1592,7 @@ interfaces above plus three concrete classes other packages instantiate: `TextFi
 `StandaloneDocument(svg)`, `LaTeXExport.Document/Book`, `TextBundle.TextFromPack/TextFromBundleFolder`,
 `TextBundleExport.ExportRewriting`, `ExportFileNames.Sanitized`, `Md.Core.Text.PlainTextCodec.Decode/Encode`,
 `TextEncodingKind`, `Md.Core.Book.BookFolder` (`LoadBook`, `CreateChapter`, `CreateArticle`, `RenameItem`,
-`DeleteItem`, `ApplyRenames`, `CompileBookSource`, `ReadStructuredBook`), `BookNames`, `BookOrdering.NaturalCompare`,
+`DeleteItem`, `ApplyRenames`, `CompileBookSource`, `ReadStructuredBook`), `BookNaming`, `BookOrder.NaturalCompare`,
 `RenumberPlan`, `ReadingOrder`, `Destination`, `ViewModeRule`, `ViewModeMemory` (`Identity`, `Lookup`,
 `Remember`, `Sha256Prefix`), `BookArticleOpens.Mark/ClaimOpen`. If the Core team's final spelling differs,
 the one place to change is the Logic call site; nothing in Md.App references Core directly except

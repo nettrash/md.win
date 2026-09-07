@@ -249,4 +249,13 @@ number, and the family's `1.0` ships as `1.0.0.0`.
 
 ## License
 
-MIT — see [LICENSE](LICENSE). © 2026 nettrash.
+MIT — see [LICENSE](LICENSE). © 2026 nettrash. The file ships inside the
+app as well: `Md.App.csproj` includes it as content, so `LICENSE` sits at
+the root of the MSIX and beside `md.exe` in an unpackaged build. It is
+md's own licence only — the vendored engines under `src/Md.App/rich/` keep
+theirs, and a notices file for them is still pending across the family.
+What does travel are the two notices an **Export ▸ HTML…** page owes for
+what it embeds: KaTeX's MIT notice with the fonts' SIL Open Font License
+notice when the KaTeX faces are inlined, and Mermaid's MIT notice when a
+Mermaid diagram carries its theme stylesheet into the page. Both are in
+`Md.Core.HtmlExport` as fixed strings — copy them, never reword them.

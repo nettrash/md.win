@@ -93,9 +93,12 @@ following:
   the file you named — in the package's temporary folder. It holds nothing
   but those copies; Windows may clear it at any time, and removing the app
   removes it.
-- `md.log` — an error log, written **only** when md hits an unhandled
-  error, beside `session.json`. A line is a timestamp and the error's own
-  text, which can name the file md was reading or writing when it failed.
+- `md.log` — an append-only error log beside `session.json`, written
+  **only** when something goes wrong: an unhandled exception, a file md was
+  asked to open that it could not, or a start-up on which Windows gave md no
+  package identity (settings are not saved that run). A line is a timestamp
+  and the error's own text, which can name the file md was reading or writing
+  when it failed.
   It is written for you, on your PC: nothing is sent anywhere, no crash
   report of ours exists to send it to, you can read or delete the file at
   any time, and removing the app removes it.
@@ -109,7 +112,8 @@ empties md's list.
 One file may be written beside *your* document rather than in md's folders:
 if a save fails while a window is closing — a full disk, a locked file — md
 keeps your text next to the original as `<name> (rescued)` with the
-original extension — `Notes (rescued).md` — and tells you so. It is your document, in your folder, and md never touches it again.
+original extension (then `(rescued 2)`, and so on) — and tells you so. It
+is your document, in your folder, and md never touches it again.
 
 None of these settings and files leave your PC, and none of them contain
 personal information. If a future version remembers anything else, it is

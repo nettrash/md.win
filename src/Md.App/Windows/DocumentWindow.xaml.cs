@@ -9,6 +9,7 @@ using Md.App.Logic;
 using Md.App.Logic.Activation;
 using Md.App.Logic.Commands;
 using Md.App.Logic.Documents;
+using Md.App.Logic.Export;
 using Md.App.Logic.Seams;
 using Md.App.Logic.Settings;
 using Md.App.Logic.Text;
@@ -53,6 +54,7 @@ internal sealed partial class DocumentWindow : Window
     readonly MenuBarBuilder _menu;
     readonly PrintOverlay _printOverlay;
     readonly DocumentExports _exports;
+    readonly BusyRing _busy;
 
     IReadOnlyList<Md.App.Logic.Commands.DiagramRef> _diagrams = [];
     (bool Conflicted, string? Error)? _infoState;
@@ -101,6 +103,10 @@ internal sealed partial class DocumentWindow : Window
         // preview into the overlay OverlayHost holds, and every dialog belongs to this window.
         _printOverlay = new PrintOverlay();
         _exports = new DocumentExports(this, ExportSurface, _printOverlay, _scheduler, _alerts);
+        // §7.1: the footer's progress ring, 500 ms after an export starts. BusyRing owns the delay
+        // and the UI-thread hop — BusyChanged is raised after an await that does not capture the
+        // context, so it arrives on a thread-pool thread.
+        _busy = new BusyRing(_scheduler, _ui, Footer.ShowBusy);
 
         services.Registry.Add(Id, Strings.Untitled);
         BuildContent();
@@ -342,6 +348,7 @@ internal sealed partial class DocumentWindow : Window
         Find.QueryChanged += _ => Publish();
 
         _derived.Changed += OnDerivedChanged;
+        _exports.Pipeline.BusyChanged += _busy.BusyChanged;
         _services.Registry.Changed += Publish;
         _services.Settings.Changed += OnSettingChanged;
 
@@ -578,7 +585,9 @@ internal sealed partial class DocumentWindow : Window
         _services.Registry.Changed -= Publish;
         _derived.Cancel();
         // Anything still rendering stops rather than talking to a dead XamlRoot (§7.1). The wait for
-        // it already happened in RequestCloseAsync; this is the export's own cancellation.
+        // it already happened in RequestCloseAsync; this is the export's own cancellation, and the
+        // ring's — a timer still counting out its 500 ms must not fire into a footer that is going.
+        _busy.Cancel();
         _exports.Cancel();
         _session.Dispose();
         _watcher.Dispose();

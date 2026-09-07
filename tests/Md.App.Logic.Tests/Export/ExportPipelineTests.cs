@@ -473,16 +473,34 @@ public class ExportPipelineTests
             : script.StartsWith("Array.from", StringComparison.Ordinal) ? ExportHarness.Rects(EpubExport.PlanDocument(Rich, "Doc").Units[0].RichElements.Count)
             : ExportHarness.Json("<svg></svg>");
 
-        h.WillSave(".pdf");
+        var pdf = h.WillSave(".pdf");
         h.Drain(h.Pipeline.ExportPdfAsync(Rich, "Doc", PageSize.A4));
-        h.WillSave(".html");
+        var htmlFile = h.WillSave(".html");
         h.Drain(h.Pipeline.ExportHtmlAsync(Rich, "Doc"));
-        h.WillSave(".epub");
+        var epub = h.WillSave(".epub");
         h.Drain(h.Pipeline.ExportEpubAsync(Rich, "Doc.md"));
-        h.WillSave(".svg");
+        var svg = h.WillSave(".svg");
         h.Drain(h.Pipeline.ExportDiagramSvgAsync(Rich, "Doc", Md.Core.Export.DiagramSvg.Diagrams(Rich)[0]));
 
         Assert.Empty(h.Alerts.Warnings);
+
+        // "every exported file is pure", asserted of the BYTES rather than of what a renderer was
+        // handed. The load-side check below is the mechanism; this is the artefact, and it is the one
+        // that ships — an export that reached the marker some other way (a second WithWindowsFonts
+        // call site, a capture that kept the <style>) would pass the loop and fail here.
+        foreach (var path in new[] { pdf, htmlFile, epub, svg })
+        {
+            var bytes = h.WrittenBytes(path);
+            Assert.NotNull(bytes);
+            Assert.NotEmpty(bytes!);
+            // EPUB is a zip and PDF is binary, so the marker is searched for as raw ASCII: it is
+            // pure ASCII, and a deflated copy that this misses cannot have come from WithWindowsFonts
+            // (both files are assembled from ExportDocumentHtml, which never carries it).
+            Assert.DoesNotContain(
+                ScreenHtml.IdMarker,
+                System.Text.Encoding.Latin1.GetString(bytes!),
+                StringComparison.Ordinal);
+        }
 
         // The other half of the rule: what the reader looks at, on screen and on paper, does carry it.
         Assert.Contains(ScreenHtml.IdMarker, ScreenHtml.WithWindowsFonts(MarkdownHtml.Document(Rich, "Doc", dark: false, export: false)), StringComparison.Ordinal);

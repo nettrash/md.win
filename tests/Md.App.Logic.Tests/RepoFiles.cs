@@ -3,7 +3,8 @@ namespace Md.App.Logic.Tests;
 /// <summary>
 /// The checkout, for the tests that pin a repo file against the code: <c>App.xaml</c> and
 /// <c>Package.appxmanifest</c> against <c>Palette</c>, the bundled <c>Examples\</c> against
-/// <c>ExampleName</c>. Found by walking up from the test assembly to the directory holding
+/// <c>Md.Core.Document.ExampleLibrary</c>, and <c>src\Md.App</c>'s own sources against the numbers
+/// shell-design.md fixes. Found by walking up from the test assembly to the directory holding
 /// <c>md.slnx</c>, so it works from <c>dotnet test</c> on any OS and in CI.
 /// </summary>
 static class RepoFiles

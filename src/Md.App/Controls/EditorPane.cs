@@ -33,7 +33,9 @@ public sealed class EditorPane : UserControl
     ScrollViewer? _scroller;
     ScrollSync? _sync;
     ScrollSyncGuard? _guard;
-    Guid? _lastJumpId;
+    // app-api.md §WP4: the "performed once per id" rule is Md.App.Logic's, not a second copy of it
+    // here — a bare `Guid? _lastJumpId` said the same thing in a file no test off Windows can reach.
+    readonly EditorJumpTracker _jumps = new();
     bool _replacing;
 
     public EditorPane()
@@ -112,8 +114,7 @@ public sealed class EditorPane : UserControl
     public void ApplyJump(EditorJump jump, Action<Guid> onHandled)
     {
         ArgumentNullException.ThrowIfNull(onHandled);
-        if (_lastJumpId == jump.Id) return;
-        _lastJumpId = jump.Id;
+        if (!_jumps.Claim(jump)) return;
         DispatcherQueue.TryEnqueue(() =>
         {
             // SelectionStart indexes the string the control reports (with \r), and lines are 1:1

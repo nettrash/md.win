@@ -54,15 +54,17 @@
     without it these files reach neither half of the build. The unpackaged leg is obvious — the
     app resolves both roots from AppContext.BaseDirectory (Web/AssetHost.WebRoot = BaseDirectory\web,
     Services/ExampleLibrary.FolderPath = BaseDirectory\Examples), so nothing beside md.exe means no
-    engines and no Examples, which is exactly what CI's `-p:WindowsPackageType=None … --selftest` leg
-    runs. The packaged leg is the same story one level up: MSBuild only lifts a ContentWithTargetPath
+    engines and no Examples, which is exactly what CI's unpackaged self-test leg
+    (`-p:WindowsPackageType=None`, then `md.exe` with the self-test flag) runs. The packaged leg is
+    the same story one level up: MSBuild only lifts a ContentWithTargetPath
     item into AllItemsFullPathWithTargetPath when its CopyToOutputDirectory is Always / PreserveNewest /
     IfDifferent (Microsoft.Common.CurrentVersion.targets, _GetCopyToOutputDirectoryItemsFromThisProject),
     and that item set is precisely what GetCopyToOutputDirectoryItemsOutputGroup hands to the MSIX
     tooling's GetPackagingOutputs (Microsoft.Windows.SDK.BuildTools.MSIX.Packaging.targets) — which
     never calls ContentFilesProjectOutputGroup, so bare Content is not payload either. Measured on a
-    probe mirroring these four globs: 160 Content items, AllItemsFullPathWithTargetPath 0 → 160,
-    output-directory files 3 → 163 (Assets 77, Examples 14, web\rich 69).
+    probe mirroring these globs: without the metadata, 160 Content items produce
+    AllItemsFullPathWithTargetPath = 0 and an output directory of 3 files; with it (and LICENSE),
+    161 and 164 — Assets 77, Examples 14, web\rich 69, LICENSE 1.
   -->
   <ItemGroup>
     <!-- Visual assets (generated from the macOS 1024-pt master; see README). -->
