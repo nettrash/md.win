@@ -22,8 +22,11 @@ because the apps differ; this one never mentions the others.
 | `support-url.txt` | Properties ▸ Website and Support contact info | a URL; the same page the app opens from Help ▸ md Help | 43 |
 | `restricted-capabilities.txt` | Submission options ▸ Restricted capabilities ▸ "Why do you need the runFullTrust capability, and how will it be used in your product?" | no documented limit; keep it one screen and specific | 2204 |
 | `certification-notes.txt` | Submission options ▸ Notes for certification | no documented limit; the form has capped it at 2 000 chars — stay under | 1993 |
-| `screenshots/` (not yet captured) | Store listing ▸ Screenshots | at least 1; desktop up to 10; PNG, **1366 × 768 or larger** (4K allowed), ≤ 50 MB each; a caption ≤ 200 chars each | — |
-| — | Store listing ▸ Store logos ▸ 1:1 app tile icon | 300 × 300 PNG, strongly recommended (otherwise the Store uses the package's logo) | — |
+| `screenshots/` | Store listing ▸ Screenshots | at least 1; desktop up to 10; PNG, **1366 × 768 or larger** (4K allowed), ≤ 50 MB each; a caption ≤ 200 chars each | 5 shots, 3482 × 2098 each, ≤ 0.43 MB; captions in `screenshots/captions.txt` |
+| `logos/app-tile-icon-300x300.png` | Store listing ▸ Store logos ▸ 1:1 app tile icon | 300 × 300 PNG, strongly recommended (otherwise the Store uses the package's logo) | 300 × 300 |
+| `logos/box-art-1080x1080.png` | Store listing ▸ Store logos ▸ Box art (1:1) | 1080 × 1080 PNG | 1080 × 1080 |
+| `logos/poster-art-720x1080.png` | Store listing ▸ Store logos ▸ Poster art (2:3) | 720 × 1080 PNG | 720 × 1080 |
+| `logos/square-150x150.png`, `logos/square-71x71.png` | Store listing ▸ Store logos ▸ Windows 8.1 square logos | 150 × 150 and 71 × 71 PNG; **optional** — md targets Windows 11 only (min 10.0.22000), so these placements never show it | 150 × 150, 71 × 71 |
 
 Limits verified against learn.microsoft.com on 2026-09-06 ("Add and edit
 Store listing info", "App screenshots, images, and trailers", "Manage

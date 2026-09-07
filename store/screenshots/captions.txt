@@ -1,0 +1,17 @@
+One caption per screenshot, in upload order. Partner Center caps a caption at 200
+characters; the longest here is 128. Plain text, no markup, no angle brackets.
+
+01-welcome-split.png
+Write on one side, read the finished page on the other. Split updates as you type.
+
+02-math-split.png
+LaTeX formulas and chemistry, typeset offline by KaTeX. Nothing is uploaded and nothing is downloaded.
+
+03-diagrams-split.png
+Mermaid, Graphviz and PlantUML diagrams, drawn on your PC from plain text in a fenced block.
+
+04-plots-split.png
+Charts from a formula. Plots need no engine at all: md works out the curve and draws the picture itself.
+
+05-tables-preview.png
+Preview on its own, for reading. Tables line up, and CSV or TSV data is drawn as one.
