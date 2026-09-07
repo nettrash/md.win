@@ -23,6 +23,18 @@
     <UseWinUI>true</UseWinUI>
     <WinUISDKReferences>false</WinUISDKReferences>
     <EnableMsixTooling>true</EnableMsixTooling>
+    <!--
+      WindowsPackageType is left at its default (MSIX), which is what makes this a packaged app —
+      and also what makes `bin\…\md.exe` unrunnable on its own: at that setting the Windows App SDK
+      compiles in the Deployment Manager auto-initializer, a module initializer whose WinRT class
+      lives in the framework package and needs package identity. Start the binary directly and it
+      dies with REGDB_E_CLASSNOTREG before Main, so no handler in this repo can report it. Run it
+      with `dotnet run` (the WinApp build tools register a debug identity), install the MSIX, or
+      build with -p:WindowsPackageType=None for a real unpackaged binary — which swaps in the
+      Bootstrap initializer instead. README's "Running it on Windows" spells the three out. The
+      "md (Unpackaged)" profile the WinUI template ships is deliberately not in launchSettings.json:
+      a launch profile cannot set an MSBuild property, so it could only ever reproduce that crash.
+    -->
     <GenerateAppInstallerFile>false</GenerateAppInstallerFile>
     <AppxPackageSigningEnabled>false</AppxPackageSigningEnabled>
     <ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>

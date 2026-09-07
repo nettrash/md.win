@@ -227,6 +227,38 @@ dotnet build src/Md.App/Md.App.csproj -p:Platform=x64
 tools/xamlcheck/run.sh
 ```
 
+### Running it on Windows
+
+`md` is a packaged app, so a build alone does not give you something you can
+double-click. Launching `bin\…\md.exe` directly fails before `Main` runs, with
+`REGDB_E_CLASSNOTREG` in a module initializer: with `WindowsPackageType` at its
+default (`MSIX`), the Windows App SDK compiles in the *Deployment Manager*
+initializer, and the WinRT class it activates lives in the framework package,
+which only a process with package identity can reach. Nothing is wrong with the
+build — it is being started the wrong way. Any of these three works:
+
+```powershell
+# 1. The usual one. The WinApp build tools register a debug identity and launch
+#    md by AUMID, so the app runs packaged without being installed.
+dotnet run --project src\Md.App\Md.App.csproj -p:Platform=ARM64      # or x64
+
+# 2. Install the MSIX, as a user would (CI's artifacts, or built locally).
+msbuild src\Md.App\Md.App.csproj -p:Configuration=Release -p:Platform=ARM64 `
+  -p:GenerateAppxPackageOnBuild=true -p:AppxPackageSigningEnabled=false
+Add-AppxPackage -Register src\Md.App\bin\ARM64\Release\net10.0-windows10.0.26100.0\win-arm64\AppX\AppxManifest.xml
+
+# 3. A genuinely unpackaged binary: this swaps the Deployment Manager initializer
+#    for the Bootstrap one, which loads the framework without identity. It is what
+#    CI's --selftest leg builds, and the only build you can start by double-click.
+dotnet build src\Md.App\Md.App.csproj -p:Platform=ARM64 -p:WindowsPackageType=None
+```
+
+Unpackaged runs have no `ApplicationData`, so settings, the MRU and the
+view-mode memory are not remembered, `md.log` falls back to
+`%LOCALAPPDATA%\md\md.log`, and the file associations are not registered.
+Packaged runs keep everything, and their log is under
+`%LOCALAPPDATA%\Packages\<package family>\LocalState\md.log`.
+
 The MSIX is produced by CI (`.github/workflows/windows.yml`), which builds
 `src/Md.App` with `msbuild … -p:GenerateAppxPackageOnBuild=true` for x64 and
 ARM64 and uploads the packages **unsigned** — the Store signs what it

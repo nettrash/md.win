@@ -17,6 +17,25 @@ internal static class Program
     [STAThread]
     static int Main(string[] args)
     {
+        // Everything below can fail before a single window exists — a missing Windows App SDK
+        // runtime for an unpackaged run, a redirect to an instance that is no longer answering, a
+        // XAML resource that will not load. WinUI's own handlers are installed in the App
+        // constructor, which is inside Application.Start, so before that a throw kills the process
+        // with no window, no dialog and nothing written down: exactly "md finishes after launch".
+        // The log is the only thing that can tell the next person what happened.
+        try
+        {
+            return Run(args);
+        }
+        catch (Exception e)
+        {
+            App.Diagnostics.Write($"startup failed before any window: {e}");
+            return 1;
+        }
+    }
+
+    static int Run(string[] args)
+    {
         WinRT.ComWrappersSupport.InitializeComWrappers();
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);      // CP1251 for Md.Core.Text.PlainTextCodec
 
@@ -28,6 +47,10 @@ internal static class Program
         // property is false in every build that does not carry the self-test.
         if (!main.IsCurrent && !Services.SelfTest.Requested)
         {
+            // Worth a line: if the instance we hand this to is not actually showing a window (a
+            // crashed or window-less md that still holds the key), every launch after it looks
+            // like "md does nothing", and this is the only trace of why.
+            App.Diagnostics.Write($"redirecting activation kind={activation.Kind} to the instance holding \"{InstanceKey}\" and exiting");
             Redirection.RedirectAndWait(main, activation);
             return 0;
         }

@@ -139,9 +139,16 @@ public partial class App : Application
     /// WinApp identity falls back to <c>%LOCALAPPDATA%\md</c>. Never throws: a failing logger must not
     /// turn a logged exception into a second one.
     /// </summary>
-    static class Diagnostics
+    internal static class Diagnostics
     {
         const string FileName = "md.log";
+
+        /// <summary>
+        /// Where the log is, so a message can tell the reader where to look. Named FilePath, not
+        /// Path: a member called Path shadows the System.IO.Path TYPE for the rest of this class,
+        /// and Write's own Path.Combine stops compiling.
+        /// </summary>
+        public static string FilePath => Path.Combine(Folder(), FileName);
 
         public static void Write(string message)
         {

@@ -2,9 +2,6 @@
   "profiles": {
     "md (Package)": {
       "commandName": "MsixPackage"
-    },
-    "md (Unpackaged)": {
-      "commandName": "Project"
     }
   }
 }
