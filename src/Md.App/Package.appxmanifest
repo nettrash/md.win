@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  MSIX manifest for md. The Identity Name / Publisher below are placeholders: Partner Center
-  assigns the real package name and the publisher CN when the project is associated with the
-  Store listing (Visual Studio ▸ Package and Publish ▸ Associate App with the Store rewrites
-  them, or copy them from Partner Center ▸ Product identity).
+  MSIX manifest for md. The Identity Name and Publisher are the REAL values from Partner Center ▸
+  Product identity (taken from the submission's validation errors on 2026-09-07); they are no
+  longer placeholders and must not be "tidied" back to something readable. Together they produce
+  the package family name Partner Center expects, nttrsh.nettrash.md_hrycnkw7hr1b6 — the family
+  name is derived from these two, never written down anywhere itself.
 -->
 <Package
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
@@ -15,12 +16,17 @@
   IgnorableNamespaces="uap uap3 uap5 uap10 rescap">
 
   <Identity
-    Name="nettrash.md"
-    Publisher="CN=nettrash"
-    Version="1.0.4.0" />
+    Name="nttrsh.nettrash.md"
+    Publisher="CN=28EC49E1-8A19-45EF-A576-FF596547E069"
+    Version="1.0.7.0" />
 
   <Properties>
-    <DisplayName>md</DisplayName>
+    <!--
+      The RESERVED name on the Partner Center account, which is what the Store validates this
+      element against — not the app's own name. It is deliberately not "md": that is the tile and
+      Start name and lives on uap:VisualElements below, where nothing reserves it.
+    -->
+    <DisplayName>nettrash.md</DisplayName>
     <!--
       Must match the Partner Center account's publisher display name EXACTLY, or the submission
       fails package acceptance validation. It is the ACCOUNT's name, not the author or the brand:
