@@ -4,7 +4,7 @@ namespace Md.App.Logic.Preview;
 
 /// <summary>
 /// Which HTML a renderer serves (§4.3, §7.1): <see cref="Screen"/> — the live preview, Core HTML
-/// plus the app-appended Georgia style; <see cref="Paper"/> — Print and PDF, Core HTML with
+/// plus the app-appended typewriter style; <see cref="Paper"/> — Print and PDF, Core HTML with
 /// <c>export: true</c> plus the same style; <see cref="Export"/> — HTML / EPUB / SVG, pure Core HTML
 /// so nothing Windows-specific reaches a file another port pins byte-for-byte.
 /// </summary>
