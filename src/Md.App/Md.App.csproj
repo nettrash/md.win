@@ -142,4 +142,90 @@
   <PropertyGroup Condition="'$(DisableHasPackageAndPublishMenuAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
     <HasPackageAndPublishMenu>true</HasPackageAndPublishMenu>
   </PropertyGroup>
+
+  <!--
+    Auto-increment the package version's THIRD component on every build.
+
+    The Store's rule (store/README.md, "First submission") is that a resubmission's Version must be
+    strictly greater than the last one's and its **Revision must be 0** — so this moves Build and
+    writes Revision back as 0, never the fourth component.
+
+    There is no supported knob for this: the MSIX packaging targets read the version OUT of the
+    manifest (`AppxManifestIdentityVersion` is an <Output/> of _GenerateAppxManifest, not an input),
+    so the only way to change it is to rewrite Package.appxmanifest, which is what Visual Studio's
+    own Package-and-Publish wizard does.
+
+    Two guards, both load-bearing:
+
+      DesignTimeBuild — Visual Studio runs design-time builds constantly while you type, and without
+      this the version would churn on every keystroke and the file would never stop being dirty.
+
+      BumpPackageVersion — an escape hatch. `-p:BumpPackageVersion=false` builds without touching the
+      manifest, which is what you want when reproducing an exact package or bisecting.
+
+    Consequences worth knowing, since they are the price of "every build": Package.appxmanifest shows
+    as modified after any build, CI bumps it too (harmless — that tree is thrown away, and the
+    committed value is whatever you committed), and two builds of identical source produce different
+    packages.
+  -->
+  <!--
+    Deliberately NOT XmlPoke. XmlPoke round-trips the file through XmlDocument, which reflows every
+    element onto one line — it flattened this hand-laid-out, heavily commented manifest the first
+    time it ran. This rewrites only the digits between `Version="` and the closing quote, so every
+    other byte of the file, its comments, its CRLFs and its UTF-8 BOM all survive untouched.
+  -->
+  <UsingTask TaskName="BumpManifestVersion" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <ManifestPath ParameterType="System.String" Required="true" />
+      <OldVersion ParameterType="System.String" Output="true" />
+      <NewVersion ParameterType="System.String" Output="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System" />
+      <Using Namespace="System.IO" />
+      <Using Namespace="System.Text" />
+      <Using Namespace="System.Text.RegularExpressions" />
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        var bytes = File.ReadAllBytes(ManifestPath);
+        var bom = bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF;
+        var text = new UTF8Encoding(false).GetString(bytes, bom ? 3 : 0, bytes.Length - (bom ? 3 : 0));
+
+        var match = Regex.Match(
+            text,
+            "(?<open><Identity\\b[^>]*?\\bVersion\\s*=\\s*\")(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<build>\\d+)\\.(?<revision>\\d+)(?<close>\")");
+
+        if (!match.Success)
+        {
+            // Never fail the build over a version stamp; say so and leave the file alone.
+            Log.LogWarning("Package.appxmanifest has no <Identity Version=\"a.b.c.d\">; version not bumped.");
+            OldVersion = "";
+            NewVersion = "";
+        }
+        else
+        {
+            OldVersion = match.Groups["major"].Value + "." + match.Groups["minor"].Value + "."
+                       + match.Groups["build"].Value + "." + match.Groups["revision"].Value;
+            // Revision stays 0: the Store requires it (store/README.md, "First submission").
+            NewVersion = match.Groups["major"].Value + "." + match.Groups["minor"].Value + "."
+                       + (int.Parse(match.Groups["build"].Value) + 1).ToString() + ".0";
+
+            var start = match.Groups["major"].Index;
+            var end = match.Groups["close"].Index;
+            var updated = text.Substring(0, start) + NewVersion + text.Substring(end);
+            File.WriteAllText(ManifestPath, updated, new UTF8Encoding(bom));
+        }
+      ]]></Code>
+    </Task>
+  </UsingTask>
+
+  <Target Name="BumpPackageVersion"
+          BeforeTargets="BeforeBuild"
+          Condition="'$(DesignTimeBuild)' != 'true' and '$(BumpPackageVersion)' != 'false' and Exists('$(MSBuildProjectDirectory)\Package.appxmanifest')">
+    <BumpManifestVersion ManifestPath="$(MSBuildProjectDirectory)\Package.appxmanifest">
+      <Output TaskParameter="OldVersion" PropertyName="_PackageVersionWas" />
+      <Output TaskParameter="NewVersion" PropertyName="_PackageVersionNow" />
+    </BumpManifestVersion>
+    <Message Importance="high" Condition="'$(_PackageVersionNow)' != ''"
+             Text="md package version $(_PackageVersionWas) -> $(_PackageVersionNow)" />
+  </Target>
 </Project>

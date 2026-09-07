@@ -210,3 +210,13 @@ first submission. From 1.1 on it carries the release's headline changes in
 the family's shape (`Version 1.1 — …`, then ALL-CAPS groups of • bullets),
 within 1 500 characters. The MSIX `Version` must be strictly greater than
 the previous submission's and its Revision must be 0.
+
+The Build component is bumped **automatically on every build** by the
+`BumpPackageVersion` target in `src/Md.App/Md.App.csproj`, which rewrites only
+the digits in `Package.appxmanifest`'s `<Identity Version="…">` and always
+writes Revision back as 0. So a resubmission can never be rejected for a
+version that is not strictly greater. Consequences: the manifest shows as
+modified after any build, CI bumps it too, and two builds of identical source
+produce different packages. `-p:BumpPackageVersion=false` opts out for a build,
+and Visual Studio's design-time builds are excluded so the version does not
+churn while you type.

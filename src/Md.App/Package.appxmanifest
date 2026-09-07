@@ -17,11 +17,16 @@
   <Identity
     Name="nettrash.md"
     Publisher="CN=nettrash"
-    Version="1.0.0.0" />
+    Version="1.0.3.0" />
 
   <Properties>
     <DisplayName>md</DisplayName>
-    <PublisherDisplayName>nettrash</PublisherDisplayName>
+    <!--
+      Must match the Partner Center account's publisher display name EXACTLY, or the submission
+      fails package acceptance validation. It is the ACCOUNT's name, not the author or the brand:
+      md is still by nettrash everywhere else.
+    -->
+    <PublisherDisplayName>nttrsh</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
     <Description>A Markdown editor and live previewer for Windows 11. Write on one side and watch the finished page take shape on the other, then print it or export it as PDF, HTML, EPUB or LaTeX.</Description>
   </Properties>
