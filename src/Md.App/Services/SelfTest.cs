@@ -5,7 +5,13 @@
 //
 // This is the only place the WebView2 half of WP6 is ever proved. It is compiled in only when CI
 // asks for it (-p:SelfTest=true defines SELFTEST); a Store build carries the stub below and nothing
-// else, so the mode cannot be reached from a shipped package.
+// else, so the mode cannot be reached from a shipped package. SelfTest.Shell.cs is its second half:
+// the 1.5 editor, find bar, menus and file associations, in real windows, with real keystrokes.
+//
+//   md.exe --selftest <outDir> [--shell-only] [--no-input]
+//
+// --shell-only skips the WebView2 engine and export checks; --no-input skips the keystroke tier
+// (SendInput needs an unlocked, interactive desktop with md in front). The report says what ran.
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
@@ -68,6 +74,9 @@ internal static partial class SelfTest
 {
     /// <summary>One assertion and its answer, as report.json carries it.</summary>
     sealed record Check(string Name, bool Passed, string Detail);
+
+    /// <summary>The shell half's whole budget (SelfTest.Shell.cs); it needs about a minute.</summary>
+    static readonly TimeSpan ShellTimeout = TimeSpan.FromMinutes(5);
 
     // ── fixtures: small on purpose, so a failure names one engine rather than a whole example ──
     //
@@ -180,14 +189,33 @@ internal static partial class SelfTest
         try
         {
             Directory.CreateDirectory(directory);
-            var scheduler = new DispatcherScheduler(DispatcherQueue.GetForCurrentThread());
+            if (!HasFlag(ShellOnlyFlag))
+            {
+                var scheduler = new DispatcherScheduler(DispatcherQueue.GetForCurrentThread());
 
-            using var host = new Web.ExportHostWindow();
-            await RunChecksAsync(host, scheduler, directory, checks);
+                using var host = new Web.ExportHostWindow();
+                await RunChecksAsync(host, scheduler, directory, checks);
+            }
         }
         catch (Exception e)
         {
             checks.Add(new Check("selftest.completed", false, e.ToString()));
+        }
+
+        // The shell half (SelfTest.Shell.cs): real document windows, their menus, find bars and
+        // editors — after the engines, and in its own try, so a WebView2 failure above cannot hide it.
+        try
+        {
+            // Bounded: a dialog nobody dismisses or an event that never comes must end as a failed
+            // check and an exit code, never as a process CI has to kill without a report.
+            var shell = ShellAsync(directory, checks);
+            if (await Task.WhenAny(shell, Task.Delay(ShellTimeout)) != shell)
+                checks.Add(new Check("shell.completed", false, $"the shell checks did not finish within {ShellTimeout.TotalMinutes:0} minutes; the last check above is where it stopped"));
+            else await shell;
+        }
+        catch (Exception e)
+        {
+            checks.Add(new Check("shell.completed", false, e.ToString()));
         }
 
         var failed = checks.Count(c => !c.Passed);

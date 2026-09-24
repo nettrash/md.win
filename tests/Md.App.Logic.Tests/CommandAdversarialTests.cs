@@ -53,6 +53,8 @@ public class CommandAdversarialTests
         ["SidebarOpen"] = true,
         ["IsFullScreen"] = true,
         ["FindBarOpen"] = true,
+        ["ContinueLists"] = false,                            // Empty's is the default, true
+        ["CapitalizeSentences"] = false,
     };
 
     /// <summary>
@@ -268,6 +270,7 @@ public class CommandAdversarialTests
         Assert.DoesNotContain(CommandId.Save, ran);
         Assert.DoesNotContain(CommandId.Print, ran);
         Assert.DoesNotContain(CommandId.Find, ran);
+        Assert.DoesNotContain(CommandId.Replace, ran);
         Assert.DoesNotContain(CommandId.Escape, ran);
         Assert.DoesNotContain(CommandId.ZenMode, ran);
         Assert.Contains(CommandId.New, ran);

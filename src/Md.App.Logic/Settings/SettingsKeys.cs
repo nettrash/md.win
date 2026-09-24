@@ -3,7 +3,7 @@ namespace Md.App.Logic.Settings;
 /// <summary>
 /// Every <c>ApplicationData.Current.LocalSettings.Values</c> key the app writes (shell-final.md §9),
 /// plus the other names under which md keeps state on the machine. PRIVACY.md must enumerate
-/// exactly this list: the eight keys, session.json, the FutureAccessList token, the MRU list and the
+/// exactly this list: the ten keys, session.json, the FutureAccessList token, the MRU list and the
 /// WebView2 user-data folder. Add a key here first; <see cref="All"/> is what the tests pin.
 /// </summary>
 public static class SettingsKeys
@@ -42,17 +42,30 @@ public static class SettingsKeys
     /// Written on <c>BookWindow</c> close; read by the Book window.</summary>
     public const string BookWindowSize = "md.win.windowSize.book";
 
-    /// <summary>The eight LocalSettings keys, in §9 order.</summary>
+    /// <summary>bool — default <see cref="ContinueListsDefault"/> (true). Edit ▸ Continue Lists and Tables: whether Enter in
+    /// the editor continues a list item, a quote line or a table row (docs/smart-typing.md §1, §3.1). The same key on every
+    /// md port. Written by the Edit menu toggle; read by <c>EditorPane</c> on every Enter.</summary>
+    public const string ContinueLists = "md.continueLists";
+
+    /// <summary>bool — default <see cref="CapitalizeSentencesDefault"/> (true). Edit ▸ Capitalize Sentences: whether a
+    /// lowercase letter typed at a line start or after a sentence end is capitalized (docs/smart-typing.md §2, §3.1). The
+    /// same key on every md port. Written by the Edit menu toggle; read by <c>EditorPane</c> on every insertion.</summary>
+    public const string CapitalizeSentences = "md.capitalizeSentences";
+
+    /// <summary>The ten LocalSettings keys, in §9 order.</summary>
     public static readonly IReadOnlyList<string> All =
     [
         ViewModeMemory, PdfPageSize, BookBookmark, BookOpensInSeparateWindows,
         BookLastArticle, BookViewMode, DocumentWindowSize, BookWindowSize,
+        ContinueLists, CapitalizeSentences,
     ];
 
     public const string PdfPageSizeDefault = "a4";
     public const string BookViewModeDefault = "split";
     public const string DocumentWindowSizeDefault = "900x640";
     public const string BookWindowSizeDefault = "1000x700";
+    public const bool ContinueListsDefault = true;
+    public const bool CapitalizeSentencesDefault = true;
 
     // Not LocalSettings keys — the other names md stores state under (§9 "Not in LocalSettings").
 

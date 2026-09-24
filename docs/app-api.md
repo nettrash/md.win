@@ -19,7 +19,8 @@ Suite after WP1/2/4/5 were merged: **Md.App.Logic.Tests 907 green, Md.Core.Tests
 public enum CommandId { New, Open, OpenRecentEntry, ClearRecent, OpenTextBundleFolder, Example, ExampleBook,
     Close, Save, SaveAs, Duplicate, Rename, MoveTo, RevertToSaved, Print, ShareSource, ShareRenderedPdf,
     ExportPdf, ExportHtml, ExportEpub, ExportLaTeX, ExportTextBundle, ExportDiagramSvg, PdfPageSize, Exit,
-    Undo, Redo, Cut, Copy, Paste, Delete, SelectAll, Find, FindNext, FindPrevious, UseSelectionForFind,
+    Undo, Redo, Cut, Copy, Paste, Delete, SelectAll, Find, FindNext, FindPrevious, Replace, UseSelectionForFind,
+    ContinueLists, CapitalizeSentences,
     ViewEdit, ViewSplit, ViewPreview, ZenMode, ShowSidebar, FullScreen,
     NewBook, OpenBook, ShowBook, CloseBook, ShareBookPdf, PrintBook, ExportBookPdf, ExportBookEpub,
     ExportBookLaTeX, PreviousArticle, NextArticle, Contents, Notes, Minimize, Zoom, ActivateWindow,
@@ -50,8 +51,8 @@ public static class CommandTable {
     public static readonly IReadOnlyList<string> MenuTitles;   // File, Edit, View, Book, Go, Window, Help
     public const string PdfPageSizeGroupName = "PdfPageSize";
     public const string ExitFullScreenTitle = "Exit Full Screen";
-    public static readonly IReadOnlyList<CommandSpec> All;             // 62 rows
-    public static readonly IReadOnlyList<CommandSpec> RootAccelerators; // 20 of the 27 chords
+    public static readonly IReadOnlyList<CommandSpec> All;             // 65 rows
+    public static readonly IReadOnlyList<CommandSpec> RootAccelerators; // 21 of the 28 chords
     public static CommandSpec For(CommandId id);
     public static IReadOnlyList<MenuNode> Menus { get; }               // the seven menus as a tree
     public static string DisplayTitle(CommandId id, ShellSnapshot s);  // Enter/Exit Full Screen
@@ -101,7 +102,7 @@ App side (internal): `Md.App.Menus.MenuBarSources(IReadOnlyList<Md.Core.Document
 **Part B Core API I had to work around.** `Md.Core.Export.DiagramSvg.Diagram` does not exist in this checkout (Wave C). §13.2 puts it in `ShellSnapshot`; I carry `DiagramRef(int Ordinal, string MenuTitle)` instead — the only two fields the menu uses. Integration is one line at the snapshot producer: `Diagrams = DiagramSvg.Diagrams(text).Select(d => new DiagramRef(d.Ordinal, d.MenuTitle)).ToList()`. This also means `Md.App` no longer references Core for the command surface at all (§13.5's one stated exception disappears) — Md.App still references `Md.Core.Document.{Example, PageSize, ViewMode}` from the builder.
 
 **Decisions I had to take (all deviations from a literal §13.2, none from §2's behaviour):**
-1. `CommandSpec` gained two trailing optional parameters. `int Group` places the dividers §2 draws (a group change between siblings ⇒ a separator) without needing separator ids that would break "every id appears exactly once". `bool RootAccelerator` marks the seven chords §2.4 leaves to the focused control (Ctrl+Z/Y/X/C/V/A and Del): they are shown via `KeyboardAcceleratorTextOverride` but never registered on the root, so the `TextBox` and the `WebView2` keep their editing keys. 20 of the 27 chords are root accelerators.
+1. `CommandSpec` gained two trailing optional parameters. `int Group` places the dividers §2 draws (a group change between siblings ⇒ a separator) without needing separator ids that would break "every id appears exactly once". `bool RootAccelerator` marks the seven chords §2.4 leaves to the focused control (Ctrl+Z/Y/X/C/V/A and Del): they are shown via `KeyboardAcceleratorTextOverride` but never registered on the root, so the `TextBox` and the `WebView2` keep their editing keys. 21 of the 28 chords are root accelerators.
 2. `MenuPath` is `MenuPath?` — null only for `Escape`, whose `CommandKind.Accelerator` has no menu row.
 3. **Submenu containers are not table rows.** "Share ▸", "Export ▸", "Export Book ▸", "Open Recent ▸", "Examples ▸", "Diagram as SVG ▸", "PDF Page Size ▸", "Contents ▸", "Notes ▸" come from the paths, so no ids had to be invented. Their enablement is `IsSubmenuEnabled` = "any command inside is enabled", which reproduces every §2 row exactly, including "Export ▸ is never disabled" (PDF Page Size inside it never is).
 4. **`ShellSnapshot` gained three trailing optional flags** the §13.2 field list omits but §2/§1.3 require: `SidebarOpen` (View ▸ Show Sidebar's tick), `IsFullScreen` (the Enter/Exit Full Screen title), `FindBarOpen` (with `ZenActive`, what makes Esc a command — an open find bar with an empty query is not `HasFindQuery`). Every producer of a snapshot must set these.
@@ -161,8 +162,14 @@ public static class RescueCopy {
 
 public static class TextSearch {
     public readonly record struct Match(int Index, int Length);
+    public readonly record struct Edit(int Start, int Length, string Text);
+    public readonly record struct ReplaceStep(Edit? Apply, int SearchFrom);
+    public readonly record struct ReplaceAllPlan(string Text, int Count, Edit Apply);
     public static Match? Next(string text, string query, int from);
-    public static Match? Previous(string text, string query, int from); }
+    public static Match? Previous(string text, string query, int from);
+    public static bool SelectionIsMatch(string text, string query, int selectionStart, int selectionLength);
+    public static ReplaceStep Replace(string text, string query, string replacement, int selectionStart, int selectionLength);
+    public static ReplaceAllPlan ReplaceAll(string text, string query, string replacement); }
 
 public static class AssetReader {
     public static Func<string, byte[]?> Beside(string? documentPath, IFileSystem, IFileIdentity);
@@ -236,7 +243,7 @@ App side (`Md.App.Services`, `internal`): `Pickers(Window, IAlerts? = null) : IP
 - **Two "dirty" flags.** `IsDirty` is the title's "— Edited" (cleared only by an explicit save); `HasUnsavedChanges` is "disk is behind". For `SessionRole.BookArticle` every successful save clears both, which is what the 14 macOS tests pin. **WP3 must bind the title to `IsDirty`, not `HasUnsavedChanges`.**
 - **WP3 owns** (the session raises the trigger, it does not do these): untitled numbering (`Strings.UntitledNumbered(n)` → `OpenUntitled(title:)`); MRU adds on `IdentityChanged`; deleting the picker-created empty file when `SaveAs` returns false (§6.1); the `StorageFile.RenameAsync`/`MoveAsync` call, then `session.Retarget(newPath)`; the untitled-and-dirty close dialog, then `CloseFlush()`; calling `RecheckOwnership()` on window activation and `FlushNow(false)` on deactivate/before share/print/export.
 - **`Detach`/`Dispose` call `registry.Unregister(windowId)`**, which removes the window from `IDocumentRegistry.Windows` (the Window menu). WP3 should re-add a window title if a document window ever outlives its file.
-- **WP4**: `IdentityChanged` carries the raw path — call `ViewModeMemory.IdentityFor(path)` yourself; `UndoGeneration` is the signal to call `ClearUndoRedoHistory()`. `TextReplacedExternally` + `EditorText.ClampSelection` is the §3.2 external-replace path.
+- **WP4**: `IdentityChanged` carries the raw path — call `ViewModeMemory.IdentityFor(path)` yourself; `UndoGeneration` is the signal to call `EditorPane.ResetHistory()` (the typing hooks' reset, then the control's `ClearUndoRedoHistory()`; never the control's alone — the text coming back may equal the box's, shell-design.md §3.6). `TextReplacedExternally` + `EditorText.ClampSelection` is the §3.2 external-replace path.
 - **WP7**: the book pane passes `SessionRole.BookArticle` and `windowId: null`. `Title` already strips the ordering prefix for that role. `BookFlushGate` wiring is yours — the session half is `FlushNow(false)`'s bool.
 - **WP1**: `RecentFiles.Entry` is my own tuple-ish type in Md.App; map it to your `Commands.RecentEntry`.
 - **`FileIdentity.Canonical` does not case-fold** (it returns the file system's true spelling on Windows; `GetFullPath`+link-resolution elsewhere). Every consumer must compare `OrdinalIgnoreCase`, as `IDocumentRegistry` already specifies. It is *not* interchangeable with `ViewModeMemory.CanonicalPath`, which upper-cases on Windows.
@@ -334,7 +341,7 @@ public sealed class SimpleWordCounter : IWordCounter { public static readonly Si
 public static class WordCounters { public static IWordCounter Create(); }   // ICU, else Simple; never null
 ```
 
-App-side (`Md.App.Controls`): `EditorPane` (`TextEdited`, `Text`, `Control`, `SetText`, `ApplyJump`, `Attach(ScrollSync, ScrollSyncGuard)`, `SelectRange`, `FocusEditor`, `HasSelection`, `const FontSizeEpx = 20`), `ArticlePanes` (`Editor`, `ScrollSync`, `Mode`, `Layout`, `LayoutChanged`, `SetPreview(UIElement?)`, `AttachScrollSync(ScrollSyncGuard)`), `ZenControls` (`Attach(ZenController, DocumentWindowState)`, `Reveal()`), `FindBar` (`SearchRequested(string, bool)`, `Dismissed`, `QueryChanged`, `Query`, `SetQuery`, `FocusQuery`, `Search(bool)`), `FooterBar` (`Update(DerivedText)`).
+App-side (`Md.App.Controls`): `EditorPane` (`TextEdited`, `Text`, `Control`, `SetText`, `Undo()`, `Redo()`, `Paste()`, `UseSettings(ISettingsStore?)`, `ApplyJump`, `Attach(ScrollSync, ScrollSyncGuard)`, `SelectRange`, `FocusEditor`, `HasSelection`, `const FontSizeEpx = 20`), `ArticlePanes` (`Editor`, `ScrollSync`, `Mode`, `Layout`, `LayoutChanged`, `SetPreview(UIElement?)`, `AttachScrollSync(ScrollSyncGuard)`), `ZenControls` (`Attach(ZenController, DocumentWindowState)`, `Reveal()`), `FindBar` (`SearchRequested(string, bool)`, `Dismissed`, `QueryChanged`, `Query`, `SetQuery`, `FocusQuery`, `Search(bool)`), `FooterBar` (`Update(DerivedText)`).
 
 ## 4. Integration notes
 

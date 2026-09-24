@@ -33,8 +33,10 @@ dotnet run --project tools/xamlcheck -- <repo-root> [options]   # the same witho
 3. **Stubs.** Writes `Xaml.Stubs.g.cs` into the shadow directory: for every `x:Class` the partial the
    XAML compiler would generate, reduced to one field per `x:Name` (typed as resolved, template-scoped
    names excluded) and an empty `InitializeComponent()`.
-4. **Shadow build.** `dotnet build` of the shadow project. Errors are the real C# compiler's, with
-   paths into `src/Md.App`.
+4. **Shadow build.** `dotnet build` of the shadow project, twice: as the Store build compiles it, and
+   with `-p:SelfTest=true` (`SELFTEST` defined), as CI's unpackaged `--selftest` binary does — so the
+   in-app self-test, which nothing else compiles off Windows, is type-checked too. Errors are the
+   real C# compiler's, with paths into `src/Md.App`.
 
 ## What it proves and what it does not
 

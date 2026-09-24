@@ -271,7 +271,8 @@ public class DocumentAdversarialTests
         Assert.NotEmpty(associations);
         Assert.All(associations, e => Assert.Contains(e, DocumentLoader.OpenExtensions));
 
-        // md is the Markdown owner: all five, and the manifest declares them under one association.
+        // md is the Markdown owner: all ten, and the manifest declares them under one association
+        // (FileAssociationTests pins the exact sets, per association, in both directions).
         Assert.All(DocumentLoader.MarkdownExtensions, e => Assert.Contains(e, associations));
 
         // ".dot" stays unclaimed (it is Word's template) and ".textbundle" is a folder, which

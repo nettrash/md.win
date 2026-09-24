@@ -95,7 +95,10 @@ public class CommandTableTests
         { CommandId.Find, "Find…" },
         { CommandId.FindNext, "Find Next" },
         { CommandId.FindPrevious, "Find Previous" },
+        { CommandId.Replace, "Replace…" },
         { CommandId.UseSelectionForFind, "Use Selection for Find" },
+        { CommandId.ContinueLists, "Continue Lists and Tables" },
+        { CommandId.CapitalizeSentences, "Capitalize Sentences" },
         { CommandId.ViewEdit, "Edit" },
         { CommandId.ViewSplit, "Split" },
         { CommandId.ViewPreview, "Preview" },
@@ -173,6 +176,7 @@ public class CommandTableTests
         { CommandId.Find, "Ctrl+F" },
         { CommandId.FindNext, "F3" },
         { CommandId.FindPrevious, "Shift+F3" },
+        { CommandId.Replace, "Ctrl+H" },
         { CommandId.UseSelectionForFind, "Ctrl+E" },
         { CommandId.ViewEdit, "Ctrl+1" },
         { CommandId.ViewSplit, "Ctrl+2" },
@@ -196,10 +200,36 @@ public class CommandTableTests
     }
 
     [Fact]
-    public void OnlyTheseTwentySevenRowsCarryAChord()
+    public void OnlyTheseTwentyEightRowsCarryAChord()
     {
         var withChords = CommandTable.All.Where(s => s.Chord is not null).Select(s => s.Id).ToHashSet();
         Assert.Equal(Chords.Select(row => (CommandId)row[0]!).OrderBy(i => i), withChords.OrderBy(i => i));
+    }
+
+    [Fact]
+    public void TheAppApiDocCarriesTheTablesOwnCountsAndItsWholeCommandIdListing()
+    {
+        // docs/app-api.md is the stated Md.App.Logic surface, and its three numbers are what a
+        // reader checks a change against. Each was written by hand and each drifted: the row count
+        // lagged a command behind, the CommandId listing lost one outright, and the accelerator line
+        // kept its pre-Replace pair. Read all three off the table instead.
+        var doc = File.ReadAllText(RepoFiles.At("docs", "app-api.md"));
+        var chords = CommandTable.All.Count(s => s.Chord is not null);
+        var accelerators = $"{CommandTable.RootAccelerators.Count} of the {chords} chords";
+
+        Assert.Contains($"// {CommandTable.All.Count} rows", doc, StringComparison.Ordinal);
+        // Twice: the field's own comment, and the sentence in §3's decision list.
+        Assert.Equal(2, doc.Split(accelerators).Length - 1);
+
+        // The listing itself, not just its length: every id the enum has, in its order, and nothing
+        // that is not one.
+        const string opening = "public enum CommandId {";
+        var start = doc.IndexOf(opening, StringComparison.Ordinal);
+        Assert.True(start >= 0, "docs/app-api.md no longer lists CommandId.");
+        var end = doc.IndexOf('}', start);
+        var listed = doc[(start + opening.Length)..end]
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        Assert.Equal(Enum.GetNames<CommandId>(), listed);
     }
 
     [Fact]
@@ -216,7 +246,7 @@ public class CommandTableTests
         }
         Assert.Equal(controlOwned.OrderBy(i => i), CommandTable.All.Where(s => !s.RootAccelerator).Select(s => s.Id).OrderBy(i => i));
         Assert.DoesNotContain(CommandTable.RootAccelerators, s => controlOwned.Contains(s.Id));
-        Assert.Equal(20, CommandTable.RootAccelerators.Count);
+        Assert.Equal(21, CommandTable.RootAccelerators.Count);
     }
 
     [Theory]
@@ -284,8 +314,44 @@ public class CommandTableTests
         [
             "Undo", "Redo",
             "—", "Cut", "Copy", "Paste", "Delete", "Select All",
-            "—", "Find…", "Find Next", "Find Previous", "Use Selection for Find",
+            "—", "Find…", "Find Next", "Find Previous", "Replace…", "Use Selection for Find",
+            "—", "Typing",
         ], Rows(Menu("Edit")));
+
+    [Fact]
+    public void TheTypingRowsAreTogglesWithoutChordsUnderEditTypingWordedAsEveryPortWordsThem()
+    {
+        // smart-typing.md §3.1: the same two titles on every md port, under the same "Typing" heading
+        // (a submenu here, as on the Mac), no shortcut, ticked from the settings.
+        foreach (var id in new[] { CommandId.ContinueLists, CommandId.CapitalizeSentences })
+        {
+            var spec = CommandTable.For(id);
+            Assert.Equal(CommandKind.Toggle, spec.Kind);
+            Assert.Null(spec.Chord);
+            Assert.Equal(new MenuPath("Edit", "Typing"), spec.Path);
+            Assert.False(spec.WindowsOnly);
+        }
+        var typing = Child(Menu("Edit"), "Typing");
+        Assert.Null(typing.Command);                                  // a container, not a row
+        Assert.True(typing.SeparatorBefore);
+        Assert.Equal<string>(["Continue Lists and Tables", "Capitalize Sentences"], Rows(typing));
+        Assert.All(typing.Children, c => Assert.Equal(CommandKind.Toggle, c.Command!.Kind));
+    }
+
+    [Fact]
+    public void TheStaticSubmenusAreTheOnesTheFourPortsShare()
+    {
+        // Every submenu container in the bar; a new one lands here on purpose, not by accident.
+        var submenus = All(CommandTable.Menus).Where(n => n.Command is null && n.Path.Depth > 1).Select(n => n.Path.ToString()).ToList();
+        Assert.Equal<string>(
+        [
+            "File ▸ Open Recent", "File ▸ Examples", "File ▸ Share", "File ▸ Export",
+            "File ▸ Export ▸ Diagram as SVG", "File ▸ Export ▸ PDF Page Size",
+            "Edit ▸ Typing",
+            "Book ▸ Export Book",
+            "Go ▸ Contents", "Go ▸ Notes",
+        ], submenus);
+    }
 
     [Fact]
     public void ViewReadsAsSection25Does() =>
@@ -372,8 +438,8 @@ public class CommandTableTests
             new[]
             {
                 CommandId.OpenTextBundleFolder, CommandId.Exit, CommandId.Find, CommandId.FindNext,
-                CommandId.FindPrevious, CommandId.UseSelectionForFind, CommandId.Minimize,
-                CommandId.Zoom, CommandId.ActivateWindow, CommandId.Escape,
+                CommandId.FindPrevious, CommandId.Replace, CommandId.UseSelectionForFind,
+                CommandId.Minimize, CommandId.Zoom, CommandId.ActivateWindow, CommandId.Escape,
             }.OrderBy(i => i),
             CommandTable.All.Where(s => s.WindowsOnly).Select(s => s.Id).OrderBy(i => i));
 }

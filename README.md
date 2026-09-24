@@ -38,19 +38,21 @@ for code).
 ## Features
 
 - **Document-based, the Windows way.** Open, edit and save `.md` /
-  `.markdown` (and `.mdown`, `.markdn`, `.mdtext`) files anywhere through
-  the standard Open / Save dialogs, with autosave — one second after the last
-  keystroke, written **in place** so the file keeps its identity, ACLs and
-  cloud-sync state, and only after checking that nothing else changed the
-  file first. **Rename…**, **Move To…**, **Duplicate** and **Revert to
-  Saved** sit in the File menu; **Open Recent** is Windows' own recent-items
-  list, so the taskbar Jump List works too; files can be dropped on any
-  window; and a double-click in File Explorer lands in the running app — md
-  is a single instance, and a file that is already open brings its window
-  forward instead of opening twice. Plain-text files open too and keep their
-  extension, and every file is saved back in the encoding and line endings
-  it arrived in (UTF-8 with or without a byte-order mark, UTF-16 only behind
-  one, Windows-1251). A **TextBundle** (`.textbundle` — a folder, so it opens
+  `.markdown` files — and every other spelling the md family owns:
+  `.mdown`, `.markdn`, `.mdtext`, `.mdtxt`, `.mkd`, `.mkdn`, `.mdwn` and
+  `.mkdown` — anywhere through the standard Open / Save dialogs, with
+  autosave — one second after the last keystroke, written **in place** so
+  the file keeps its identity, ACLs and cloud-sync state, and only after
+  checking that nothing else changed the file first. **Rename…**, **Move
+  To…**, **Duplicate** and **Revert to Saved** sit in the File menu; **Open
+  Recent** is Windows' own recent-items list, so the taskbar Jump List works
+  too; files can be dropped on any window; and a double-click in File
+  Explorer lands in the running app — md is a single instance, and a file
+  that is already open brings its window forward instead of opening twice.
+  Plain-text files (`.txt`, `.text`) open too and keep their extension, and
+  every file is saved back in the encoding and line endings it arrived in
+  (UTF-8 with or without a byte-order mark, UTF-16 only behind one,
+  Windows-1251). A **TextBundle** (`.textbundle` — a folder, so it opens
   through **File ▸ Open TextBundle Folder…** or by dropping the folder on a
   window; Windows cannot associate a folder with an app) or **TextPack**
   (`.textpack`, by double-click) — the Markdown-with-images container
@@ -103,10 +105,11 @@ for code).
   `twopi`, `osage`, `patchwork` — usable as the block language) and
   **PlantUML** (` ```plantuml `), all drawn on your PC by the vendored
   engines inside WebView2 and carried through to print and PDF. A raw
-  `.puml`, `.plantuml` or `.gv` file opens and renders as the diagram it
-  describes, source still editable. `.dot` is deliberately unclaimed —
-  Windows, like macOS, treats a `.dot` as a Word template — so rename such a
-  file to `.gv`; a ` ```dot ` fence inside a document is unaffected.
+  `.puml` / `.plantuml` / `.iuml` / `.pu` or `.gv` file opens and renders as
+  the diagram it describes, source still editable. `.dot` is deliberately
+  unclaimed — Windows, like macOS, treats a `.dot` as a Word template — so
+  rename such a file to `.gv`; a ` ```dot ` fence inside a document is
+  unaffected.
 - **Plots** (` ```plot `). Write a function and md draws it — one line per
   curve, with optional `x` / `y` ranges, `title`, `xlabel`, `ylabel`,
   `legend`, `grid`, `axes`, `width`, `height` and `samples` above them.
@@ -147,8 +150,11 @@ for code).
   (inline, a comment renders as text). A live **word · character** count
   sits under every page, counted with the ICU word rules Windows ships in
   `icu.dll`, so CJK text counts as it does on the Mac and Android. A
-  **Find** bar (Ctrl+F, F3 / Shift+F3, Ctrl+E for the selection) is a
-  Windows addition: the WinUI `TextBox` ships without one.
+  **Find and Replace** bar (Ctrl+F, F3 / Shift+F3, Ctrl+E for the
+  selection, Ctrl+H to replace) is a Windows addition: the WinUI `TextBox`
+  ships without one. Matching is case-insensitive and wraps round the end;
+  there are no regular expressions. **Replace All** is a single undo step,
+  so one Ctrl+Z puts every hit back.
 - **Typewriter feel.** Warm paper background (light "fresh paper" / dark
   "carbon paper", following the system theme) with prose set in
   **Lucida Sans Typewriter** and code in **Courier New** — the Windows
@@ -161,6 +167,21 @@ for code).
   punctuation left literal (no smart quotes, no dash substitution, no
   spell-check underlines), and every keystroke flowing to the one-second
   autosave.
+- **Typing.** Enter on a list item starts the next one — bullets, numbers
+  (counting on), task boxes and quotes alike — and on a table row starts
+  the next row; Enter on an item you left empty ends the list instead. The
+  first letter of a line and the first letter after a sentence end (`. `,
+  `? `, `! `, a closing quote or bracket after one) is capitalized as you
+  type it, in Latin, Cyrillic, Greek and the other cased scripts, and never
+  inside a code fence, a table, inline code, math, a link address or a
+  path; abbreviations (`e.g.`, `т.д.`, `p.m.`) do not count as sentence
+  ends. Delete the capital md wrote and type the letter again; it stays
+  lowercase. That is how `md`, `iOS` or `npm` start a sentence, and Ctrl+Z
+  immediately after a capital restores the lowercase letter as its own
+  undo step. Both helpers are switches under **Edit ▸ Typing**, **Continue
+  Lists and Tables** and **Capitalize Sentences**, on by default and the
+  same two switches on every md port; Shift+Enter is always a plain
+  newline.
 - **Print & share.** Print the *rendered* document (**File ▸ Print…**,
   Ctrl+P) through Chromium's print preview inside the window — paper and
   margins are the dialog's; untick its "Headers and footers" once and it
@@ -262,17 +283,38 @@ Packaged runs keep everything, and their log is under
 The MSIX is produced by CI (`.github/workflows/windows.yml`), which builds
 `src/Md.App` with `msbuild … -p:GenerateAppxPackageOnBuild=true` for x64 and
 ARM64 and uploads the packages **unsigned** — the Store signs what it
-publishes. There is no auto-incremented build number as on iOS, macOS and
-Android: the MSIX `Version` in `Package.appxmanifest`
-(`Major.Minor.Build.Revision`, Revision 0 for the Store) *is* the build
-number, and the family's `1.0` ships as `1.0.0.0`.
+publishes. The version is the MSIX `Version` in `Package.appxmanifest`
+(`Major.Minor.Build.Revision`, Revision 0 for the Store): the family's
+`1.5` is committed as `1.5.0.0`, and `BumpPackageVersion` in
+`Md.App.csproj` raises the third part on every build — there is no
+`agvtool bump` or Gradle `versionCode` finalizer, but a resubmission is
+still always strictly greater than the last
+(`-p:BumpPackageVersion=false` opts out).
+
+### Verifying a release on Windows
+
+`tools/verify-on-windows.ps1` is the one command to run on a Windows 11 machine
+(x64 or ARM64, the .NET 10 SDK and the Visual Studio Build Tools installed)
+before a release: from the repo root,
+`powershell -ExecutionPolicy Bypass -File tools\verify-on-windows.ps1`. It runs
+both test suites, builds the app for the machine's own architecture, builds the
+unpackaged self-test binary exactly as CI does and runs `md.exe --selftest` —
+the WebView2 engines and exports, then real document windows, menus, the find
+bar and Replace, the Edit ▸ Typing switches, every file association, and real
+keystrokes typed into the editor — prints the report, builds the MSIX and checks
+its payload and its declared file types, and ends with the manual checklist no
+automation can prove (Explorer's Open With list, the touch keyboard, IME
+composition, Ctrl+H, RichEdit's undo units). It stops at the first failure,
+never bumps the version (`-p:BumpPackageVersion=false` throughout), and never
+signs, installs, publishes or submits anything. Keep your hands off the keyboard
+while the self-test types, or pass `-NoInput`.
 
 ## Project layout
 
 | Path | What lives there |
 | --- | --- |
 | `src/Md.Core` | The parity core, pure .NET: block parser and inline renderer, the themed HTML writer and its stylesheet, the plot engine, the HTML / EPUB / LaTeX / TextBundle exporters, the book model, the per-file view-mode memory and the text codec. Pinned byte for byte against the fixtures shared with the other ports. |
-| `src/Md.App.Logic` | The shell's logic without a line of WinUI: the command table and shortcuts, activation routing, the document session (autosave, clobber guard, rescue copies, rename validation), the view-mode and Zen controllers, the export pipeline, the book navigator, the settings keys and the palette. Testable on any OS. |
+| `src/Md.App.Logic` | The shell's logic without a line of WinUI: the command table and shortcuts, activation routing, the document session (autosave, clobber guard, rescue copies, rename validation), the view-mode and Zen controllers, the typing hooks' decisions, the export pipeline, the book navigator, the settings keys and the palette. Testable on any OS. |
 | `src/Md.App` | The thin WinUI 3 layer: windows and menus, the `TextBox` editor, the WebView2 preview and export renderers, pickers, Share, print — plus `rich/` (the engines), `Examples/`, `Assets/` and `Package.appxmanifest`. |
 | `tests/Md.Core.Tests` | xUnit golden-fixture suite for the core (`Fixtures/` is the family's shared set). |
 | `tests/Md.App.Logic.Tests` | xUnit suite for the shell's logic — documents, commands, view modes, export pipeline — driven through fakes of the `Seams/` interfaces; runs on any OS. |

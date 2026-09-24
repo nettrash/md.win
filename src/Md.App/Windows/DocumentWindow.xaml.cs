@@ -345,11 +345,15 @@ internal sealed partial class DocumentWindow : Window
         _zen.FullScreenRequested += SetFullScreen;
 
         Panes.Editor.TextEdited += OnEditorTextEdited;
+        // §3.6: the two typing toggles reach the editor through the seam and follow Changed.
+        Panes.Editor.UseSettings(_services.Settings);
         Panes.Editor.Control.SelectionChanged += (_, _) => Publish();
         Panes.LayoutChanged += OnLayoutChanged;
         ContentHost.PointerMoved += (_, _) => ZenCapsule.Reveal();
 
         Find.SearchRequested += OnFindRequested;
+        Find.ReplaceRequested += OnReplaceRequested;
+        Find.ReplaceAllRequested += OnReplaceAllRequested;
         Find.Dismissed += HideFindBar;
         Find.QueryChanged += _ => Publish();
 
@@ -389,8 +393,10 @@ internal sealed partial class DocumentWindow : Window
         if (_undoGeneration != _session.UndoGeneration)
         {
             _undoGeneration = _session.UndoGeneration;
-            // A fresh document, a revert or a reload: the Mac gives each one a fresh UndoManager.
-            Panes.Editor.Control.ClearUndoRedoHistory();
+            // A fresh document, a revert or a reload: the Mac gives each one a fresh UndoManager —
+            // through the pane, so the typing hooks forget the last capital too (§3.6), because the
+            // text coming back may equal the one in the box and SetText would see the echo.
+            Panes.Editor.ResetHistory();
         }
 
         Panes.Editor.SetText(_session.Text);
@@ -452,6 +458,11 @@ internal sealed partial class DocumentWindow : Window
     void OnLayoutChanged(PaneLayout layout)
     {
         ShowPreview(layout);
+        // §3.5 with §2.4's enablement: Find… and Replace… are gated on "editor visible", and a bar
+        // already open obeys the same rule — Ctrl+3 with the bar up would otherwise leave Replace
+        // All live over a document nobody can see, with the menu rows that opened it greyed out.
+        // Before Publish(), so the snapshot's FindBarOpen (what makes Esc a command) is current.
+        if (!SplitLayout.ShowsEditor(layout)) Find.Visibility = Visibility.Collapsed;
         Publish();
     }
 
@@ -472,8 +483,9 @@ internal sealed partial class DocumentWindow : Window
 
     void OnSettingChanged(string key)
     {
-        // Another window picked a page size, or opened a book: this window's menu ticks follow.
-        if (key is SettingsKeys.PdfPageSize or SettingsKeys.BookBookmark) _ui.Post(Publish);
+        // Another window picked a page size, opened a book or flipped a typing switch: this
+        // window's menu ticks follow (the editor re-reads the typing switches itself, §3.6).
+        if (key is SettingsKeys.PdfPageSize or SettingsKeys.BookBookmark || TypingSettings.IsKey(key)) _ui.Post(Publish);
     }
 
     void OnActivated(object sender, WindowActivatedEventArgs args)
@@ -588,6 +600,7 @@ internal sealed partial class DocumentWindow : Window
         _closed = true;
 
         _services.Settings.Changed -= OnSettingChanged;
+        Panes.Editor.UseSettings(null);
         _services.Registry.Changed -= Publish;
         _derived.Cancel();
         // Anything still rendering stops rather than talking to a dead XamlRoot (§7.1). The wait for
@@ -661,18 +674,24 @@ internal sealed partial class DocumentWindow : Window
         _dispatcher.Register(CommandId.ExportBookEpub, () => _manager.RouteToBook(CommandId.ExportBookEpub));
         _dispatcher.Register(CommandId.ExportBookLaTeX, () => _manager.RouteToBook(CommandId.ExportBookLaTeX));
 
-        // Edit — the TextBox does these itself; the rows only reach it (§2.4).
-        _dispatcher.Register(CommandId.Undo, () => Editor.Undo());
-        _dispatcher.Register(CommandId.Redo, () => Editor.Redo());
+        // Edit — the TextBox does these itself; the rows only reach it (§2.4). Undo, Redo and Paste
+        // go through the pane, which tells the typing hooks first (§3.6): a history step is not
+        // typing, and a paste is never capitalized.
+        _dispatcher.Register(CommandId.Undo, () => Panes.Editor.Undo());
+        _dispatcher.Register(CommandId.Redo, () => Panes.Editor.Redo());
         _dispatcher.Register(CommandId.Cut, () => Editor.CutSelectionToClipboard());
         _dispatcher.Register(CommandId.Copy, () => Editor.CopySelectionToClipboard());
-        _dispatcher.Register(CommandId.Paste, () => Editor.PasteFromClipboard());
+        _dispatcher.Register(CommandId.Paste, () => Panes.Editor.Paste());
         _dispatcher.Register(CommandId.Delete, () => Editor.SelectedText = "");
         _dispatcher.Register(CommandId.SelectAll, () => Editor.SelectAll());
         _dispatcher.Register(CommandId.Find, ShowFindBar);
         _dispatcher.Register(CommandId.FindNext, () => Find.Search(forward: true));
         _dispatcher.Register(CommandId.FindPrevious, () => Find.Search(forward: false));
+        _dispatcher.Register(CommandId.Replace, ShowReplaceBar);
         _dispatcher.Register(CommandId.UseSelectionForFind, UseSelectionForFind);
+        // Typing (§2.4, §3.6): two settings; the tick and every open editor follow the store.
+        _dispatcher.Register(CommandId.ContinueLists, () => ToggleTypingSetting(SettingsKeys.ContinueLists));
+        _dispatcher.Register(CommandId.CapitalizeSentences, () => ToggleTypingSetting(SettingsKeys.CapitalizeSentences));
 
         // View
         _dispatcher.Register(CommandId.ViewEdit, () => _modes.Select(ViewMode.Edit));
@@ -843,6 +862,12 @@ internal sealed partial class DocumentWindow : Window
         Publish();
     }
 
+    void ToggleTypingSetting(string key)
+    {
+        TypingSettings.Toggle(_services.Settings, key);
+        Publish();
+    }
+
     // ── find, view, window commands ───────────────────────────────────────────────────────────
 
     void ShowFindBar()
@@ -852,6 +877,16 @@ internal sealed partial class DocumentWindow : Window
         Find.Visibility = Visibility.Visible;
         if (Editor.SelectionLength > 0) Find.SetQuery(Editor.SelectedText);
         Find.FocusQuery();
+        Publish();
+    }
+
+    /// <summary>Ctrl+H (§2.4): the same bar as Find…, opened with the caret in the replacement field.</summary>
+    void ShowReplaceBar()
+    {
+        if (_state.ZenActive) return;
+        Find.Visibility = Visibility.Visible;
+        if (Editor.SelectionLength > 0) Find.SetQuery(Editor.SelectedText);
+        Find.FocusReplacement();
         Publish();
     }
 
@@ -878,6 +913,37 @@ internal sealed partial class DocumentWindow : Window
             ? TextSearch.Next(text, query, Editor.SelectionStart + Editor.SelectionLength)
             : TextSearch.Previous(text, query, Editor.SelectionStart);
         if (match is { } hit) Panes.Editor.SelectRange(hit.Index, hit.Length);
+    }
+
+    /// <summary>
+    /// Replace (§3.5): replace the hit the editor is standing on — TextSearch decides whether the
+    /// selection IS that hit — then select the next one. The edit goes through the pane, so it is one
+    /// undo unit and the session sees it like a keystroke; when the selection is not a hit nothing is
+    /// edited and this is a plain Find Next.
+    /// </summary>
+    void OnReplaceRequested(string query, string replacement)
+    {
+        var step = TextSearch.Replace(Editor.Text, query, replacement, Editor.SelectionStart, Editor.SelectionLength);
+        if (step.Apply is { } edit) Panes.Editor.ReplaceRange(edit.Start, edit.Length, edit.Text);
+        // Re-read: the box holds the replacement now, and SearchFrom is an offset into that text.
+        if (TextSearch.Next(Editor.Text, query, step.SearchFrom) is { } hit) Panes.Editor.SelectRange(hit.Index, hit.Length);
+    }
+
+    /// <summary>
+    /// Replace All (§3.5): every hit at once, applied as the ONE edit TextSearch plans — the span from
+    /// the first hit to the last, everything between them carried across — so the control's undo
+    /// treats the lot as a single step. Nothing happens when there is no hit.
+    /// </summary>
+    void OnReplaceAllRequested(string query, string replacement)
+    {
+        var plan = TextSearch.ReplaceAll(Editor.Text, query, replacement);
+        if (plan.Count == 0) return;
+        Panes.Editor.ReplaceRange(plan.Apply.Start, plan.Apply.Length, plan.Apply.Text);
+        // Focus goes back to the editor with the rewritten span selected — the writer sees what
+        // changed, and the Ctrl+Z that "puts every hit back at once" reaches the document: Undo is
+        // not a root accelerator (§2.4), so the focused control owns the chord, and the find bar's
+        // replacement box would have undone the writer's typing in the box instead.
+        Panes.Editor.SelectRange(plan.Apply.Start, plan.Apply.Text.Length);
     }
 
     void OnEscape()
@@ -1040,6 +1106,7 @@ internal sealed partial class DocumentWindow : Window
     ShellSnapshot Build()
     {
         var derived = _state.Derived;
+        var typing = TypingSettings.Read(_services.Settings);
         var windows = new List<(Guid Id, string Title, bool IsThis)>();
         foreach (var (id, title) in _services.Registry.Windows) windows.Add((id, title, id == Id));
 
@@ -1068,7 +1135,9 @@ internal sealed partial class DocumentWindow : Window
             PdfPageSizeId: PageSize.Named(_services.Settings.GetString(SettingsKeys.PdfPageSize)).Id,
             SidebarOpen: false,
             IsFullScreen: AppWindow.Presenter.Kind == AppWindowPresenterKind.FullScreen,
-            FindBarOpen: Find.Visibility == Visibility.Visible);
+            FindBarOpen: Find.Visibility == Visibility.Visible,
+            ContinueLists: typing.ContinueLists,
+            CapitalizeSentences: typing.CapitalizeSentences);
     }
 
     // The MRU is a WinRT call per row; it changes on an open, a save and an activation, never on a

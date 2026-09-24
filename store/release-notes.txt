@@ -1,0 +1,17 @@
+Version 1.5
+
+FIND AND REPLACE
+• The find bar replaces as well as finds. Ctrl+F opens it, Ctrl+H opens it with the caret already in the replacement field, and Replace All rewrites the whole document as one undo step, so a single Ctrl+Z puts every hit back.
+• Matching is case-insensitive and wraps round the end of the file. There are no regular expressions, and the bar searches the text you are editing, not the rendered preview.
+
+TYPING
+• Enter carries on a list, a task list, a quote or a table row; on an item you left empty it ends the list instead.
+• The first letter of a line and of a sentence is capitalized as you type it, never inside code, a table, math, a link or a path. Delete the capital and type the letter again and it stays lowercase.
+• Both helpers are switches under Edit, Typing, and either can be turned off.
+
+FILE TYPES
+• Every Markdown spelling opens by double-click: .mdtxt, .mkd, .mkdn, .mdwn and .mkdown join .md, .markdown, .mdown, .markdn and .mdtext. PlantUML files gain .iuml and .pu.
+• Fixed: a .text file was offered in the Open dialog but never registered with Windows, so File Explorer handed it to another app.
+
+ABOUT THE NUMBER
+• This is the release after 1.0. md's version number is shared across all of its editions, and 1.5 is where they are.

@@ -4,19 +4,119 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-There is no auto-incremented build number here — no `agvtool bump` as on
-iOS and macOS, no Gradle `versionCode` finalizer as on Android. The build
-number is the MSIX `Version` in `src/Md.App/Package.appxmanifest`: four
-parts, `Major.Minor.Build.Revision`, with Revision fixed at 0 because the
-Store reserves it, so the family's two-part `1.0` is published as
-`1.0.0.0`. A resubmission that changes no behaviour bumps the third part
-and is not tracked here.
+The number this file tracks is set by hand — there is no `agvtool bump` as
+on iOS and macOS and no Gradle `versionCode` finalizer as on Android. What
+the Store sees is the MSIX `Version` in `src/Md.App/Package.appxmanifest`:
+four parts, `Major.Minor.Build.Revision`, with Revision fixed at 0 because
+the Store reserves it, so the family's two-part `1.5` is committed as
+`1.5.0.0`. Its third part is what moves on its own — `BumpPackageVersion`
+in `Md.App.csproj` raises it on every build, which is how a resubmission is
+always strictly greater than the last. A resubmission that changes no
+behaviour is not tracked here.
 
-This is a new app rather than a continuation of the apps' 1.4 line. Every
-md port has begun at its own 1.0 and joined the family's number at the
-next family release, and this one does the same — arriving, because it
-comes last, with everything the other four learned through 1.4 already in
-it.
+md.win began at its own 1.0, as every md port has, and said it would join
+the family's number at the next family release. That release is 1.5, and
+the promise is kept: **1.5 follows 1.0 directly** because the number is
+the family's, shared by every md edition, and not a count of this port's
+releases. Nothing is missing between the two — 1.0 already arrived, last
+of the five, with everything the other editions had learned through their
+own 1.4 — and from here md.win is versioned with them.
+
+## [1.5] — 2026-09-23
+
+### Added
+
+- **Replace, in the find bar.** The find bar (**Edit ▸ Find…**, Ctrl+F) now
+  carries a replacement field beside the query, and **Replace** and **Replace
+  All** beside Next and Previous; **Ctrl+H** (**Edit ▸ Replace…**) opens the
+  same bar with the caret already in the replacement field, and a non-empty
+  selection seeds the query there as it does for Find. Matching is the rule
+  the find has always used — case-insensitive, wrapping round the end of the
+  file, and **no regular expressions**: a query is the characters you typed.
+  What is searched is the text you are editing, never the rendered preview
+  beside it. Replace rewrites the hit the editor is standing on and then
+  moves to the next, so pressing it repeatedly walks the document; with the
+  caret somewhere else it is simply a Find Next. Enter in the replacement
+  field is Replace and Shift+Enter is Replace All. After a Replace focus
+  stays in the field, so a run of Enters never reaches the text, and the hit
+  the next press will replace stays visibly selected in the page behind the
+  bar. **Replace All is one press and one undo step**: every hit goes in as a
+  single edit, focus returns to the editor with the rewritten span selected,
+  and one Ctrl+Z puts the lot back. Replacements go in exactly as typed —
+  Capitalize Sentences never touches them — and the word count, the autosave,
+  the dirty marker and the clobber guard see them like any other edit. The
+  bar leaves the screen with the editor: switch to Preview and it closes,
+  like the Find… and Replace… rows that open it. As with Find, the bar
+  belongs to a document window; a book's article editor has none.
+- **Enter carries the list on, and sentences capitalize themselves.** Enter
+  on a list item — a bullet, a number, a task box, a quote line — starts the
+  next one with the same marker, numbers counting on; on an item you left
+  empty it ends the list; on a table row it starts the next row. The first
+  letter of a line, and the first letter after a sentence ends, is
+  capitalized as it is typed, in every cased script, and never inside a code
+  fence, a table, inline code or math, a link address or a path;
+  abbreviations (`e.g.`, `т.д.`, `p.m.`) are not sentence ends. Delete the
+  capital md wrote and type the letter again and it stays lowercase — that is
+  how `md` or `iOS` start a sentence — and Ctrl+Z immediately after a capital
+  restores the lowercase letter as its own undo step. Shift+Enter is always a
+  plain newline; Undo, Redo and Paste put text back exactly as it was and are
+  never capitalized on the way, so a Redo restores every step and **Edit ▸
+  Paste** is as literal as Ctrl+V. Both helpers work in a document window and
+  in a book's article editor, and both are switches under **Edit ▸ Typing** —
+  **Continue Lists and Tables** and **Capitalize Sentences**, on by default,
+  stored as `md.continueLists` and `md.capitalizeSentences` and listed in
+  PRIVACY.md — which turn on or off in every open window at once. The rules
+  are the family's shared SmartTyping specification, pinned by the same 1350
+  vectors (512 for Enter, 838 for the capital) on every md port.
+- **Every Markdown spelling is md's.** Beside `.md`, `.markdown`, `.mdown`,
+  `.markdn` and `.mdtext`, the package now owns `.mdtxt`, `.mkd`, `.mkdn`,
+  `.mdwn` and `.mkdown` — the full set every md port declares — so a file
+  under any of them opens by double-click, is listed in the Open dialog, and
+  is saved back in place under its own name. PlantUML gains `.iuml` and `.pu`
+  beside `.puml` and `.plantuml`, in the Open and Save dialogs and in File
+  Explorer alike. Graphviz is still `.gv` alone, `.dot` deliberately
+  unclaimed because Windows calls it a Word template. The manifest's
+  associations and the loader's own extension lists are now one set, pinned
+  to each other by a test, so the Open dialog cannot offer a type Windows was
+  never told about — which is exactly what the bug below was.
+
+### Fixed
+
+- **A `.text` file now opens by double-click.** The Open dialog listed the
+  extension and the editor had always been able to save one, but the package
+  never registered it, so File Explorer handed such a file to another app.
+- **Find Next and Find Previous no longer do nothing in Preview.** With the
+  editor off screen — View ▸ Preview, or the reading half of Zen — F3 and
+  Shift+F3 stayed live, searched the hidden text and selected a hit nobody
+  could see. They are greyed there now, like Find… and Replace…, and come back
+  with the editor, the query still in the bar.
+- **Find…, Replace… and Use Selection for Find are greyed in Zen.** Zen shows
+  no find bar, so the three rows that open it did nothing while their
+  shortcuts were swallowed; Ctrl+F, Ctrl+H and Ctrl+E now pass through
+  instead. F3 still walks the text in Zen's writing half.
+- **Use Selection for Find no longer opens the find bar over Preview.** A
+  selection left behind in the hidden editor kept the row live, and Ctrl+E
+  opened the bar with no editor under it.
+- **Cut, Copy and Delete are greyed when nothing is selected**, in a document
+  window and in a book's article editor, rather than lighting up and doing
+  nothing — the book window now refreshes its Edit menu as the selection moves.
+- **A menu tick no longer goes missing when you click an already-ticked row.**
+  Choosing View ▸ Edit while in Edit left no mode ticked, and choosing another
+  window in the Window menu left two windows ticked, until something else
+  changed; the tick now always shows the state.
+- **Enter's list continuation is decided before the editor inserts its own
+  newline.** It was read after the key had reached the editor, where a
+  multi-line text box is free to have handled Enter first — which would have
+  meant no continuation at all, or one after a stray blank line.
+- **The Windows self-test proves what it runs.** CI started the self-test
+  without waiting for it — PowerShell does not wait for a windowed program — so
+  the step passed before a single check had run; it now waits, fails without a
+  report, and prints every failed check. The self-test also gained real
+  document windows and real keystrokes: menus, Find, Replace, the Typing
+  switches, file associations, capitals and list continuation, typed into the
+  editor. `tools/verify-on-windows.ps1` runs all of it, the test suites and the
+  package checks in one command, and the off-Windows compile check now covers
+  the self-test's own code.
 
 ## [1.0] — 2026-09-06
 

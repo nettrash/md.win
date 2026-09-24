@@ -48,7 +48,13 @@ public enum CommandId
     Find,
     FindNext,
     FindPrevious,
+    /// <summary>Edit ▸ Replace…: the find bar with the replacement field focused (shell-design.md §3.5).</summary>
+    Replace,
     UseSelectionForFind,
+    /// <summary>Edit ▸ Continue Lists and Tables: the <c>md.continueLists</c> toggle (docs/smart-typing.md §3.1).</summary>
+    ContinueLists,
+    /// <summary>Edit ▸ Capitalize Sentences: the <c>md.capitalizeSentences</c> toggle (docs/smart-typing.md §3.1).</summary>
+    CapitalizeSentences,
 
     // View (§2.5)
     ViewEdit,

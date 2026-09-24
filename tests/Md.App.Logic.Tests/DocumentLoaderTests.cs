@@ -161,23 +161,67 @@ public class DocumentLoaderTests
         Assert.Equal([@"C:/Docs/Big.textbundle/text.md"], fs.Reads);
     }
 
+    [Theory]
+    [InlineData(@"C:\Docs\Notes.mkd", "Notes")]
+    [InlineData(@"C:\Docs\Notes.mdtxt", "Notes")]
+    [InlineData(@"C:\Docs\Notes.mkdown", "Notes")]
+    [InlineData(@"C:\Diagrams\Login Flow.iuml", "Login Flow")]
+    [InlineData(@"C:\Diagrams\Login Flow.pu", "Login Flow")]
+    [InlineData(@"C:\Docs\readme.text", "readme")]
+    public void AnAliasExtensionIsAnOrdinaryFileEditedInPlaceUnderItsOwnStem(string path, string title)
+    {
+        // Every spelling the family associates is a plain file to the loader: read, decoded, edited
+        // in place under its own name, never mistaken for a bundle. And the alias is in the Open
+        // filter, so File ▸ Open… finds the same file a double-click delivers.
+        var fs = new FakeFileSystem();
+        fs.AddFile(path, "@startuml\r\nA -> B\r\n@enduml\r\n");
+
+        var load = DocumentLoader.Load(path, fs);
+
+        Assert.Equal(LoadFailure.None, load.Failure);
+        var document = load.Document!;
+        Assert.Equal(DocumentKind.PlainText, document.Kind);
+        Assert.Equal(path, document.Path);
+        Assert.Equal("@startuml\nA -> B\n@enduml\n", document.Text);
+        Assert.Equal(NewLine.CrLf, document.Dressing.NewLine);
+        Assert.Equal(title, document.Title);
+        Assert.Contains(FileNames.ExtensionOf(path), DocumentLoader.OpenExtensions);
+    }
+
     [Fact]
     public void ThePickerSetsAreTheMacsListsInTheMacsOrder()
     {
-        Assert.Equal([".md", ".markdown", ".mdown", ".markdn", ".mdtext"], DocumentLoader.MarkdownExtensions);
         Assert.Equal(
-            [".md", ".markdown", ".mdown", ".markdn", ".mdtext", ".txt", ".text", ".puml", ".plantuml", ".gv", ".textpack"],
+            [".md", ".markdown", ".mdown", ".markdn", ".mdtext", ".mdtxt", ".mkd", ".mkdn", ".mdwn", ".mkdown"],
+            DocumentLoader.MarkdownExtensions);
+        Assert.Equal([".txt", ".text"], DocumentLoader.PlainTextExtensions);
+        Assert.Equal([".puml", ".plantuml", ".iuml", ".pu"], DocumentLoader.PlantUmlExtensions);
+        Assert.Equal([".gv"], DocumentLoader.GraphvizExtensions);
+        Assert.Equal(
+            [
+                ".md", ".markdown", ".mdown", ".markdn", ".mdtext", ".mdtxt", ".mkd", ".mkdn", ".mdwn", ".mkdown",
+                ".txt", ".text", ".puml", ".plantuml", ".iuml", ".pu", ".gv", ".textpack",
+            ],
             DocumentLoader.OpenExtensions);
         Assert.Equal(
             [Strings.Exports.MarkdownDocument, Strings.Exports.PlainText, Strings.Exports.PlantUmlDiagram, Strings.Exports.GraphvizDotGraph],
             DocumentLoader.SaveChoices.Select(c => c.Label));
+        Assert.Equal(
+            [
+                ".md", ".markdown", ".mdown", ".markdn", ".mdtext", ".mdtxt", ".mkd", ".mkdn", ".mdwn", ".mkdown",
+                ".txt", ".text", ".puml", ".plantuml", ".iuml", ".pu", ".gv",
+            ],
+            DocumentLoader.SaveChoices.SelectMany(c => c.Extensions));
         // Never a bundle type: saving one back would drop its assets.
         Assert.DoesNotContain(DocumentLoader.SaveChoices.SelectMany(c => c.Extensions), e => e is ".textpack" or ".textbundle");
     }
 
     [Theory]
     [InlineData(@"C:\Docs\a.md", ".md")]
+    [InlineData(@"C:\Docs\a.mkd", ".mkd")]
     [InlineData(@"C:\Docs\a.puml", ".puml")]
+    [InlineData(@"C:\Docs\a.iuml", ".iuml")]
+    [InlineData(@"C:\Docs\a.text", ".text")]
     [InlineData(@"C:\Docs\README", ".md")]
     [InlineData(null, ".md")]
     public void TheSavePickerDefaultsToTheDocumentsOwnExtension(string? path, string expected) =>

@@ -145,16 +145,34 @@ public class CommandEnablementTests
     // ── Edit (§2.4) ───────────────────────────────────────────────────────────────────────────
 
     [Theory]
-    [InlineData(CommandId.Cut)]
-    [InlineData(CommandId.Copy)]
     [InlineData(CommandId.Paste)]
-    [InlineData(CommandId.Delete)]
     [InlineData(CommandId.SelectAll)]
     [InlineData(CommandId.Find)]
+    [InlineData(CommandId.Replace)]
     public void NeedsTheEditorPaneOnScreen(CommandId id)
     {
         Assert.False(CommandEnablement.IsEnabled(id, Document));
         Assert.True(CommandEnablement.IsEnabled(id, Document with { EditorVisible = true }));
+    }
+
+    /// <summary>
+    /// Cut, Copy and Delete act on the selection and on nothing else — <c>CutSelectionToClipboard()</c>,
+    /// <c>CopySelectionToClipboard()</c> and <c>SelectedText = ""</c> over an empty selection all do
+    /// nothing at all. Enabled on "editor visible" alone they were rows that lit up and then did
+    /// nothing, the silent no-op the macOS Preview-only Find was; the Mac's own rows grey out the
+    /// same way (NSTextView validates cut: / copy: / delete: on the selection).
+    /// </summary>
+    [Theory]
+    [InlineData(CommandId.Cut)]
+    [InlineData(CommandId.Copy)]
+    [InlineData(CommandId.Delete)]
+    public void NeedsTheEditorPaneOnScreenAndASelectionInIt(CommandId id)
+    {
+        Assert.False(CommandEnablement.IsEnabled(id, Document));
+        Assert.False(CommandEnablement.IsEnabled(id, Document with { EditorVisible = true }));
+        // A selection left behind in an editor that is no longer on screen (Ctrl+3) is not one.
+        Assert.False(CommandEnablement.IsEnabled(id, Document with { HasSelection = true }));
+        Assert.True(CommandEnablement.IsEnabled(id, Document with { EditorVisible = true, HasSelection = true }));
     }
 
     [Fact]
@@ -170,20 +188,55 @@ public class CommandEnablementTests
         Assert.False(CommandEnablement.IsEnabled(CommandId.Redo, Document with { CanRedo = true }));
     }
 
+    /// <summary>
+    /// F3 / Shift+F3 search the editor's text and select the hit in the editor — so with no editor
+    /// on screen (Preview, Zen's reading half) they used to select a hit inside a collapsed control
+    /// and change nothing anyone could see, while the rows stayed lit: the macOS "Find silently does
+    /// nothing in a Preview-only window" bug, on this port. The query is kept, so the rows come back
+    /// the moment the editor does.
+    /// </summary>
     [Theory]
     [InlineData(CommandId.FindNext)]
     [InlineData(CommandId.FindPrevious)]
-    public void FindNextNeedsAQueryNotAVisibleEditor(CommandId id)
+    public void FindNextNeedsAQueryAndAnEditorOnScreen(CommandId id)
     {
         Assert.False(CommandEnablement.IsEnabled(id, Document with { EditorVisible = true }));
-        Assert.True(CommandEnablement.IsEnabled(id, Document with { HasFindQuery = true }));
+        Assert.False(CommandEnablement.IsEnabled(id, Document with { HasFindQuery = true }));
+        Assert.True(CommandEnablement.IsEnabled(id, Document with { EditorVisible = true, HasFindQuery = true }));
+        // Zen's writing half shows the editor and no bar: F3 still walks the text there.
+        Assert.True(CommandEnablement.IsEnabled(id, Document with { EditorVisible = true, HasFindQuery = true, ZenActive = true }));
     }
 
+    /// <summary>
+    /// Ctrl+E copies the editor's selection into the find bar and shows the bar. A selection left in
+    /// an editor that Ctrl+3 has taken off screen is still a selection to the control, so the row
+    /// used to light up in Preview and open the bar over no editor at all — the state the layout
+    /// rule of §3.5 exists to forbid.
+    /// </summary>
     [Fact]
-    public void UseSelectionForFindNeedsASelection()
+    public void UseSelectionForFindNeedsASelectionInAnEditorOnScreen()
     {
         Assert.False(CommandEnablement.IsEnabled(CommandId.UseSelectionForFind, Document with { EditorVisible = true }));
-        Assert.True(CommandEnablement.IsEnabled(CommandId.UseSelectionForFind, Document with { HasSelection = true }));
+        Assert.False(CommandEnablement.IsEnabled(CommandId.UseSelectionForFind, Document with { HasSelection = true }));
+        Assert.True(CommandEnablement.IsEnabled(CommandId.UseSelectionForFind, Document with { EditorVisible = true, HasSelection = true }));
+    }
+
+    /// <summary>
+    /// Zen has no chrome and the find bar is one of the rows it collapses (§5.4), so the window's
+    /// three handlers that would open the bar refuse there (<c>if (_state.ZenActive) return;</c>,
+    /// pinned in WindowSurfaceTests). Enabled, their chords were swallowed as handled and did
+    /// nothing; disabled, Ctrl+F / Ctrl+H / Ctrl+E fall through to the focused control like any
+    /// other disabled chord.
+    /// </summary>
+    [Theory]
+    [InlineData(CommandId.Find)]
+    [InlineData(CommandId.Replace)]
+    [InlineData(CommandId.UseSelectionForFind)]
+    public void TheRowsThatOpenTheFindBarAreDeadInZen(CommandId id)
+    {
+        var writing = Document with { EditorVisible = true, HasSelection = true, HasFindQuery = true };
+        Assert.True(CommandEnablement.IsEnabled(id, writing));
+        Assert.False(CommandEnablement.IsEnabled(id, writing with { ZenActive = true }));
     }
 
     /// <summary>
@@ -196,6 +249,7 @@ public class CommandEnablementTests
     [InlineData(CommandId.Find)]
     [InlineData(CommandId.FindNext)]
     [InlineData(CommandId.FindPrevious)]
+    [InlineData(CommandId.Replace)]
     [InlineData(CommandId.UseSelectionForFind)]
     public void TheFindFamilyIsNeverLiveInTheBookWindow(CommandId id)
     {
@@ -296,6 +350,9 @@ public class CommandEnablementTests
         Assert.True(CommandEnablement.IsSubmenuEnabled(new MenuPath("File", "Examples"), None));
         Assert.False(CommandEnablement.IsSubmenuEnabled(new MenuPath("Go", "Contents"), Document));
         Assert.True(CommandEnablement.IsSubmenuEnabled(new MenuPath("Go", "Contents"), Document with { Outline = OneHeading }));
+        // Edit ▸ Typing holds two settings, live everywhere (smart-typing.md §3.1): never greyed.
+        Assert.True(CommandEnablement.IsSubmenuEnabled(new MenuPath("Edit", "Typing"), None));
+        Assert.True(CommandEnablement.IsSubmenuEnabled(new MenuPath("Edit", "Typing"), BookWindowIdle));
     }
 
     // ── Ticks (§2.5) ──────────────────────────────────────────────────────────────────────────
@@ -337,9 +394,35 @@ public class CommandEnablementTests
     }
 
     [Fact]
+    public void TheTypingTogglesTickTheirSettings()
+    {
+        // smart-typing.md §3.1: default true; the tick reads the snapshot, which reads the store.
+        Assert.True(CommandEnablement.IsChecked(CommandId.ContinueLists, Document));
+        Assert.True(CommandEnablement.IsChecked(CommandId.CapitalizeSentences, Document));
+        Assert.False(CommandEnablement.IsChecked(CommandId.ContinueLists, Document with { ContinueLists = false }));
+        Assert.True(CommandEnablement.IsChecked(CommandId.CapitalizeSentences, Document with { ContinueLists = false }));
+        Assert.False(CommandEnablement.IsChecked(CommandId.CapitalizeSentences, Document with { CapitalizeSentences = false }));
+        Assert.True(CommandEnablement.IsChecked(CommandId.ContinueLists, Document with { CapitalizeSentences = false }));
+    }
+
+    [Fact]
+    public void TheTypingTogglesAreLiveInEveryWindow()
+    {
+        // A setting, like the PDF page size: no document, the Book window idle, or an editor hidden — still switchable.
+        foreach (var id in new[] { CommandId.ContinueLists, CommandId.CapitalizeSentences })
+        {
+            Assert.True(CommandEnablement.IsEnabled(id, None));
+            Assert.True(CommandEnablement.IsEnabled(id, Document));
+            Assert.True(CommandEnablement.IsEnabled(id, Document with { DisplayedMode = ViewMode.Preview, EditorVisible = false }));
+            Assert.True(CommandEnablement.IsEnabled(id, BookWindowIdle));
+            Assert.True(CommandEnablement.IsEnabled(id, BookWindowEditing));
+        }
+    }
+
+    [Fact]
     public void NothingElseIsEverTicked()
     {
-        CommandId[] toggles = [CommandId.ViewEdit, CommandId.ViewSplit, CommandId.ViewPreview, CommandId.ZenMode, CommandId.ShowSidebar];
+        CommandId[] toggles = [CommandId.ViewEdit, CommandId.ViewSplit, CommandId.ViewPreview, CommandId.ZenMode, CommandId.ShowSidebar, CommandId.ContinueLists, CommandId.CapitalizeSentences];
         var full = Document with { ZenActive = true, ZenReading = true, SidebarOpen = true, IsBookWindow = true, IsFullScreen = true };
         foreach (var id in Enum.GetValues<CommandId>().Where(i => !toggles.Contains(i)))
             Assert.False(CommandEnablement.IsChecked(id, full));

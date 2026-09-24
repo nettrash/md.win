@@ -303,14 +303,23 @@ with the focused control (the `WebView2` handles Ctrl+C on a preview selection).
 | --- | --- | --- | --- |
 | Undo / Redo | Ctrl+Z / Ctrl+Y | editor visible && `CanUndo` / `CanRedo` | `TextBox.Undo()` / `Redo()` |
 | (divider) | | | |
-| Cut / Copy / Paste / Delete / Select All | Ctrl+X / Ctrl+C / Ctrl+V / Del / Ctrl+A | editor visible | `CutSelectionToClipboard()` / `CopySelectionToClipboard()` / `PasteFromClipboard()` / `SelectedText = ""` / `SelectAll()` |
+| Cut / Copy / Delete | Ctrl+X / Ctrl+C / Del | editor visible && selection non-empty | `CutSelectionToClipboard()` / `CopySelectionToClipboard()` / `SelectedText = ""` — each a no-op over an empty selection, so greyed there as on the Mac |
+| Paste / Select All | Ctrl+V / Ctrl+A | editor visible | `PasteFromClipboard()` / `SelectAll()` |
 | (divider) | | | |
-| Find… **(Win)** | Ctrl+F | editor visible | shows `FindBar` (§3.5); root accelerator |
-| Find Next / Find Previous **(Win)** | F3 / Shift+F3 | find bar has a query | `FindBar.Next()` / `Previous()` |
-| Use Selection for Find **(Win)** | Ctrl+E | selection non-empty | copies the selection into the find bar |
+| Find… **(Win)** | Ctrl+F | editor visible && !Zen | shows `FindBar` (§3.5); root accelerator |
+| Find Next / Find Previous **(Win)** | F3 / Shift+F3 | editor visible && find bar has a query | `FindBar.Next()` / `Previous()` — the hit is selected in the editor, so with the editor off screen (Preview, Zen's reading half) the rows are greyed rather than selecting inside a collapsed control |
+| Replace… **(Win)** | Ctrl+H | editor visible && !Zen | shows `FindBar` with the caret in the replacement field (§3.5); root accelerator |
+| Use Selection for Find **(Win)** | Ctrl+E | editor visible && !Zen && selection non-empty | copies the selection into the find bar |
+| (divider) | | | |
+| Typing ▸ Continue Lists and Tables | — | always | toggle; `md.continueLists` (§9); ticked from the snapshot |
+| Typing ▸ Capitalize Sentences | — | always | toggle; `md.capitalizeSentences` (§9); ticked from the snapshot |
 
-The Mac gets Find from `NSTextView`; the WinUI `TextBox` has none. Spelling items are omitted — spell
-check is off (§3.1).
+The Mac gets Find from `NSTextView`; the WinUI `TextBox` has none, so Find **and Replace** are md's own
+here. Spelling items are omitted — spell check is off (§3.1). The two typing rows sit in an **Edit ▸ Typing** submenu — the same heading, the same
+two settings and the same two titles as on every other md port (docs/smart-typing.md §3.1); a static
+submenu of toggles, which the builder fills like any other and ticks from the snapshot. They are settings,
+so they are live in every window, and a change reaches every open editor through `ISettingsStore.Changed`
+(§3.6).
 
 ### 2.5 View
 
@@ -414,14 +423,14 @@ highlight.js 11.11.1). Never the phrase "no third-party dependencies".
 | Mac (`NSTextView`) | WinUI `TextBox` |
 | --- | --- |
 | plain text, no rich text / graphics / font panel | default `TextBox` (plain) |
-| `allowsUndo` with the document's undo manager | built-in undo (`CanUndo`, `Undo()`, `CanRedo`, `Redo()`); the Book pane calls `ClearUndoRedoHistory()` on every article switch (the Mac's fresh `UndoManager`) |
+| `allowsUndo` with the document's undo manager | built-in undo (`CanUndo`, `Undo()`, `CanRedo`, `Redo()`); the Book pane calls `EditorPane.ResetHistory()` on every article switch (the Mac's fresh `UndoManager`: the control's `ClearUndoRedoHistory()` with the typing hooks reset first, §3.6) |
 | American Typewriter 15 pt | `FontFamily = new FontFamily("Lucida Sans Typewriter")`, `FontSize = 20` (epx = 15 pt × 4/3) |
 | ink text, accent caret | `Foreground = PaperInkBrush`; the caret follows `Foreground` (no caret brush on the WinUI `TextBox` — §12) |
 | clear backgrounds, paper behind | `Background = Transparent`, `BorderThickness = 0`, `BorderBrush = Transparent`; the pane `Grid` paints paper. The focus underline/background of the default template is removed by overriding the `TextControlBackground*` / `TextControlBorderBrush*` theme resources in `App.xaml` (resource keys, not a template) |
 | smart quotes/dashes/replacement/spelling off | `IsSpellCheckEnabled = false`, `IsTextPredictionEnabled = false` — the only two auto-correct sources WinUI has |
 | `textContainerInset` 16 × 16, `lineFragmentPadding` 0 | `Padding = new Thickness(16)` |
 | word wrap, vertical scroll only | `TextWrapping = TextWrapping.Wrap`, `AcceptsReturn = true`; `ScrollViewer.SetHorizontalScrollBarVisibility(box, Disabled)`, `SetVerticalScrollBarVisibility(box, Auto)` |
-| selection colour | `SelectionHighlightColor = new SolidColorBrush(accent)` |
+| selection colour | `SelectionHighlightColor = new SolidColorBrush(accent)` **and** `SelectionHighlightColorWhenNotFocused = new SolidColorBrush(accent)` — WinUI paints the first only while the box itself has focus, and §3.5's Replace keeps focus in the find bar on purpose, so without the second the hit the next Enter will replace is selected but invisible |
 | placeholder `"# Start writing…"` at the inset | `PlaceholderText = "# Start writing…"`, `PlaceholderForeground = PaperInkTertiaryBrush` — same face, size and padding as the text, so it lands exactly where the Mac's overlay does |
 | Tab inserts a tab | **no `AcceptsTab` exists** (WPF only). `KeyDown`: `if (e.Key == VirtualKey.Tab && !shift) { box.SelectedText = "\t"; box.SelectionStart += 1; box.SelectionLength = 0; e.Handled = true; }` |
 
@@ -459,15 +468,171 @@ After `Loaded`, find the template `ScrollViewer` (`VisualTreeHelper` walk for a 
 If `ViewChanged` proves asynchronous on Windows, `ScrollSyncGuard` switches to a 50 ms timestamp window
 (one line, same shape as the web side's 300 ms).
 
-### 3.5 Find bar (Win)
+### 3.5 Find and Replace bar (Win)
 
-A one-row `Grid` above the footer, hidden by default: query `TextBox` (17.3 epx = 13 pt), "Next",
-"Previous", "Done". `TextSearch.Next(text, query, from)` / `Previous(...)` (Md.App.Logic): ordinal,
-case-insensitive (`OrdinalIgnoreCase`), wrapping, returns `(index, length)` in the `TextBox`'s own string;
-the pane calls `box.Select(index, length)` and focuses the editor. Enter = next, Shift+Enter = previous,
-Esc closes and returns focus. No replace in 1.0 (§12).
+A one-row `Grid` above the footer, hidden by default: a query `TextBox` and a replacement `TextBox`
+(both 17.3 epx = 13 pt, placeholders "Find" and "Replace with"), then "Next", "Previous", "Replace",
+"Replace All", "Done". Ctrl+F opens it with the query focused, Ctrl+H with the replacement focused;
+both seed the query from a non-empty selection. Enter in the query box is next and Shift+Enter
+previous; Enter in the replacement box is Replace and Shift+Enter Replace All. After a **Replace**
+focus stays in that box, so a run of Enters does not reach the editor and the hit the next one will
+act on is selected in the pane behind — which is why §3.1 sets `SelectionHighlightColorWhenNotFocused`
+as well as the focused colour. **Replace All** is a one-shot with no run to keep: focus goes back to
+the editor with the rewritten span selected, so it is visible and the Ctrl+Z that puts every hit back
+reaches the document (Undo is not a root accelerator, §2.4 — the focused control owns that chord, and
+a replacement box left focused would undo the writer's typing in the box instead). Esc closes either
+and returns focus, and the bar leaves the screen with the editor: a layout with no editor pane
+(Preview, §5.3) collapses it, the rule that greys Find… and Replace… in the menu. There are **no
+regular expressions**: a query is the characters typed into the box.
+
+Every decision is `Md.App.Logic.Documents.TextSearch`, over the `TextBox`'s own string (CR line ends),
+because `SelectionStart` indexes that same string; offsets are its UTF-16 units. One matching rule for
+all five buttons — ordinal, case-insensitive (`OrdinalIgnoreCase`), wrapping.
+
+- `Next(text, query, from)` / `Previous(...)` → `(index, length)`; the window calls
+  `EditorPane.SelectRange(index, length)`, which selects and focuses the editor.
+- `SelectionIsMatch(text, query, start, length)` — "is the selection the hit we are standing on?",
+  which is the whole of Replace's decision. A selection of any other length never is, ordinal
+  matching being 1:1 in UTF-16 units; one off either end is "no", not a throw, because the caller
+  reads it off a live control.
+- `Replace(text, query, replacement, start, length)` → `(Apply, SearchFrom)`. `Apply` is the one edit
+  to make, or null when the selection is not the hit — Replace is a plain Find Next then, which is
+  what makes "Replace, Replace, Replace…" walk the document. `SearchFrom` is measured in the text the
+  edit leaves behind and sits **past** the replacement, so a replacement that contains the query
+  (`a` → `aa`) is not found again by the step that made it.
+- `ReplaceAll(text, query, replacement)` → `(Text, Count, Apply)`, decided in one left-to-right pass
+  that resumes after each hit **in the old text** and never re-enters what it just inserted (so
+  `a` → `aa` is finite, and hits never overlap: `aa` over `aaaa` is two). `Apply` is the same answer
+  as a **single** edit — from the first hit's start to the last hit's end, everything between them
+  carried across — and `text[..Start] + Apply.Text + text[(Start + Length)..] == Text` by construction.
+
+Both edits travel the normal document path through `EditorPane.ReplaceRange(start, length, replacement)`:
+one `Select` + `SelectedText` pair, the Tab key's undo-preserving path, never `Text =` (which clears
+the history). So Replace All is **one** undo unit however many hits it covered — that is why the plan
+is one span and not a hit-by-hit loop — and the `TextChanged` it raises carries the new text to the
+session like any keystroke, so undo, autosave, the dirty flag, the clobber guard and the word count
+all see it and the session's echo comes back as identical text. The typing hooks are told first
+(`TypingHooks.ExternalEdit`): the tracked capital and the override are cleared as a Revert clears them
+(§3.4) and the assignment runs under `Applying`, so what the writer typed into the replacement box
+goes in exactly as typed and never picks up a capital; the control's undo history is *not* cleared,
+which is the difference from `ResetHistory()`. Find inside the preview pane is out of scope (§12).
 
 ---
+
+### 3.6 Typing — the SmartTyping hooks (docs/smart-typing.md §3.3 "Windows")
+
+The two pure functions are `Md.Core.Text.SmartTyping.Enter` / `.Capitalize` (vector-pinned); the
+pure half of the hooks — the `BeforeTextChanging` diff, the reduction of an insertion to one scalar,
+the retype rule of smart-typing.md §3.4, the plan the pane applies and the edit's CR spelling — is
+`Md.App.Logic.Text.SmartTypingAdapter`; the **state** that sequences them per editor — the tracked
+capital and the override of §3.4 (`CapitalTracker`, fed one `TextEdit` per change the control
+reports), the plan carried between the two events, the two settings and the flags for a composition,
+a paste, a history step, our own replacement and `SetText`'s assignment — is
+`Md.App.Logic.Text.TypingHooks`, driven in `TypingHooksTests` by a fake TextBox that raises the
+control's events in the control's order with the session's echo, Cut and Undo / Redo in the loop. `EditorPane` is the shell and holds no typing state of its own (`AppSurfaceTests`
+pins that); it reads the box at each event, asks the hooks, and applies the answer:
+
+- Inputs are `_box.Text` as the control reports it (CR line ends; §0.1 accepts a lone CR, nothing is
+  converted on the way in) and `SelectionStart` / `SelectionLength`, which index that text.
+- **Enter** — `PreviewKeyDown` (tunnelling, before the control inserts its own newline: a multi-line
+  `TextBox` handles Enter itself, and a key a control handles is not guaranteed to reach a `KeyDown +=`
+  handler first, or at all), `VirtualKey.Enter`, no Shift / Ctrl / Alt: `TypingHooks.Enter(_box.Text, start,
+  length)` (null when `md.continueLists` is off, a composition is in progress, or the function
+  declines); non-null → `e.Handled = true; _box.Select(location, length); _box.SelectedText = replacement;
+  _box.Select(caret, 0)` — the Tab key's undo-preserving path (one undo unit; `Text =` is never
+  assigned). The replacement's U+000A are swapped for U+000D before the assignment (one unit for one
+  unit, so `caret` stands). Shift+Enter, a declined edit and the feature off fall through to the
+  control's newline.
+- **The letter** — decided in `BeforeTextChanging` (`TypingHooks.BeforeTextChanging(_box.Text, start,
+  length, e.NewText)`: the change is reduced to one `TextEdit` and tracked first, then — exactly one
+  replacement of the selection by a word insertion, the paste flag consumed, the tracker not having
+  said "as typed" → `Capitalize` on its first scalar), applied in `TextChanging` (synchronous, before
+  rendering) once `TypingHooks.TextChanging` confirms the insertion landed and makes the capital the
+  tracked one: the control's own insertion is undo unit one, the replacement by the capitalized
+  spelling is undo unit two, the caret goes after it. **Ctrl+Z immediately after a capital restores
+  the lowercase letter** — and, being the edit that removes the capital, arms the override at its
+  offset. The edit is never cancelled, so a keystroke cannot be lost; the worst surprise is a missing
+  capital.
+- **Tracking (smart-typing.md §3.4).** Every change the control reports — typing, Backspace, Delete,
+  Cut, a paste, a composition update, Undo, Redo — is reduced to one `TextEdit` (anchored at the
+  selection when the new text is the old with the selection replaced; a shrink at a collapsed caret
+  anchored at the caret on the side Backspace or Delete announced from `PreviewKeyDown`
+  (`TypingHooks.AnnounceDeletion`, settled a turn later like the history flag — the only way to tell
+  md's `I` from the writer's in `II`, Backspace assumed when nothing was announced); otherwise the
+  smallest single replacement, never splitting a surrogate pair) and handed to `CapitalTracker`
+  before anything is judged. An edit ending at or before the tracked capital shifts it; one covering it removes it and
+  arms the override at the edit's start, unless the inserted text puts the same scalar back at the same
+  offset; one after it changes nothing; a new capital replaces the tracked one, the old forgotten. While
+  armed at `q`: a word insertion at `q` goes in as typed and spends it, an insertion elsewhere clears it,
+  a non-word insertion at `q` leaves it, a deletion shifts or collapses `q`; the edit that removed the
+  capital may itself be a word insertion at `q` (the whole word selected and retyped, the one-scalar
+  retype) — it goes in as typed and the override it armed stands. The two edits the pane makes itself,
+  the capital swap and the Enter edit, run under `Applying` (their events are skipped) and are reported
+  by `TextChanging` (`Produced`) and `Enter`; `SetText`'s echo raises no event, and a differing text
+  clears everything through `ExternalText`. The eight consequences §3.4 lists are each a test in
+  `TypingHooksTests`, through the fake box.
+- **The echo.** Both windows re-render into `SetText(_session.Text)` on every session change, the one
+  each keystroke causes included. `SetText` asks `TypingHooks.ExternalText(Text, text)` before it
+  assigns: identical text is the echo, changes nothing and **leaves the tracking as it is**; text
+  that differs — Revert, Reload from Disk, an example, an article switch — is assigned under the
+  `Replacing` flag (its `TextChanged` is not an edit) and clears the tracked capital and the override
+  (§3.4). The first cut cleared before it compared, and the gesture never survived a keystroke. An
+  external replacement whose text equals the box's — an article switch to another article holding
+  the same text, Revert or Reload of a file the disk agrees with — is one `SetText` cannot see, and
+  the second cut left the override armed across it: the windows' signal for every one of these is
+  the session's `UndoGeneration`, and on it both call `EditorPane.ResetHistory()` — `TypingHooks.Reset()`
+  (the tracking and any pending plan; the flags describe the input in flight and stay) and then the
+  control's `ClearUndoRedoHistory()` — never the control's method directly (`WindowSurfaceTests`).
+- **History.** Undo and Redo raise `BeforeTextChanging` like typing does, and a Redo that re-inserts
+  `h` at a line start looks exactly like typing it. Ctrl+Z / Ctrl+Y (with or without Shift, never with
+  Alt — AltGr+Z is a letter) are seen in `PreviewKeyDown`, which tunnels before the control acts, and
+  the Edit rows call `EditorPane.Undo()` / `Redo()`; both announce `TypingHooks.AnnounceHistory()` and
+  the control does the rest. A change reported while the flag is up is not judged but is tracked like
+  any other (§3.4): Undo of a capital is the replacement `M` → `m` at `p`, the edit that removes it,
+  and arms the override there — the restored letter is not re-judged, and typing on clears; Redo of
+  one is a non-word insertion at `q`, which puts the text back, leaves the override armed and tracks
+  nothing (a redo restores text, not md's memory of what it wrote; the next capital typed is tracked).
+  The flag settles on the next dispatcher turn, never on the first change, since one step may report
+  several. Without it a Redo was capitalized into a **new** edit, which emptied the redo stack.
+- **Paste.** A pasted word is never capitalized. The control's `Paste` event (Ctrl+V, the context menu)
+  and `EditorPane.Paste()` (the Edit row, which does not rely on `PasteFromClipboard()` raising that
+  event) both announce `TypingHooks.AnnouncePaste()`; the flag is consumed by the change and settled a
+  turn later in case the clipboard had nothing to give.
+- Composition: `TextCompositionStarted` / `TextCompositionEnded` skip both features.
+- Settings: `EditorPane.UseSettings(ISettingsStore)` reads both bools into the hooks and re-reads on
+  `Changed` for their keys; the windows call it beside `TextEdited` and pass null on close. A function
+  whose setting is off is never called, and turning the capital off drops its gesture.
+- The windows' Edit rows: Undo, Redo and Paste through the pane (`Panes.Editor.Undo()` in the document
+  window, `window.EditorPane.Undo()` from the manager for the Book window); Cut, Copy, Delete and
+  Select All through `Control` (`WindowSurfaceTests` pins both halves).
+
+**Windows implementation note** (the deviation from the spec's Windows paragraphs, recorded here
+because docs/smart-typing.md is the family's byte-identical copy and is amended family-wide, not in
+one repo). smart-typing.md §3.3 "Windows — Letter" describes `e.Cancel = true` followed by a
+`SelectedText` assignment, and §3.5 counts "two `SelectedText` assignments (the letter, then the
+replacement)" as the two undo units. md.win does neither: the control inserts the letter itself (its
+own typing unit) and the **one** `SelectedText` assignment is the replacement, made inside
+`TextChanging`. The keystroke can therefore never be lost to a cancelled change, at the price that
+§3.5's guarantee rests on RichEdit giving a programmatic replacement issued inside `TextChanging` its
+own undo unit — the checklist item below. §3.1's "Windows shows both in Settings with a one-line hint
+that Ctrl+Z undoes a capital" has no Settings page to land on: the two toggles are Edit ▸ Typing rows
+and the hint is in the README and the CHANGELOG.
+
+Not provable off Windows, on the checklist of the landing run — and, where a keystroke can show it,
+asserted by the self-test's SendInput tier (§11.4): that a handled `PreviewKeyDown` pre-empts the
+control's Enter; that a `SelectedText` assignment made inside `TextChanging` is its own undo unit after
+the typed letter (§3.5 — Ctrl+Z once after `m` → `M` must give `m`, not an empty line); that
+`TextChanging` reports the moved selection; that `PreviewKeyDown` sees Ctrl+Z / Ctrl+Y before the
+control undoes (type `hello`, Ctrl+Z ×3, Ctrl+Y ×3 → `Hello` with nothing lost); that Undo / Redo
+from the TextBox's **context menu** — which bypass `PreviewKeyDown` and the Edit rows — either raise no
+`BeforeTextChanging` or are hooked through `ContextMenuOpening` (until then, a context-menu Redo of a
+letter at a line start may be re-capitalized); whether `PasteFromClipboard()` raises `Paste` (the
+Edit row is safe either way); the touch keyboard's auto-shift with `IsTextPredictionEnabled = false`
+(smart-typing.md §3.2); that **Ctrl+H reaches the Replace handler** rather than being eaten by the
+`TextBox` (RichEdit treats Ctrl+H as Backspace, and §3.5's row is a root accelerator, so the window
+must win); and that the RichEdit undo treats **Replace All as one unit** — one `SelectedText`
+assignment over the whole affected span, so a single Ctrl+Z puts every hit back at once (the fake
+box always gives one unit; a real one is what this item is for).
 
 ## 4. The preview host (`Md.App.Controls.PreviewHost` around `Microsoft.UI.Xaml.Controls.WebView2`)
 
@@ -808,18 +973,22 @@ U+000C, U+0085, U+2028, U+2029), whitespace runs collapsed (`char.IsWhiteSpace`)
 
 ### 6.1 Types, pickers, activation
 
-`Package.appxmanifest` already declares the associations (Markdown owner: `.md .markdown .mdown .markdn .mdtext`;
-alternates `.puml .plantuml`, `.gv`, `.textpack`, `.txt`). `.dot` stays unclaimed (Word template).
-`.textbundle` is a folder and cannot be associated.
+`Package.appxmanifest` declares the associations — the family's canonical extension sets, one association per
+kind (Markdown owner: `.md .markdown .mdown .markdn .mdtext .mdtxt .mkd .mkdn .mdwn .mkdown`; alternates
+`.puml .plantuml .iuml .pu`, `.gv`, `.textpack`, `.txt .text`). `.dot` stays unclaimed (Word template).
+`.textbundle` is a folder and cannot be associated. `DocumentLoader` carries the same sets
+(`MarkdownExtensions`, `PlainTextExtensions`, `PlantUmlExtensions`, `GraphvizExtensions`), and
+`FileAssociationTests` pins the manifest and the loader to each other in both directions.
 
 Pickers are the WinRT `Windows.Storage.Pickers` classes initialised with
 `WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(window))`:
 
 - `FileOpenPicker { ViewMode = PickerViewMode.List, SuggestedStartLocation = PickerLocationId.DocumentsLibrary }`,
-  `FileTypeFilter` = `.md .markdown .mdown .markdn .mdtext .txt .text .puml .plantuml .gv .textpack`;
+  `FileTypeFilter` = `DocumentLoader.OpenExtensions` = `.md .markdown .mdown .markdn .mdtext .mdtxt .mkd .mkdn
+  .mdwn .mkdown .txt .text .puml .plantuml .iuml .pu .gv .textpack` (every associated type, in the Mac's group order);
   `PickMultipleFilesAsync()` → one window each.
-- `FileSavePicker.FileTypeChoices` (the Mac's writable types, in order): "Markdown Document" → the five
-  Markdown extensions; "Plain Text" → `.txt`, `.text`; "PlantUML Diagram" → `.puml`, `.plantuml`;
+- `FileSavePicker.FileTypeChoices` (the Mac's writable types, in order): "Markdown Document" → the ten
+  Markdown extensions; "Plain Text" → `.txt`, `.text`; "PlantUML Diagram" → `.puml`, `.plantuml`, `.iuml`, `.pu`;
   "Graphviz DOT Graph" → `.gv`. Never a bundle type. `SuggestedFileName` = current base name or "Untitled";
   `DefaultFileExtension` = the document's extension (or `.md`). **`PickSaveFileAsync` returns a created,
   empty file** (documented) — write through `FileStream(file.Path, FileMode.Create)`; on a failed write
@@ -1141,7 +1310,7 @@ a failed flush returns `false` and the caller reverts the selection), `Detach(re
 `(false, false)` while `md.bookOpensInSeparateWindows`).
 
 Stages render: **Editing** → `ArticlePanes` (the same editor+preview composite as a document window; a
-fresh `TextBox` undo stack per article via `ClearUndoRedoHistory()`, preview `token = path`, footer);
+fresh `TextBox` undo stack per article via `EditorPane.ResetHistory()`, preview `token = path`, footer);
 **Handoff** → ``, "Open in Its Own Window", "“{title}” is open as a document window, and that window
 owns the file while it stays open. Close it to write here again.", button **Show Window**; **Unreadable** →
 ``, "Could Not Read the Article", "“{title}” could not be read. It may have been moved or deleted
@@ -1195,6 +1364,8 @@ renderer if it exists, else the invoking document window's.
 | `md.bookViewMode` | string (`edit`/`split`/`preview`) | `"split"` | Book pane `Select` | Book pane | app-wide, never per file |
 | `md.win.windowSize.document` **(Win)** | string `"WxH"` epx | absent ⇒ `900x640` | `DocumentWindow` close | new document windows | last size |
 | `md.win.windowSize.book` **(Win)** | string `"WxH"` | absent ⇒ `1000x700` | `BookWindow` close | Book window | |
+| `md.continueLists` | bool | `true` | Edit ▸ Typing ▸ Continue Lists and Tables | `EditorPane` (Enter, §3.6) | the same key on every md port (smart-typing.md §3.1) |
+| `md.capitalizeSentences` | bool | `true` | Edit ▸ Typing ▸ Capitalize Sentences | `EditorPane` (the letter, §3.6) | the same key on every md port |
 
 Not in LocalSettings: `md.viewMode`, `md.zen`, `md.zenReading` and window placements → `LocalFolder\session.json`
 (§1.6); recent documents → `MostRecentlyUsedList` (system-managed, 25); the book grant →
@@ -1203,7 +1374,7 @@ encoding / newline / scroll positions → session memory only.
 
 `ISettingsStore { string? GetString(string key); void SetString(string key, string value); bool GetBool(string key, bool fallback); void SetBool(string key, bool value); void Remove(string key); event Action<string> Changed; }`
 — `LocalSettingsStore` (App) and `InMemorySettingsStore` (Logic, tests). **PRIVACY.md must enumerate
-exactly**: the eight keys above, `session.json`, the `md.book` token, the MRU list, the WebView2 user-data
+exactly**: the ten keys above, `session.json`, the `md.book` token, the MRU list, the WebView2 user-data
 folder — plus the paragraphs product.md §4.3 demands on the WebView2 Runtime's own diagnostics (Microsoft's
 privacy statement) and the Store's aggregate acquisition reports, with the sentence that md "adds nothing
 to that stream and reads nothing from it".
@@ -1269,10 +1440,12 @@ md.vscode's does. Icons: Segoe Fluent Icons (`FontIcon.Glyph`) mapped from SF Sy
 | `Commands/CommandId.cs`, `Commands/CommandTable.cs`, `Commands/Chord.cs`, `Commands/CommandEnablement.cs`, `Commands/ShellSnapshot.cs`, `Commands/CommandDispatcher.cs` | §2.9 — the table, chords, enablement, dispatcher with the 150 ms debounce (`IClock`) | every id once; no duplicate chord; Mac-verbatim titles; seven menu titles in order; every enablement row of §2; debounce |
 | `Activation/ActivationRouter.cs`, `Activation/ActivationDescription.cs`, `Activation/ActivationAction.cs` | §1.2 | the table rows |
 | `Windows/WindowRegistry.cs`, `Windows/WindowTitle.cs`, `Windows/WindowPlacement.cs`, `Windows/SessionStore.cs` | §8.6, §6.7, §1.3 sizes/clamping, §1.6 JSON | title rows; `"WxH"` round trip; clamp; JSON round trip and missing-file skipping |
-| `Documents/TextFileSession.cs`, `Documents/TextFileDressing.cs`, `Documents/LineEndings.cs`, `Documents/EditorText.cs`, `Documents/LineOffsets.cs`, `Documents/FileStamp.cs`, `Documents/RescueCopy.cs`, `Documents/FileNames.cs`, `Documents/AssetReader.cs`, `Documents/TextSearch.cs`, `Documents/DocumentLoader.cs` | §6.3, §3.2, §3.3, §6.4, §7.7, §3.5, §6.5 | the 14 session tests + document rows; CR/CRLF/LF round trips; `OffsetOfLine` vectors; rescue naming; Windows name validation; containment; find wrap |
+| `Documents/TextFileSession.cs`, `Documents/TextFileDressing.cs`, `Documents/LineEndings.cs`, `Documents/EditorText.cs`, `Documents/LineOffsets.cs`, `Documents/FileStamp.cs`, `Documents/RescueCopy.cs`, `Documents/FileNames.cs`, `Documents/AssetReader.cs`, `Documents/TextSearch.cs`, `Documents/DocumentLoader.cs` | §6.3, §3.2, §3.3, §6.4, §7.7, §3.5, §6.5 | the 14 session tests + document rows; CR/CRLF/LF round trips; `OffsetOfLine` vectors; rescue naming; Windows name validation; containment; find wrap; the replace step (is the selection the hit, where the next search starts) and the one-span Replace All plan, over CRLF and surrogate pairs |
 | `Documents/FileIdentity.cs` **(P/Invoke, Windows-only at run time)** | §5.2 canonical path | two spellings → one identity; junction equality (`[Fact]` skipped off Windows) |
 | `Documents/FileSystemWatcherAdapter.cs`, `Documents/SystemIoFileSystem.cs` | `IFileWatcher`, `IFileSystem` over `System.IO` | stamp-filtered echo with a temp folder |
 | `View/DocumentWindowState.cs`, `View/ViewModeController.cs`, `View/ZenController.cs`, `View/SplitLayout.cs`, `View/DerivedTextScheduler.cs`, `View/DerivedText.cs`, `View/ScrollSync.cs`, `View/ScrollSyncGuard.cs` | §5 | the seven Swift view-mode cases + migrate / re-decide / sticky book exemption / nudge cleared by a pick / Zen never stores; presenter-observer ordering; 640 rule; 250 ms scheduler with a fake clock |
+| `Text/SmartTypingAdapter.cs` | §3.6 — the `BeforeTextChanging` diff, the word-insertion reduction, the §3.4 retype rule, the plan and the Enter edit's CR spelling; `Settings/TypingSettings.cs` the two bools | every rule with the box's own CR text; the retype rule; the plan applies only where the insertion landed |
+| `Text/TypingHooks.cs` | §3.6 — the per-editor state the pane drives: the tracked capital and the override of §3.4 (`CapitalTracker`, fed one `TextEdit` per change), the plan between the two events, the settings, the composition / paste / history / applying / replacing flags, `ExternalText` (the echo vs a real replacement), `IsHistoryChord` | a fake TextBox raising the control's events in order, with the session's echo, Cut and Undo / Redo in the loop: the eight consequences of §3.4, the echo leaving the tracking as it is, Undo of a capital arming the override and Redo leaving it armed, a Redo re-inserted as it was with the redo stack intact, an undone deletion never capitalized, a cut or a paste before the capital shifting it, Edit ▸ Paste never capitalized, the flags settling a turn later; the state machine and the diff on their own |
 | `Text/NotePreview.cs`, `Text/IWordCounter.cs`, `Text/SimpleWordCounter.cs`, `Text/IcuWordCounter.cs` **(P/Invoke)** | §5.5, §5.6 | emoji/combining marks; the five vectors for both counters; CJK vector for ICU (Windows leg). §2.3's `01-` stays `01-` vector lives in `Md.Core.Tests/ExampleLibraryTests`, with the bundled nine pinned by `BundledExamplesTests`. |
 | `Preview/PreviewCoordinator.cs`, `Preview/IPreviewSurface.cs`, `Preview/PreviewNavigation.cs`, `Preview/EditorJump.cs`, `Preview/LinkPolicy.cs`, `Preview/ScreenHtml.cs`, `Preview/AssetMime.cs`, `Preview/Scripts.cs`, `Preview/JsonScript.cs` | §4 | first load / coalescing / token change / restore only when > 0 / stale-while-collapsed / parked navigation / dedupe by id; the link matrix incl. `https://md.assets/other → Cancel`; exact `md-win-fonts` bytes + idempotence; MIME table; the scroll script equals the Mac's except the one substitution; JSON decoding of `"1"`, `null`, numbers |
 | `Export/ExportPipeline.cs`, `Export/IRenderSurface.cs`, `Export/RenderCompletePoller.cs`, `Export/PrintGeometry.cs`, `Export/ExportFileNames.cs`, `Export/RenderKind.cs` | §7 | every flow against a fake surface (picker-before-render order for EPUB, render-before-picker for PDF); 250 ms × 480 and timeout = success; inches = pt/72, margins 0.5; export HTML never contains `md-win-fonts` |
@@ -1337,7 +1510,26 @@ HTML round-trips from `file://`; EPUB snapshot count == markup count), produces 
 no-library regex (`/MediaBox\s*\[\s*0\s+0\s+([\d.]+)\s+([\d.]+)\s*\]` per page, `/Type\s*/Page[^s]` count —
 Chromium writes page dictionaries uncompressed), writes `report.json`, and exits 0/1. CI runs it on
 `windows-latest` after the build; it never ships enabled (Release builds compile it behind
-`#if SELFTEST` set by the CI build).
+`#if SELFTEST` set by the CI build), and `tools/xamlcheck` shadow-builds both configurations, so the
+self-test code is type-checked off Windows too.
+
+Its second half, `Services/SelfTest.Shell.cs`, proves the shell in real windows made by the real
+`WindowManager` (an in-memory settings store; every file under the report directory): three Examples
+opened in turn with every window's menu bar checked after each — seven menus once each, no flyout with a
+row twice, Examples / Edit ▸ Typing / PDF Page Size / the Window list at exactly their sizes; Find in the
+newest window selecting in the newest document and nowhere else; every find row in Preview either dead or
+visibly acting; the Typing switches through their own command, ticked in every window, Enter following;
+Replace and Replace All on a real editor (text, session, dirty flag, title, one Undo each); autosave and
+the clobber guard through Replace All on a file; every associated extension from an Explorer-shaped
+activation to an open editor, a second activation reusing the window, the two bundle kinds and a drop;
+the Book window with no book; toggle rows keeping their tick when re-clicked. Then, with `SendInput` into
+the foreground window, every scenario in `Services/SelfTestTyping.cs` — the same vectors
+`TypingHooksTests` first proves against the modelled pane — plus Ctrl+H deleting nothing, Enter in the
+replacement box, Ctrl+Z after Replace All, and F3 from the editor and from the preview's WebView2 firing
+once. `--no-input` skips the keystroke tier (CI passes it; a hosted runner promises no interactive
+desktop), `--shell-only` the WebView2 half. `tools/verify-on-windows.ps1` is the one-command run of all of
+it on a real machine. CI starts it with `Start-Process -Wait`: `md.exe` is a GUI executable, and
+PowerShell's `&` neither waits for one nor sets `$LASTEXITCODE`.
 
 ---
 
@@ -1494,7 +1686,7 @@ namespace Md.App.Logic.Commands;
 public enum CommandId { New, Open, OpenRecentEntry, ClearRecent, OpenTextBundleFolder, Example, ExampleBook, Close, Save, SaveAs,
     Duplicate, Rename, MoveTo, RevertToSaved, Print, ShareSource, ShareRenderedPdf, ExportPdf, ExportHtml, ExportEpub, ExportLaTeX,
     ExportTextBundle, ExportDiagramSvg, PdfPageSize, Exit, Undo, Redo, Cut, Copy, Paste, Delete, SelectAll, Find, FindNext, FindPrevious,
-    UseSelectionForFind, ViewEdit, ViewSplit, ViewPreview, ZenMode, ShowSidebar, FullScreen, NewBook, OpenBook, ShowBook, CloseBook,
+    UseSelectionForFind, ContinueLists, CapitalizeSentences, ViewEdit, ViewSplit, ViewPreview, ZenMode, ShowSidebar, FullScreen, NewBook, OpenBook, ShowBook, CloseBook,
     ShareBookPdf, PrintBook, ExportBookPdf, ExportBookEpub, ExportBookLaTeX, PreviousArticle, NextArticle, Contents, Notes,
     Minimize, Zoom, ActivateWindow, Help, PrivacyPolicy, About, Escape }
 public enum KeyModifiers { None = 0, Ctrl = 1, Shift = 2, Alt = 4 }

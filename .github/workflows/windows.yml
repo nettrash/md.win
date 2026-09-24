@@ -187,13 +187,29 @@ jobs:
 
       # The report is written to the directory named after the flag, as SelfTest.TryStart reads it:
       # the argument that follows --selftest, or %TEMP%\md-selftest when none is given.
-      - name: Run the WebView2 self-test
+      #
+      # md.exe is a WinExe (GUI subsystem), and PowerShell does NOT wait for a GUI executable started
+      # with `&`: it returns at once and leaves $LASTEXITCODE unset, so `exit $LASTEXITCODE` exited 0
+      # before the self-test had checked anything — green whatever the report would have said. The
+      # process is therefore awaited with Start-Process -Wait, its own exit code is the step's, and a
+      # run that wrote no report.json fails outright.
+      #
+      # --no-input: the keystroke tier (SendInput into the foreground window) needs an unlocked,
+      # interactive desktop, which a hosted runner does not promise. The report records the skip;
+      # tools/verify-on-windows.ps1 runs the full tier on a real desktop.
+      - name: Run the WebView2 and shell self-test
         if: matrix.platform == 'x64'
         shell: pwsh
         run: |
           $exe = Join-Path "${{ github.workspace }}" "SelfTestBuild\md.exe"
-          & $exe --selftest "${{ github.workspace }}\SelfTestReport"
-          exit $LASTEXITCODE
+          $out = "${{ github.workspace }}\SelfTestReport"
+          $p = Start-Process -FilePath $exe -ArgumentList @('--selftest', "`"$out`"", '--no-input') -Wait -PassThru
+          $report = Join-Path $out 'report.json'
+          if (-not (Test-Path $report)) { throw "the self-test wrote no report.json (exit code $($p.ExitCode))" }
+          $json = Get-Content $report -Raw | ConvertFrom-Json
+          $json.checks | Where-Object { -not $_.passed } | ForEach-Object { Write-Host "FAILED $($_.name): $($_.detail)" }
+          Write-Host "self-test: $($json.passed) passed, $($json.failed) failed (exit code $($p.ExitCode))"
+          exit $p.ExitCode
 
       - name: Upload the self-test report
         if: always() && matrix.platform == 'x64'

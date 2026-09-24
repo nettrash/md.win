@@ -107,6 +107,7 @@ public static class CommandTable
     static readonly MenuPath FileExportDiagrams = new("File", "Export", "Diagram as SVG");
     static readonly MenuPath FileExportPageSize = new("File", "Export", "PDF Page Size");
     static readonly MenuPath Edit = new("Edit");
+    static readonly MenuPath EditTyping = new("Edit", "Typing");
     static readonly MenuPath View = new("View");
     static readonly MenuPath Book = new("Book");
     static readonly MenuPath BookExport = new("Book", "Export Book");
@@ -165,7 +166,12 @@ public static class CommandTable
         new(CommandId.Find, "Find\u2026", new Chord(VirtualKeys.F, Ctrl), Edit, CommandKind.Item, true, 2),
         new(CommandId.FindNext, "Find Next", new Chord(VirtualKeys.F3), Edit, CommandKind.Item, true, 2),
         new(CommandId.FindPrevious, "Find Previous", new Chord(VirtualKeys.F3, KeyModifiers.Shift), Edit, CommandKind.Item, true, 2),
+        new(CommandId.Replace, "Replace\u2026", new Chord(VirtualKeys.H, Ctrl), Edit, CommandKind.Item, true, 2),
         new(CommandId.UseSelectionForFind, "Use Selection for Find", new Chord(VirtualKeys.E, Ctrl), Edit, CommandKind.Item, true, 2),
+        // Typing (smart-typing.md §3.1): two settings, ticked from the snapshot, under the same "Typing"
+        // heading and worded identically on every md port — a static submenu of toggles.
+        new(CommandId.ContinueLists, "Continue Lists and Tables", null, EditTyping, CommandKind.Toggle, false, 0),
+        new(CommandId.CapitalizeSentences, "Capitalize Sentences", null, EditTyping, CommandKind.Toggle, false, 0),
 
         // ── View (§2.5) ───────────────────────────────────────────────────────────────────────
         new(CommandId.ViewEdit, "Edit", new Chord(VirtualKeys.Number1, Ctrl), View, CommandKind.Toggle, false, 0),
@@ -248,6 +254,7 @@ public static class CommandTable
         _ when path == FileExport => 3,
         _ when path == FileExportDiagrams => 1,
         _ when path == FileExportPageSize => 2,
+        _ when path == EditTyping => 3,
         _ when path == BookExport => 1,
         _ when path == GoContents => 1,
         _ when path == GoNotes => 1,

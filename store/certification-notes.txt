@@ -1,19 +1,19 @@
-md is a Markdown editor and live previewer for Windows 11 (build 22000 or later, x64 and ARM64). First submission, version 1.0.0.0.
+md is a Markdown editor and live previewer for Windows 11 (build 22000 or later, x64 and ARM64). Second submission, version 1.5.0.0; the first was 1.0.0.0. The version number is shared across md's editions.
 
-ACCESS: No account, sign-in, registration, purchases or subscriptions, so no test credentials exist. Everything works at launch; File, Examples ships nine sample documents and a sample book.
+ACCESS: No account, sign-in, purchases or subscriptions, so no test credentials exist. Everything works at launch; File, Examples ships nine sample documents and a sample book.
 
 ONE-MINUTE WALKTHROUGH
-1. Launch; an untitled window opens. File, Examples, Math shows LaTeX and chemistry; Diagrams shows Mermaid, Graphviz and PlantUML; Plots shows charts. All render offline from bundled engines.
+1. Launch; an untitled window opens. File, Examples, Math shows LaTeX and chemistry; Diagrams shows Mermaid, Graphviz and PlantUML; Plots shows charts, all offline.
 2. View, Edit / Split / Preview (Ctrl+1 / 2 / 3); View, Zen Mode (Ctrl+Shift+Enter; Esc leaves).
 3. File, Export, PDF writes real pages through the save dialog; File, Print (Ctrl+P) shows a print preview inside the window.
 4. File, Examples, Example Book: choose a folder; the book window opens. Book, Export Book, EPUB compiles it.
 
-NETWORK: No servers of ours; no analytics, advertising or telemetry. The only network use is the WebView2 renderer fetching an image a user's own document references by URL (the Images example does).
+NETWORK: No servers of ours; no analytics, advertising or telemetry. The only network use is the WebView2 renderer fetching an image a user's own document references by URL.
 
-CODE: The engines (KaTeX with mhchem, Mermaid, Graphviz via Viz.js, PlantUML, highlight.js) are open-source JavaScript bundled in the package and served to WebView2 from a virtual host mapped to their own folder. Nothing is downloaded or updated at run time. The WebView2 Runtime is Windows 11's own.
+CODE: The engines (KaTeX with mhchem, Mermaid, Graphviz via Viz.js, PlantUML, highlight.js) are open-source JavaScript bundled in the package and served to WebView2 locally. Nothing is downloaded or updated at run time. The WebView2 Runtime is Windows 11's own.
 
-CAPABILITIES: runFullTrust only. A WinUI 3 desktop app using the Windows file pickers, drag and drop, file associations and WebView2; it reads and writes only the documents the user opens or saves. No camera, microphone, location or contacts.
+CAPABILITIES: runFullTrust only. A WinUI 3 desktop app using the Windows file pickers, drag and drop, file associations and WebView2; it reads and writes only the documents the user opens or saves. No camera, microphone or location.
 
-FILE TYPES: Owner of .md, .markdown, .mdown, .markdn, .mdtext; alternate handler for .txt, .puml, .plantuml, .gv, .textpack. A .textbundle is a folder and opens via File, Open TextBundle Folder.
+FILE TYPES: Owner of .md, .markdown, .mdown, .markdn, .mdtext, .mdtxt, .mkd, .mkdn, .mdwn, .mkdown; alternate handler for .txt, .text, .puml, .plantuml, .iuml, .pu, .gv, .textpack. A .textbundle is a folder and opens via File, Open TextBundle Folder.
 
-Encryption: none. Regional differences: none. No data is collected; privacy policy: https://nettrash.me/msstore/md/privacy.html. The source is public. Thank you for reviewing.
+Encryption: none. Regional differences: none. No data is collected; privacy policy: https://nettrash.me/msstore/md/privacy.html. The source is public.

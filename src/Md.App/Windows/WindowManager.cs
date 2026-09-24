@@ -347,14 +347,19 @@ internal sealed class WindowManager
             if (argument is int ordinal) Article(window, a => exports.Pipeline.ExportDiagramSvgAsync(a.Text, a.Title, ordinal));
         });
 
-        // Edit (§2.4) — the TextBox implements these; the rows only reach it.
-        commands.Register(CommandId.Undo, () => window.Editor.Undo());
-        commands.Register(CommandId.Redo, () => window.Editor.Redo());
+        // Edit (§2.4) — the TextBox implements these; the rows only reach it. Undo, Redo and Paste
+        // go through the pane, which tells the typing hooks first (§3.6).
+        commands.Register(CommandId.Undo, () => window.EditorPane.Undo());
+        commands.Register(CommandId.Redo, () => window.EditorPane.Redo());
         commands.Register(CommandId.Cut, () => window.Editor.CutSelectionToClipboard());
         commands.Register(CommandId.Copy, () => window.Editor.CopySelectionToClipboard());
-        commands.Register(CommandId.Paste, () => window.Editor.PasteFromClipboard());
+        commands.Register(CommandId.Paste, () => window.EditorPane.Paste());
         commands.Register(CommandId.Delete, () => window.Editor.SelectedText = "");
         commands.Register(CommandId.SelectAll, () => window.Editor.SelectAll());
+        // Typing (§2.4, §3.6): app-wide settings; the Book window's ticks and its editor follow
+        // the store's Changed, as every document window's do.
+        commands.Register(CommandId.ContinueLists, () => TypingSettings.Toggle(_services.Settings, SettingsKeys.ContinueLists));
+        commands.Register(CommandId.CapitalizeSentences, () => TypingSettings.Toggle(_services.Settings, SettingsKeys.CapitalizeSentences));
 
         // Window (§2.8)
         commands.Register(CommandId.Minimize, () => (window.AppWindow.Presenter as OverlappedPresenter)?.Minimize());

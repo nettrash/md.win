@@ -22,4 +22,16 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Md.App.Logic\Md.App.Logic.csproj" />
   </ItemGroup>
+
+  <!--
+    The in-app self-test's typing scenarios (src/Md.App/Services/SelfTestTyping.cs) are pure data,
+    compiled here as well so TypingHooksTests can play each one through the modelled editor: every
+    expectation the self-test asserts on the real TextBox is first proved against the model.
+  -->
+  <PropertyGroup>
+    <DefineConstants>$(DefineConstants);MD_SELFTEST_VECTORS</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\..\src\Md.App\Services\SelfTestTyping.cs" Link="SelfTest\SelfTestTyping.cs" />
+  </ItemGroup>
 </Project>

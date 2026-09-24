@@ -55,7 +55,7 @@ internal static class AboutDialog
     }
 
     /// <summary>
-    /// "Version 1.0.0" from the MSIX identity. An unpackaged run (a developer build, or
+    /// "Version 1.5.0" from the MSIX identity. An unpackaged run (a developer build, or
     /// <c>--selftest</c>) has no <c>Package.Current</c> and throws, so the assembly's own version
     /// stands in — the same fallback shape <c>App.Diagnostics</c> uses for <c>ApplicationData</c>.
     /// The Store's fourth component is always 0 and is left out.
@@ -70,7 +70,7 @@ internal static class AboutDialog
         catch (Exception)
         {
             var version = typeof(AboutDialog).Assembly.GetName().Version;
-            return version is null ? "Version 1.0.0" : Format(version.Major, version.Minor, version.Build);
+            return version is null ? "Version 1.5.0" : Format(version.Major, version.Minor, version.Build);
         }
     }
 

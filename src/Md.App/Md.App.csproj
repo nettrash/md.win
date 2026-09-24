@@ -146,9 +146,9 @@
   <!--
     Auto-increment the package version's THIRD component on every build.
 
-    The Store's rule (store/README.md, "First submission") is that a resubmission's Version must be
-    strictly greater than the last one's and its **Revision must be 0** — so this moves Build and
-    writes Revision back as 0, never the fourth component.
+    The Store's rule (store/README.md, "Release notes, submission by submission") is that a
+    resubmission's Version must be strictly greater than the last one's and its **Revision must be
+    0** — so this moves Build and writes Revision back as 0, never the fourth component.
 
     There is no supported knob for this: the MSIX packaging targets read the version OUT of the
     manifest (`AppxManifestIdentityVersion` is an <Output/> of _GenerateAppxManifest, not an input),
@@ -205,7 +205,7 @@
         {
             OldVersion = match.Groups["major"].Value + "." + match.Groups["minor"].Value + "."
                        + match.Groups["build"].Value + "." + match.Groups["revision"].Value;
-            // Revision stays 0: the Store requires it (store/README.md, "First submission").
+            // Revision stays 0: the Store requires it (store/README.md, "Release notes").
             NewVersion = match.Groups["major"].Value + "." + match.Groups["minor"].Value + "."
                        + (int.Parse(match.Groups["build"].Value) + 1).ToString() + ".0";
 

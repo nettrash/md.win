@@ -17,6 +17,10 @@ namespace Md.Core.Text
 - static ScalarText (ordinal): Contains, FirstIndex(text, needle, from=0) -> int?, HasPrefix, HasSuffix,
   Split(text, sep), Replacing, DropFirst(text, codePoints), IsMark(Rune), IsEnclosedAlphabetic(Rune),
   FullLowercase(string) [per-rune ToLowerInvariant + U+0130 -> i U+0307; NO final sigma].
+- static SmartTyping: Enter(text, selectionStart, selectionEnd) -> EnterEdit?(Location, Length, Replacement, Caret)
+  and Capitalize(text, selectionStart, selectionEnd, typed) -> string? — the two pure keystroke helpers of
+  docs/smart-typing.md (list/quote/table continuation and sentence capitalization), UTF-16 offsets in either
+  order, pinned by every vector of Fixtures/typing-vectors.json (1350, shared with the other md ports).
 
 namespace Md.Core.Markdown
 - enum BlockKind { Heading, Paragraph, List, CodeBlock, Quote, Table, ThematicBreak, PageBreak, Note, FrontMatter, FootnoteDefinition }

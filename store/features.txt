@@ -9,10 +9,10 @@ CSV and TSV blocks drawn as tables, the first row the header and number columns 
 The Go menu lists every heading and your private author notes; a live word and character count sits under every page.
 Every document reopens in the layout you last had it in.
 Print through a print preview inside the window, or export real pages as PDF at A4, A5, US Letter, US Legal or a paperback trim size.
-Export as one self-contained HTML file, a standard EPUB 3, a LaTeX .tex file, a TextBundle, or a single diagram as an SVG vector.
+Export as one self-contained HTML file, a standard EPUB 3, a LaTeX .tex file, a TextBundle, or a single diagram as an SVG vector; .textpack files and TextBundle folders open too.
 Writer mode: a folder is a book — subfolders are chapters, Markdown files are articles — compiled to one PDF, EPUB or LaTeX book.
 Autosave in place a second after you stop typing, with a guard that asks before overwriting a file another program changed.
-Opens .md, .markdown, .txt, .puml and .gv files and saves them back in the encoding they arrived in; opens .textpack files and TextBundle folders too.
+Opens .md, .markdown, .mdown, .markdn, .mdtext, .mdtxt, .mkd, .mkdn, .mdwn and .mkdown, plus .txt, .text, .puml, .plantuml, .iuml, .pu and .gv, and saves each back in the encoding it arrived in.
 Rename, Move To, Duplicate and Revert to Saved from the File menu; Open Recent feeds the taskbar Jump List.
 Warm paper in light and dark, prose in Lucida Sans Typewriter and code in Courier New.
 Built-in examples, including a small sample book.

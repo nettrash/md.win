@@ -56,6 +56,8 @@ public sealed record DiagramRef(int Ordinal, string MenuTitle);
 /// <param name="SidebarOpen">Book window only: the sidebar is showing (View ▸ Show Sidebar's tick).</param>
 /// <param name="IsFullScreen">The window's presenter is FullScreen — View's row reads "Exit Full Screen" then (§1.3).</param>
 /// <param name="FindBarOpen">The find bar is showing; with <paramref name="ZenActive"/> it is what makes Esc a command (§2.9).</param>
+/// <param name="ContinueLists">The <c>md.continueLists</c> setting (Edit ▸ Continue Lists and Tables' tick; smart-typing.md §3.1). Default true.</param>
+/// <param name="CapitalizeSentences">The <c>md.capitalizeSentences</c> setting (Edit ▸ Capitalize Sentences' tick). Default true.</param>
 public sealed record ShellSnapshot(
     bool HasDocument,
     bool IsBookWindow,
@@ -81,7 +83,9 @@ public sealed record ShellSnapshot(
     string PdfPageSizeId,
     bool SidebarOpen = false,
     bool IsFullScreen = false,
-    bool FindBarOpen = false)
+    bool FindBarOpen = false,
+    bool ContinueLists = true,
+    bool CapitalizeSentences = true)
 {
     /// <summary>
     /// Nothing published: no document, no book, no rows. The base every window's snapshot is built
@@ -140,6 +144,8 @@ public sealed record ShellSnapshot(
         && SidebarOpen == other.SidebarOpen
         && IsFullScreen == other.IsFullScreen
         && FindBarOpen == other.FindBarOpen
+        && ContinueLists == other.ContinueLists
+        && CapitalizeSentences == other.CapitalizeSentences
         && string.Equals(PdfPageSizeId, other.PdfPageSizeId, StringComparison.Ordinal)
         && Same(Outline, other.Outline)
         && Same(Notes, other.Notes)
@@ -156,6 +162,7 @@ public sealed record ShellSnapshot(
         hash.Add(ZenReading); hash.Add(CanPrevious); hash.Add(CanNext); hash.Add(EditorVisible);
         hash.Add(CanUndo); hash.Add(CanRedo); hash.Add(HasSelection); hash.Add(HasFindQuery);
         hash.Add(SidebarOpen); hash.Add(IsFullScreen); hash.Add(FindBarOpen);
+        hash.Add(ContinueLists); hash.Add(CapitalizeSentences);
         hash.Add(PdfPageSizeId, StringComparer.Ordinal);
         hash.Add(Outline.Count); hash.Add(Notes.Count); hash.Add(Diagrams.Count);
         hash.Add(RecentEntries.Count); hash.Add(WindowTitles.Count);

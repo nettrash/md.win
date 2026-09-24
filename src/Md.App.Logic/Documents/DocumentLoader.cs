@@ -50,15 +50,33 @@ public sealed record DocumentLoad(LoadedDocument? Document, LoadFailure Failure,
 /// </summary>
 public static class DocumentLoader
 {
-    /// <summary>The extensions md owns, in the Mac's order (Package.appxmanifest declares the same set).</summary>
-    public static readonly IReadOnlyList<string> MarkdownExtensions = [".md", ".markdown", ".mdown", ".markdn", ".mdtext"];
+    /// <summary>
+    /// The extensions md owns: the family's canonical Markdown set, in the order every port declares
+    /// it. Package.appxmanifest's <c>markdown</c> association lists exactly these, and
+    /// <c>FileAssociationTests</c> pins the two to each other.
+    /// </summary>
+    public static readonly IReadOnlyList<string> MarkdownExtensions =
+        [".md", ".markdown", ".mdown", ".markdn", ".mdtext", ".mdtxt", ".mkd", ".mkdn", ".mdwn", ".mkdown"];
 
-    /// <summary>Plain-text alternates.</summary>
+    /// <summary>Plain-text alternates (the manifest's <c>plaintext</c> association).</summary>
     public static readonly IReadOnlyList<string> PlainTextExtensions = [".txt", ".text"];
 
-    /// <summary>What the Open picker filters on (§6.1) — a superset of the writable types plus <c>.textpack</c>.</summary>
+    /// <summary>PlantUML alternates (the manifest's <c>plantuml</c> association).</summary>
+    public static readonly IReadOnlyList<string> PlantUmlExtensions = [".puml", ".plantuml", ".iuml", ".pu"];
+
+    /// <summary>
+    /// Graphviz alternates (the manifest's <c>graphviz</c> association). Only <c>.gv</c>: Windows,
+    /// like macOS, calls a <c>.dot</c> a Word template, so that one is deliberately never claimed.
+    /// </summary>
+    public static readonly IReadOnlyList<string> GraphvizExtensions = [".gv"];
+
+    /// <summary>
+    /// What the Open picker filters on (§6.1): every writable type, grouped in the Mac's order, plus
+    /// <c>.textpack</c> — every extension the manifest associates and nothing else. Never
+    /// <c>.textbundle</c>: that is a folder, which a file picker cannot show (§6.5).
+    /// </summary>
     public static readonly IReadOnlyList<string> OpenExtensions =
-        [".md", ".markdown", ".mdown", ".markdn", ".mdtext", ".txt", ".text", ".puml", ".plantuml", ".gv", ".textpack"];
+        [.. MarkdownExtensions, .. PlainTextExtensions, .. PlantUmlExtensions, .. GraphvizExtensions, TextBundle.PackExtension];
 
     /// <summary>
     /// The Save picker's labelled type groups, in the Mac's order (§6.1). Never a bundle type:
@@ -68,8 +86,8 @@ public static class DocumentLoader
     [
         (Strings.Exports.MarkdownDocument, MarkdownExtensions),
         (Strings.Exports.PlainText, PlainTextExtensions),
-        (Strings.Exports.PlantUmlDiagram, [".puml", ".plantuml"]),
-        (Strings.Exports.GraphvizDotGraph, [".gv"]),
+        (Strings.Exports.PlantUmlDiagram, PlantUmlExtensions),
+        (Strings.Exports.GraphvizDotGraph, GraphvizExtensions),
     ];
 
     /// <summary>The extension a Save As should default to for <paramref name="path"/> — its own, or <c>.md</c> for an untitled or extension-less document.</summary>

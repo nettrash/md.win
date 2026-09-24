@@ -15,10 +15,17 @@
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
   IgnorableNamespaces="uap uap3 uap5 uap10 rescap">
 
+  <!--
+    Version is four parts, Major.Minor.Build.Revision, with Revision fixed at 0 because the
+    Store reserves it — so the md family's two-part 1.5 is committed here as 1.5.0.0. The
+    third part is raised on every build by BumpPackageVersion in Md.App.csproj, which is how
+    a resubmission is always strictly greater than the last one. Name and Publisher are the
+    real Partner Center values and never change; only Version moves.
+  -->
   <Identity
     Name="nttrsh.nettrash.md"
     Publisher="CN=28EC49E1-8A19-45EF-A576-FF596547E069"
-    Version="1.0.7.0" />
+    Version="1.5.0.0" />
 
   <Properties>
     <!--
@@ -70,10 +77,14 @@
       </uap:VisualElements>
 
       <Extensions>
-        <!-- The document types md edits. Mirrors the macOS CFBundleDocumentTypes: Markdown is
-             ours; PlantUML, Graphviz, TextPack and plain text are offered as an alternate
-             handler. A .textbundle is a folder and cannot be associated on Windows; the app
-             opens one through File ▸ Open TextBundle Folder… instead. -->
+        <!-- The document types md edits: the family's canonical extension sets, one association
+             per kind, mirroring the macOS CFBundleDocumentTypes. Markdown is ours, under every
+             spelling the ports agree on; PlantUML, Graphviz, TextPack and plain text are offered
+             as an alternate handler. .dot is deliberately unclaimed (Windows, like macOS, calls
+             it a Word template — Graphviz is .gv only). A .textbundle is a folder and cannot be
+             associated on Windows; the app opens one through File ▸ Open TextBundle Folder…
+             instead. Every FileType here is also in DocumentLoader.OpenExtensions and nothing
+             else is — FileAssociationTests pins the manifest and the loader to each other. -->
         <uap:Extension Category="windows.fileTypeAssociation">
           <uap3:FileTypeAssociation Name="markdown" DesiredView="default">
             <uap:DisplayName>Markdown Document</uap:DisplayName>
@@ -86,6 +97,11 @@
               <uap:FileType ContentType="text/markdown">.mdown</uap:FileType>
               <uap:FileType ContentType="text/markdown">.markdn</uap:FileType>
               <uap:FileType ContentType="text/markdown">.mdtext</uap:FileType>
+              <uap:FileType ContentType="text/markdown">.mdtxt</uap:FileType>
+              <uap:FileType ContentType="text/markdown">.mkd</uap:FileType>
+              <uap:FileType ContentType="text/markdown">.mkdn</uap:FileType>
+              <uap:FileType ContentType="text/markdown">.mdwn</uap:FileType>
+              <uap:FileType ContentType="text/markdown">.mkdown</uap:FileType>
             </uap:SupportedFileTypes>
           </uap3:FileTypeAssociation>
         </uap:Extension>
@@ -98,6 +114,8 @@
             <uap:SupportedFileTypes>
               <uap:FileType ContentType="text/plain">.puml</uap:FileType>
               <uap:FileType ContentType="text/plain">.plantuml</uap:FileType>
+              <uap:FileType ContentType="text/plain">.iuml</uap:FileType>
+              <uap:FileType ContentType="text/plain">.pu</uap:FileType>
             </uap:SupportedFileTypes>
           </uap3:FileTypeAssociation>
         </uap:Extension>
@@ -131,6 +149,7 @@
             <uap:EditFlags OpenIsSafe="true" />
             <uap:SupportedFileTypes>
               <uap:FileType ContentType="text/plain">.txt</uap:FileType>
+              <uap:FileType ContentType="text/plain">.text</uap:FileType>
             </uap:SupportedFileTypes>
           </uap3:FileTypeAssociation>
         </uap:Extension>

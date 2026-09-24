@@ -75,6 +75,9 @@ full:
 - `md.bookViewMode` — the book window's one layout.
 - `md.win.windowSize.document` and `md.win.windowSize.book` — the last size
   of a document window and of the book window, so new windows open at it.
+- `md.continueLists` and `md.capitalizeSentences` — the two typing helpers
+  under Edit ▸ Typing (**Continue Lists and Tables**, **Capitalize
+  Sentences**), on or off. Both start on.
 
 Beside those settings the app keeps, in its package folders, exactly the
 following:

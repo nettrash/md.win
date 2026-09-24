@@ -51,7 +51,16 @@ var buildExit = 0;
 string buildState;
 if (!options.Build) buildState = "skipped";
 else if (!restored) { buildState = "not run (restore failed)"; buildExit = 1; }
-else { buildExit = shadow.Build(); buildState = buildExit == 0 ? "ok" : $"failed ({buildExit})"; }
+else
+{
+    // Both configurations the app is built in: the shipped one, and -p:SelfTest=true (CI's
+    // unpackaged --selftest binary), whose #if SELFTEST code nothing else compiles off Windows.
+    var shipped = shadow.Build();
+    var selfTest = shadow.Build(selfTest: true);
+    buildExit = shipped != 0 ? shipped : selfTest;
+    buildState = shipped == 0 && selfTest == 0 ? "ok (shipped + selftest)"
+        : $"failed (shipped {shipped}, selftest {selfTest})";
+}
 
 Console.WriteLine($"xamlcheck: {lint.FileCount} XAML file(s), {lint.Classes.Count} x:Class, {lint.Classes.Sum(c => c.Fields.Count)} named element(s); " +
                   $"{errors} error(s), {warnings} warning(s); shadow build {buildState}; {clock.Elapsed.TotalSeconds:F1}s");

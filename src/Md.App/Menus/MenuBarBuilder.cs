@@ -8,6 +8,11 @@
 // declares only Icon, Items and Text, and MenuBarItem only Items and Title — neither exposes a
 // flyout or an Opening event (§2.9). The rebuild is ≤ 60 items and only runs when the snapshot
 // actually differs, which ShellSnapshot's structural equality decides.
+//
+// A static submenu of toggles (Edit ▸ Typing, smart-typing.md §3.1) needs nothing of its own: Fill
+// recurses into every MenuFlyoutSubItem the table names, and Refresh ticks every
+// ToggleMenuFlyoutItem it registered wherever it sits, so the two settings read the snapshot there
+// exactly as they did as top-level Edit rows.
 using Md.App.Logic.Commands;
 using Md.Core.Document;
 using Microsoft.UI.Xaml;
@@ -131,6 +136,13 @@ internal sealed class MenuBarBuilder(CommandDispatcher dispatcher, MenuBarSource
                     // the Bool and calls select(mode) (§2.5).
                     var toggle = new ToggleMenuFlyoutItem { Text = spec.Title };
                     Wire(toggle, spec);
+                    // The control flips its own tick on the click. A click that changes nothing —
+                    // View ▸ Edit while in Edit — leaves the snapshot as it was, Refresh returns at
+                    // its first line, and the flipped tick would stay: so the tick is put back from
+                    // the snapshot once the command has run. Posted, because whether IsChecked flips
+                    // before or after Click is raised is the control's business.
+                    var id = spec.Id;
+                    toggle.Click += (_, _) => _ = toggle.DispatcherQueue.TryEnqueue(() => toggle.IsChecked = CommandEnablement.IsChecked(id, dispatcher.Snapshot));
                     _toggles[spec.Id] = toggle;
                     host.Add(toggle);
                     break;
@@ -284,6 +296,10 @@ internal sealed class MenuBarBuilder(CommandDispatcher dispatcher, MenuBarSource
                 {
                     var toggle = new ToggleMenuFlyoutItem { Text = title, IsChecked = isThis };
                     toggle.Click += (_, _) => dispatcher.Execute(id, windowId);
+                    // As for the static toggles: clicking another window's row ticks it HERE, and
+                    // activating that window changes nothing this window's snapshot carries — two
+                    // rows would stay ticked. The tick is this window's row, and only that.
+                    toggle.Click += (_, _) => _ = toggle.DispatcherQueue.TryEnqueue(() => toggle.IsChecked = CommandEnablement.IsRowChecked(id, windowId, dispatcher.Snapshot));
                     rows.Add(toggle);
                 }
                 break;

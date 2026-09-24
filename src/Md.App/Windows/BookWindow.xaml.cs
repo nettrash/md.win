@@ -219,8 +219,11 @@ internal sealed partial class BookWindow : Window
     /// </summary>
     public Task Listed => _listed.Task;
 
-    /// <summary>The article editor, for the Edit rows the manager registers on <see cref="Commands"/> (§2.4).</summary>
+    /// <summary>The article editor's TextBox, for the Edit rows the control performs unaided (Cut / Copy / Delete / Select All; §2.4).</summary>
     public TextBox Editor => _panes.Editor.Control;
+
+    /// <summary>The article editor itself, for Undo / Redo / Paste — the rows that tell the typing hooks before they reach the control (§3.6).</summary>
+    public EditorPane EditorPane => _panes.Editor;
 
     /// <summary>File ▸ Save from the Book window: the article is written now rather than on the 1 s autosave (§2.2).</summary>
     public void SaveArticle() => _session.FlushNow(explicitSave: true);
@@ -470,6 +473,11 @@ internal sealed partial class BookWindow : Window
         FooterSecondaryButton.Click += (_, _) => _session.ResolveConflictKeepingMine();
 
         _panes.Editor.TextEdited += text => _session.Edit(text);
+        // §3.6: the two typing toggles reach the editor through the seam and follow Changed.
+        _panes.Editor.UseSettings(_services.Settings);
+        // §2.4: Cut, Copy and Delete are enabled on the selection, which the snapshot reads from the
+        // pane — so the menu is refreshed when it moves, exactly as a document window does.
+        _panes.Editor.Control.SelectionChanged += (_, _) => Publish();
         _panes.LayoutChanged += _ => Render();
 
         _navigator.Changed += Render;
@@ -560,6 +568,8 @@ internal sealed partial class BookWindow : Window
         // Another window opened or closed a book: re-list against whatever md.bookBookmark now says.
         if (key == SettingsKeys.BookBookmark) _ = OpenStoredBookAsync();
         else if (key == SettingsKeys.BookOpensInSeparateWindows) Render();
+        // A typing switch flipped here or in a document window: the Edit menu's ticks follow.
+        else if (TypingSettings.IsKey(key)) _services.UiThread.Post(Publish);
     }
 
     void Cleanup()
@@ -567,6 +577,7 @@ internal sealed partial class BookWindow : Window
         // Both of these are app-wide and outlive the window: left attached, the closed window is
         // kept alive and RecheckOwnership runs against a disposed session on the next activation.
         _services.Settings.Changed -= OnSettingChanged;
+        _panes.Editor.UseSettings(null);
         _services.Registry.Changed -= OnRegistryChanged;
         _derived.Cancel();
         // Before the pipeline is cancelled: a ring still waiting out its 500 ms must not fire into a
@@ -765,8 +776,10 @@ internal sealed partial class BookWindow : Window
             if (_undoGeneration != _session.UndoGeneration)
             {
                 _undoGeneration = _session.UndoGeneration;
-                // A fresh undo stack per article: Ctrl+Z must never cross an article boundary (§8.5).
-                _panes.Editor.Control.ClearUndoRedoHistory();
+                // A fresh undo stack per article: Ctrl+Z must never cross an article boundary (§8.5) —
+                // and the typing hooks forget the last capital with it (§3.6), since the article
+                // rendered next may hold the very same text and SetText would see the echo.
+                _panes.Editor.ResetHistory();
             }
             _panes.Editor.SetText(_session.Text);
             _panes.Mode = _state.EffectiveMode;
@@ -1136,6 +1149,7 @@ internal sealed partial class BookWindow : Window
         var editing = _session.Stage is Stage.Editing;
         var stepper = _navigator.Stepper;
         var derived = _state.Derived;
+        var typing = TypingSettings.Read(_services.Settings);
         return ShellSnapshot.Empty with
         {
             HasDocument = editing,
@@ -1161,6 +1175,8 @@ internal sealed partial class BookWindow : Window
             PdfPageSizeId = PageSize.Named(_services.Settings.GetString(SettingsKeys.PdfPageSize)).Id,
             SidebarOpen = Split.IsPaneOpen,
             IsFullScreen = AppWindow.Presenter.Kind == AppWindowPresenterKind.FullScreen,
+            ContinueLists = typing.ContinueLists,
+            CapitalizeSentences = typing.CapitalizeSentences,
         };
     }
 

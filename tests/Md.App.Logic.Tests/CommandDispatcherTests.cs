@@ -234,7 +234,10 @@ public class CommandDispatcherTests
         _snapshot = ShellSnapshot.Empty with
         {
             HasDocument = true, IsSaved = true, IsDirty = true, EditorVisible = true, CanUndo = true, CanRedo = true,
-            HasBook = true, HasSelection = true, HasFindQuery = true, ZenActive = true, IsBookWindow = false,
+            HasBook = true, HasSelection = true, HasFindQuery = true, IsBookWindow = false,
+            // The find bar open rather than Zen: Esc lives either way, and Find… is dead in Zen,
+            // where the window shows no chrome to put the bar in.
+            FindBarOpen = true,
         };
         var dispatcher = NewDispatcher();
         var seen = new List<CommandId>();

@@ -6,12 +6,17 @@ repo's `appstore/` and the Android repo's `play/` folders. One file per
 field, plain text, paste as-is. The three listings are written separately,
 because the apps differ; this one never mentions the others.
 
+md 1.0 is published: the listing is at
+`https://apps.microsoft.com/detail/9N2CV7L976RL` (Store ID `9N2CV7L976RL`).
+Every field below is edited in the same Partner Center submission flow from
+now on, one submission per release.
+
 | File | Partner Center field | Limit | Current |
 | --- | --- | --- | --- |
 | — | Product name | A reserved name; policy 10.1.1 forbids descriptive or marketing text in it, so reserve **md** (fallback if taken: **md by nettrash**, never "md — Markdown editor") | — |
-| `description.txt` | Store listing ▸ Description | 10 000 chars, plain text — no HTML, code snippets or URLs (links go in their own fields) | 4939 |
-| — | Store listing ▸ What's new in this version | 1 500 chars; **leave blank on the first submission** — Microsoft says so in the field's own help | blank |
-| `features.txt` | Store listing ▸ Product features | up to 20 features, ≤ 200 chars each, one per line, **no bullets of our own** (the Store adds them) | 20 lines, longest 150 |
+| `description.txt` | Store listing ▸ Description | 10 000 chars, plain text — no HTML, code snippets or URLs (links go in their own fields) | 5684 |
+| `release-notes.txt` | Store listing ▸ What's new in this version | 1 500 chars; **left blank on the first submission** — Microsoft says so in the field's own help — and written per submission from 1.5 on | 1300 |
+| `features.txt` | Store listing ▸ Product features | up to 20 features, ≤ 200 chars each, one per line, **no bullets of our own** (the Store adds them) | 20 lines, longest 194 |
 | `short-description.txt` | Supplemental ▸ Short description | 1 000 chars, but some views show only the first 270 — keep under 270 | 265 |
 | `system-requirements.txt` | Supplemental ▸ Additional system requirements | up to 11 items each for Minimum and Recommended hardware, ≤ 200 chars each, no bullets | 3 minimum, 2 recommended, longest 91 |
 | `search-terms.txt` | Properties ▸ Search terms | ≤ 7 unique terms or phrases (policy 10.1.3); the form has capped each at 30 chars and the set at 21 unique words | 7 terms |
@@ -21,7 +26,7 @@ because the apps differ; this one never mentions the others.
 | `privacy-policy-url.txt` | Properties ▸ Privacy policy URL | **Mandatory** for a `runFullTrust` (desktop) app — policy 10.5.1 | 43 |
 | `support-url.txt` | Properties ▸ Website and Support contact info | a URL; the same page the app opens from Help ▸ md Help | 43 |
 | `restricted-capabilities.txt` | Submission options ▸ Restricted capabilities ▸ "Why do you need the runFullTrust capability, and how will it be used in your product?" | no documented limit; keep it one screen and specific | 2204 |
-| `certification-notes.txt` | Submission options ▸ Notes for certification | no documented limit; the form has capped it at 2 000 chars — stay under | 1993 |
+| `certification-notes.txt` | Submission options ▸ Notes for certification | no documented limit; the form has capped it at 2 000 chars — stay under | 1983 |
 | `screenshots/` | Store listing ▸ Screenshots | at least 1; desktop up to 10; PNG, **1366 × 768 or larger** (4K allowed), ≤ 50 MB each; a caption ≤ 200 chars each | 5 shots, 3482 × 2098 each, ≤ 0.43 MB; captions in `screenshots/captions.txt` |
 | `logos/app-tile-icon-300x300.png` | Store listing ▸ Store logos ▸ 1:1 app tile icon | 300 × 300 PNG, strongly recommended (otherwise the Store uses the package's logo) | 300 × 300 |
 | `logos/box-art-1080x1080.png` | Store listing ▸ Store logos ▸ Box art (1:1) | 1080 × 1080 PNG | 1080 × 1080 |
@@ -176,44 +181,51 @@ board. The wording of the questions changes; answer the substance.
 ## Before submitting: what can only be done on Windows or in Partner Center
 
 Everything above is in the repo and reviewable here. The following cannot
-be: each needs a Windows machine, or the Partner Center form itself. None
-of them is done. Tick them off in order.
+be: each needs a Windows machine, or the Partner Center form itself. The
+first six were done for the 1.0 submission, which is published; they are
+kept because a later submission re-uses or re-checks them.
 
-- [ ] **Screenshots.** At least one is required and none exists — there is
-      no `store/screenshots/` folder yet. PNG, **1366 × 768 or larger**
-      (shoot 1920 × 1080), ≤ 50 MB each, up to 10; capture the six shots
-      listed under *Screenshots to capture* above, on a fresh local Windows
-      account, following the recipe there. Also consider the optional
-      300 × 300 PNG store logo.
-- [ ] **IARC age-rating questionnaire.** Answered in the submission form,
-      not in this repo (policy 11.11). The intended answers are written out
-      under *Age rating (IARC)* above — answer the substance, since the
-      wording of the questions changes.
-- [ ] **Reserve the product name.** Partner Center ▸ *Create a new app* →
-      reserve **md**; if it is taken, **md by nettrash** (never a
-      descriptive name — policy 10.1.1).
-- [ ] **Swap the `Identity` placeholders.** `src/Md.App/Package.appxmanifest`
-      ships `Name="nettrash.md"` and `Publisher="CN=nettrash"` as
-      placeholders, with a comment at the top of the file saying so. Replace
-      both with the values Partner Center ▸ *Product identity* shows for the
-      reserved name (or let Visual Studio ▸ *Associate App with the Store*
-      rewrite them). The MSIX will not be accepted until they match.
-- [ ] **Justify `runFullTrust`.** Partner Center asks why the restricted
-      capability is declared. Paste the CAPABILITIES paragraph from
-      `certification-notes.txt`: a WinUI 3 desktop app using the Windows file
-      pickers, drag and drop, file associations and WebView2, reading and
-      writing only the user's own documents.
-- [ ] **Deploy the two site pages.** `https://nettrash.me/msstore/md/privacy.html`
-      and `.../support.html` must answer 200 before the submission is sent;
-      the build already writes them (see *Properties and declarations*).
+- [x] **Screenshots.** Five shots, 3482 × 2098 each, are in
+      `store/screenshots/` with their captions in `captions.txt`, and the
+      store logos in `store/logos/`. The recipe for new ones, and the six
+      shots originally planned, are under *Screenshots to capture* above.
+- [x] **IARC age-rating questionnaire.** Answered in the 1.0 submission form
+      (policy 11.11); the rating carries over. The intended answers are
+      under *Age rating (IARC)* above — answer the substance if asked again,
+      since the wording of the questions changes.
+- [x] **Reserve the product name.** Reserved; Partner Center's reserved name
+      is what `Properties ▸ DisplayName` in the manifest must match, which
+      is why that element reads `nettrash.md` and not `md`.
+- [x] **The `Identity` element is real, and must stay exactly as it is.**
+      `src/Md.App/Package.appxmanifest` carries the values Partner Center ▸
+      *Product identity* shows, taken from the 1.0 submission's validation
+      errors, with a comment at the top of the file saying so. Never "tidy"
+      `Name` or `Publisher` back to something readable: the two derive the
+      package family name the Store expects, and the MSIX is rejected if
+      either changes. Only `Version` moves, submission to submission.
+- [x] **Justify `runFullTrust`.** Given for 1.0 and unchanged: the
+      CAPABILITIES paragraph of `certification-notes.txt` — a WinUI 3
+      desktop app using the Windows file pickers, drag and drop, file
+      associations and WebView2, reading and writing only the user's own
+      documents.
+- [x] **Deploy the two site pages.** `https://nettrash.me/msstore/md/privacy.html`
+      and `.../support.html` are live; the site build writes them (see
+      *Properties and declarations*). Re-check both answer 200 before each
+      submission.
+- [ ] **Paste the release notes.** Store listing ▸ *What's new in this
+      version* is blank from the 1.0 submission; 1.5 fills it from
+      `release-notes.txt`.
 
-## First submission
+## Release notes, submission by submission
 
-"What's new in this version" stays **blank**: Microsoft's guidance for a
-first submission. From 1.1 on it carries the release's headline changes in
-the family's shape (`Version 1.1 — …`, then ALL-CAPS groups of • bullets),
-within 1 500 characters. The MSIX `Version` must be strictly greater than
-the previous submission's and its Revision must be 0.
+"What's new in this version" stayed **blank** for the first submission:
+Microsoft's guidance. From 1.5 on it is `release-notes.txt` — the release's
+headline changes in the family's shape (`Version 1.5`, then ALL-CAPS groups
+of • bullets), within 1 500 characters. Partner Center takes the field per
+submission, so the file holds the text of the submission being prepared and
+is rewritten for the next one; the history is `CHANGELOG.md` at the repo
+root. The MSIX `Version` must be strictly greater than the previous
+submission's and its Revision must be 0.
 
 The Build component is bumped **automatically on every build** by the
 `BumpPackageVersion` target in `src/Md.App/Md.App.csproj`, which rewrites only

@@ -220,6 +220,17 @@ public static class Strings
         public const string Next = "Next";
         public const string Previous = "Previous";
         public const string Done = "Done";
+
+        /// <summary>§3.5: replaces the hit the editor is standing on, then moves to the next one.</summary>
+        public const string Replace = "Replace";
+
+        /// <summary>§3.5: every hit, in one undo step.</summary>
+        public const string ReplaceAll = "Replace All";
+
+        /// <summary>The two boxes are the same shape, so the placeholders are what tells them apart.</summary>
+        public const string QueryPlaceholder = "Find";
+
+        public const string ReplacementPlaceholder = "Replace with";
     }
 
     /// <summary>§2.8: Help ▸ md Help / Privacy Policy / About md.</summary>

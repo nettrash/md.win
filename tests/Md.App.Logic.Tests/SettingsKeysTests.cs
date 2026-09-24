@@ -3,17 +3,18 @@ using Md.App.Logic.Settings;
 
 namespace Md.App.Logic.Tests;
 
-/// <summary>Pins shell-final.md §9: the eight LocalSettings keys, their defaults, and the other names md stores state under.</summary>
+/// <summary>Pins shell-final.md §9: the ten LocalSettings keys, their defaults, and the other names md stores state under.</summary>
 public class SettingsKeysTests
 {
     [Fact]
-    public void The_eight_keys_are_pinned_in_section_9_order()
+    public void The_ten_keys_are_pinned_in_section_9_order()
     {
         Assert.Equal(
             new[]
             {
                 "md.viewModeMemory", "md.pdfPageSize", "md.bookBookmark", "md.bookOpensInSeparateWindows",
                 "md.bookLastArticle", "md.bookViewMode", "md.win.windowSize.document", "md.win.windowSize.book",
+                "md.continueLists", "md.capitalizeSentences",
             },
             SettingsKeys.All);
     }
@@ -29,6 +30,9 @@ public class SettingsKeysTests
         Assert.Equal("md.bookViewMode", SettingsKeys.BookViewMode);
         Assert.Equal("md.win.windowSize.document", SettingsKeys.DocumentWindowSize);
         Assert.Equal("md.win.windowSize.book", SettingsKeys.BookWindowSize);
+        // smart-typing.md §3.1: the same two keys on every md port.
+        Assert.Equal("md.continueLists", SettingsKeys.ContinueLists);
+        Assert.Equal("md.capitalizeSentences", SettingsKeys.CapitalizeSentences);
     }
 
     [Fact]
@@ -66,6 +70,31 @@ public class SettingsKeysTests
         Assert.Equal("split", SettingsKeys.BookViewModeDefault);
         Assert.Equal("900x640", SettingsKeys.DocumentWindowSizeDefault);
         Assert.Equal("1000x700", SettingsKeys.BookWindowSizeDefault);
+        // smart-typing.md §3.1: both bool, both default true.
+        Assert.True(SettingsKeys.ContinueListsDefault);
+        Assert.True(SettingsKeys.CapitalizeSentencesDefault);
+    }
+
+    [Fact]
+    public void The_typing_keys_are_not_Windows_only()
+    {
+        // Every port stores them under this spelling; a "md.win." prefix here would split the family.
+        Assert.StartsWith("md.", SettingsKeys.ContinueLists, StringComparison.Ordinal);
+        Assert.StartsWith("md.", SettingsKeys.CapitalizeSentences, StringComparison.Ordinal);
+        Assert.DoesNotContain(".win.", SettingsKeys.ContinueLists, StringComparison.Ordinal);
+        Assert.DoesNotContain(".win.", SettingsKeys.CapitalizeSentences, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_design_section_9_enumerates_every_key()
+    {
+        // §9's table is what PRIVACY.md is written from; a key missing there is a key PRIVACY forgets next.
+        var design = File.ReadAllText(RepoFiles.At("docs", "shell-design.md"));
+        var start = design.IndexOf("## 9. Settings", StringComparison.Ordinal);
+        var end = design.IndexOf("## 10. Theme", StringComparison.Ordinal);
+        Assert.True(start >= 0 && end > start, "shell-design.md §9 not found");
+        var section = design[start..end];
+        foreach (var key in SettingsKeys.All) Assert.Contains($"`{key}`", section);
     }
 
     [Fact]

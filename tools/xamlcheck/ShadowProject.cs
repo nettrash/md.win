@@ -78,6 +78,10 @@ sealed class ShadowProject(Options options, string appCsproj, Log log)
                 <ImplicitUsings>enable</ImplicitUsings>
                 <AllowUnsafeBlocks>{{allowUnsafe}}</AllowUnsafeBlocks>
                 <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
+                <!-- The app's own switch (Md.App.csproj): -p:SelfTest=true compiles the in-app self-test,
+                     which a Store build never carries. xamlcheck builds the shadow both ways, so the
+                     self-test code is type-checked off Windows as well as the shipped code. -->
+                <DefineConstants Condition="'$(SelfTest)' == 'true'">$(DefineConstants);SELFTEST</DefineConstants>
                 <GenerateDocumentationFile>false</GenerateDocumentationFile>
               </PropertyGroup>
 
@@ -164,10 +168,18 @@ sealed class ShadowProject(Options options, string appCsproj, Log log)
         return refs;
     }
 
-    public int Build()
+    /// <summary>
+    /// One shadow build. <paramref name="selfTest"/> defines SELFTEST, as <c>-p:SelfTest=true</c> does
+    /// for the real app: the in-app self-test (Services/SelfTest*.cs) is compiled only then, so a
+    /// build without it would never type-check a line of it.
+    /// </summary>
+    public int Build(bool selfTest = false)
     {
-        Console.WriteLine($"xamlcheck: dotnet build {ProjectPath} ({options.Configuration}, {options.Platform}, {options.Rid})");
-        var (exit, _) = Run(["build", ProjectPath, "--no-restore", $"-p:Configuration={options.Configuration}", "-nologo", "-v", "minimal", "-tl:off"], echo: true);
+        var variant = selfTest ? ", SELFTEST" : "";
+        Console.WriteLine($"xamlcheck: dotnet build {ProjectPath} ({options.Configuration}, {options.Platform}, {options.Rid}{variant})");
+        List<string> arguments = ["build", ProjectPath, "--no-restore", $"-p:Configuration={options.Configuration}", "-nologo", "-v", "minimal", "-tl:off"];
+        if (selfTest) arguments.Add("-p:SelfTest=true");
+        var (exit, _) = Run([.. arguments], echo: true);
         return exit;
     }
 

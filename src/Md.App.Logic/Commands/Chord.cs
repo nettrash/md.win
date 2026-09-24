@@ -21,6 +21,7 @@ public enum KeyModifiers
 /// </summary>
 public static class VirtualKeys
 {
+    public const int Back = 0x08;
     public const int Enter = 0x0D;
     public const int Escape = 0x1B;
     public const int Delete = 0x2E;
@@ -34,6 +35,7 @@ public static class VirtualKeys
     public const int C = 0x43;
     public const int E = 0x45;
     public const int F = 0x46;
+    public const int H = 0x48;
     public const int N = 0x4E;
     public const int O = 0x4F;
     public const int P = 0x50;

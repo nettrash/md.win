@@ -9,8 +9,9 @@ WRITE AND SEE
 • Code fenced with a language reads with its keywords, comments and strings set apart, in a quiet palette that matches the page rather than a bright editor theme.
 • Paste a table straight from a spreadsheet into a csv or tsv block and md draws it — the first row the header, number columns lined up on the right.
 • The Go menu lists every heading and jumps both panes to it. Private author notes — an HTML comment on its own line whose text begins with the word note — are listed in the Go menu and never appear in the preview, the PDF or the printout.
-• A live word and character count sits under every page, and a Find bar (Ctrl+F) searches the text.
+• A live word and character count sits under every page, and a find and replace bar (Ctrl+F, or Ctrl+H straight to the replacement) searches the text you are editing: case-insensitive, wrapping round the end, no regular expressions. Replace All is one undo step, so a single Ctrl+Z puts every hit back.
 • Every document reopens in the layout you last had it in — the notes you write in stay in Edit, the reference you only read stays in Preview — remembered on this PC for the last 200 files you opened.
+• Enter carries on what you are writing: the next bullet, the next number, the next task box, the next quote line, the next table row, and an empty item ends the list. The first letter of a line and of a sentence is capitalized as you type it, never inside code, a table, math, a link or a path. Delete the capital and type the letter again and it stays lowercase. Both helpers are switches under Edit, Typing.
 
 PRINT AND EXPORT
 • Print or export real A4 pages — or A5, US Letter, US Legal, or a paperback trim size for a book bound for print. Breaks fall between lines, and \newpage starts a fresh page wherever you decide.
@@ -26,7 +27,7 @@ WRITER MODE: BOOKS
 • Compile the whole book into one PDF at the page size you choose, print it, export it as a standard EPUB 3 with a proper table of contents — math and diagrams travel with it as images — or as a LaTeX book.
 
 A REAL WINDOWS APP
-• Document-based: open, save, autosave, rename, duplicate, move and revert from the File menu, and your open documents come back where you left them. Your files stay ordinary .md, .markdown or .txt, in the encoding they arrived in — and md also opens .puml, .gv and .textpack files, and TextBundle folders from the File menu.
+• Document-based: open, save, autosave, rename, duplicate, move and revert from the File menu, and your open documents come back where you left them. Your files stay ordinary .md or .markdown, any other Markdown spelling (.mdown, .markdn, .mdtext, .mdtxt, .mkd, .mkdn, .mdwn, .mkdown), or plain .txt and .text, in the encoding they arrived in. md also opens .puml, .plantuml, .iuml, .pu, .gv and .textpack files, and TextBundle folders from the File menu.
 • Autosave that never clobbers: the file is written in place a second after you stop typing, and if another program changed it first md asks instead of overwriting.
 • Native menus and keyboard shortcuts in every window, drag and drop, the Jump List, the Share pane and a print preview inside the window — no toolbar clutter.
 • Built for Windows 11 on x64 and ARM64, with the WebView2 runtime Windows already includes.

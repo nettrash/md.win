@@ -30,8 +30,9 @@ public static class CommandEnablement
     ///
     /// So the whole find family is dead in the Book window, not merely unhandled there. Reading it
     /// off <c>HasFindQuery</c> / <c>FindBarOpen</c> alone would have made Find Next and Esc right by
-    /// accident — a Book window can never set either — while leaving Find… and Use Selection for
-    /// Find enabled on <c>EditorVisible</c> and <c>HasSelection</c>, which an article does set.
+    /// accident — a Book window can never set either — while leaving Find…, Replace… and Use
+    /// Selection for Find enabled on <c>EditorVisible</c> and <c>HasSelection</c>, which an article
+    /// does set.
     /// </summary>
     static bool HasFindBar(ShellSnapshot s) => !s.IsBookWindow;
 
@@ -80,17 +81,30 @@ public static class CommandEnablement
             // Edit (§2.4) — the TextBox implements these; they live while an editor pane is on screen.
             CommandId.Undo => s.EditorVisible && s.CanUndo,
             CommandId.Redo => s.EditorVisible && s.CanRedo,
-            CommandId.Cut => s.EditorVisible,
-            CommandId.Copy => s.EditorVisible,
+            // Cut, Copy and Delete act on the selection and on nothing else: over an empty one each
+            // is a row that lights up and does nothing (the Mac greys all three the same way).
+            CommandId.Cut => s.EditorVisible && s.HasSelection,
+            CommandId.Copy => s.EditorVisible && s.HasSelection,
             CommandId.Paste => s.EditorVisible,
-            CommandId.Delete => s.EditorVisible,
+            CommandId.Delete => s.EditorVisible && s.HasSelection,
             CommandId.SelectAll => s.EditorVisible,
-            // The find family, all four gated on the window HAVING a find bar (§8.1) as well as on
-            // §2.4's own condition.
-            CommandId.Find => HasFindBar(s) && s.EditorVisible,
-            CommandId.FindNext => HasFindBar(s) && s.HasFindQuery,
-            CommandId.FindPrevious => HasFindBar(s) && s.HasFindQuery,
-            CommandId.UseSelectionForFind => HasFindBar(s) && s.HasSelection,
+            // The find family, all five gated on the window HAVING a find bar (§8.1) as well as on
+            // §2.4's own condition — and every one of them on an editor ON SCREEN, because each
+            // either selects its hit in the editor or opens the bar the layout rule hides with it:
+            // lit with the editor collapsed (Preview, Zen's reading half) they did nothing visible,
+            // which is the macOS Preview-only Find bug. The three that open the bar are dead in Zen
+            // too, where the window refuses to show any chrome (§5.4); F3 still walks the text there.
+            CommandId.Find => HasFindBar(s) && s.EditorVisible && !s.ZenActive,
+            CommandId.FindNext => HasFindBar(s) && s.EditorVisible && s.HasFindQuery,
+            CommandId.FindPrevious => HasFindBar(s) && s.EditorVisible && s.HasFindQuery,
+            // Replace opens the same bar as Find… and edits through the same editor pane, so it
+            // asks for exactly what Find… asks for.
+            CommandId.Replace => HasFindBar(s) && s.EditorVisible && !s.ZenActive,
+            CommandId.UseSelectionForFind => HasFindBar(s) && s.EditorVisible && !s.ZenActive && s.HasSelection,
+            // The two typing toggles are settings, live in every window like the PDF page size: a
+            // writer may turn them off from the Book window or with no editor on screen.
+            CommandId.ContinueLists => true,
+            CommandId.CapitalizeSentences => true,
 
             // View (§2.5)
             CommandId.ViewEdit => HasActiveDocument(s),
@@ -162,6 +176,9 @@ public static class CommandEnablement
             CommandId.ViewPreview => s.PublishedMode == ViewMode.Preview,
             CommandId.ZenMode => s.ZenActive,
             CommandId.ShowSidebar => s.SidebarOpen,
+            // Ticked from the settings snapshot, never from the click (smart-typing.md §3.1).
+            CommandId.ContinueLists => s.ContinueLists,
+            CommandId.CapitalizeSentences => s.CapitalizeSentences,
             _ => false,
         };
     }

@@ -12,8 +12,8 @@ public interface IPickers
     Task<IReadOnlyList<string>> OpenFilesAsync(IReadOnlyList<string> extensions);
 
     /// <summary>
-    /// Save picker; the choices are the labelled type groups in order ("Markdown Document" → the five
-    /// Markdown extensions, …). Null when cancelled. The WinRT picker returns a created, empty file —
+    /// Save picker; the choices are the labelled type groups in order ("Markdown Document" → every
+    /// Markdown extension, …). Null when cancelled. The WinRT picker returns a created, empty file —
     /// the caller writes over it and deletes it on a failed write.
     /// </summary>
     Task<string?> SaveFileAsync(string suggestedName, IReadOnlyList<(string Label, IReadOnlyList<string> Extensions)> choices, string defaultExtension);
