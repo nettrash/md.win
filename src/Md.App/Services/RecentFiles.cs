@@ -106,6 +106,9 @@ internal sealed class RecentFiles
 
     // The access cache needs package identity and a working profile; without either every call
     // throws, and every one of those is a "there is no Open Recent", never a bug in the caller.
+    // Unpackaged, Entries throws E_INVALIDARG ("PackageNameAndPublisherIdFromFamilyName"), which
+    // surfaces as ArgumentException, not COMException — measured on Windows 11 26200.
     static bool IsUnavailable(Exception e) =>
-        e is InvalidOperationException or UnauthorizedAccessException or System.Runtime.InteropServices.COMException or NotSupportedException;
+        e is InvalidOperationException or UnauthorizedAccessException or System.Runtime.InteropServices.COMException or NotSupportedException
+            or ArgumentException;
 }
