@@ -8,10 +8,11 @@ The number this file tracks is set by hand — there is no `agvtool bump` as
 on iOS and macOS and no Gradle `versionCode` finalizer as on Android. What
 the Store sees is the MSIX `Version` in `src/Md.App/Package.appxmanifest`:
 four parts, `Major.Minor.Build.Revision`, with Revision fixed at 0 because
-the Store reserves it, so the family's two-part `1.5` is committed as
-`1.5.0.0`. Its third part is what moves on its own — `BumpPackageVersion`
-in `Md.App.csproj` raises it on every build, which is how a resubmission is
-always strictly greater than the last. A resubmission that changes no
+the Store reserves it, so the family's two-part `1.5` became `1.5.0.0`. Its
+third part is what moves on its own — `BumpPackageVersion` in
+`Md.App.csproj` raises it on every build, which is how a resubmission is
+always strictly greater than the last; by the time 1.5 was committed it had
+climbed to `1.5.7.0` through the builds of the release verification. A resubmission that changes no
 behaviour is not tracked here.
 
 md.win began at its own 1.0, as every md port has, and said it would join

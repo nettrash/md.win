@@ -146,6 +146,21 @@ Write-Host '   Unpackaged output carries the engines, the examples and the licen
 # -- 4. The self-test ----------------------------------------------------------------------------
 
 Write-Step '4. md.exe --selftest'
+# A running md would not break a self-test build (it never redirects), but it does break a build
+# that silently lacks the self-test: that one hands its arguments to the running md and exits 0
+# having proved nothing. Refuse to guess.
+$running = @(Get-Process -Name md -ErrorAction SilentlyContinue)
+if ($running.Count -gt 0) {
+    Stop-Verify 'self-test' ("md is already running (pid " + (($running | ForEach-Object { $_.Id }) -join ', ') + "). Close every md window and run the script again.")
+}
+# Prove the binary in SelfTestBuild really carries the self-test: this string exists only in the
+# code that -p:SelfTest=true compiles in. A build that took the flag without defining SELFTEST is
+# an ordinary md, and step 4 would just open a document window.
+$managed = Join-Path $SelfTestBuild 'md.dll'
+if (-not (Test-Path $managed)) { $managed = Join-Path $SelfTestBuild 'md.exe' }
+if (-not (Select-String -Path $managed -Pattern 'selftest.completed' -Quiet)) {
+    Stop-Verify 'self-test' "the build in $SelfTestBuild does not carry the self-test (no 'selftest.completed' in $managed): -p:SelfTest=true did not define SELFTEST"
+}
 $arguments = @('--selftest', "`"$Report`"")
 if ($NoInput) {
     $arguments += '--no-input'
@@ -163,7 +178,21 @@ if (-not $process.WaitForExit(15 * 60 * 1000)) {
     Stop-Verify 'self-test' "md.exe --selftest did not exit within 15 minutes and was killed; see $Report and %LOCALAPPDATA%\md\md.log"
 }
 $reportFile = Join-Path $Report 'report.json'
-if (-not (Test-Path $reportFile)) { Stop-Verify 'self-test' "no report.json in $Report (exit code $($process.ExitCode)); see %LOCALAPPDATA%\md\md.log" }
+if (-not (Test-Path $reportFile)) {
+    # Say everything that can be said before stopping: whether the run started at all, whether it
+    # wrote to the fallback directory instead, and the tail of md's own log.
+    $fallback = Join-Path $env:TEMP 'md-selftest\report.json'
+    $startedMarker = Join-Path $Report 'started.txt'
+    $log = Join-Path $env:LOCALAPPDATA 'md\md.log'
+    if (Test-Path $startedMarker) { Write-Host "   the self-test STARTED in $Report at $(Get-Content $startedMarker -Raw) but never wrote report.json" -ForegroundColor Yellow }
+    else { Write-Host "   no started.txt in $Report - the self-test never reached its first line there" -ForegroundColor Yellow }
+    if (Test-Path $fallback) { Write-Host "   a report exists at the FALLBACK path $fallback - the directory argument was not honoured" -ForegroundColor Yellow }
+    if (Test-Path $log) {
+        Write-Host "   last 40 lines of ${log}:" -ForegroundColor Yellow
+        Get-Content $log -Tail 40 | ForEach-Object { Write-Host "     $_" }
+    } else { Write-Host "   no md.log at $log" -ForegroundColor Yellow }
+    Stop-Verify 'self-test' "no report.json in $Report (exit code $($process.ExitCode)); the lines above say how far it got"
+}
 $json = Get-Content $reportFile -Raw -Encoding UTF8 | ConvertFrom-Json
 foreach ($check in $json.checks) {
     if ($check.passed) { Write-Host ("   ok    {0}" -f $check.name) -ForegroundColor DarkGreen }

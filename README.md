@@ -151,8 +151,8 @@ for code).
   sits under every page, counted with the ICU word rules Windows ships in
   `icu.dll`, so CJK text counts as it does on the Mac and Android. A
   **Find and Replace** bar (Ctrl+F, F3 / Shift+F3, Ctrl+E for the
-  selection, Ctrl+H to replace) is a Windows addition: the WinUI `TextBox`
-  ships without one. Matching is case-insensitive and wraps round the end;
+  selection, Ctrl+H to replace) is md's own, as on every port — the WinUI
+  `TextBox` ships without one. Matching is case-insensitive and wraps round the end;
   there are no regular expressions. **Replace All** is a single undo step,
   so one Ctrl+Z puts every hit back.
 - **Typewriter feel.** Warm paper background (light "fresh paper" / dark

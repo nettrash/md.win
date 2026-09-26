@@ -45,6 +45,8 @@ internal static class Program
         // A self-test run (§11.4) is not a second copy of md asking an existing one to open a file:
         // it has to drive its own WebView2 and exit with its own code, so it never redirects. The
         // property is false in every build that does not carry the self-test.
+        if (!main.IsCurrent && Services.SelfTest.Requested)
+            App.Diagnostics.Write("self-test: another md holds the instance key; not redirecting, running the self-test in this process");
         if (!main.IsCurrent && !Services.SelfTest.Requested)
         {
             // Worth a line: if the instance we hand this to is not actually showing a window (a

@@ -55,9 +55,14 @@ internal static partial class SelfTest
         if (flag < 0) return false;
 
         var directory = flag + 1 < arguments.Length && !arguments[flag + 1].StartsWith('-')
-            ? arguments[flag + 1]
+            ? arguments[flag + 1].Trim('"')
             : Path.Combine(Path.GetTempPath(), "md-selftest");
 
+        // The first line the log gets from a self-test run, before anything can go wrong. The first
+        // real run of this code (2026-09-25, nettrash's Windows 11 ARM64 VM) exited 0 with no
+        // report.json and nothing in the log at all, which left "never started", "redirected to a
+        // running md" and "died before the write" indistinguishable. Every branch below now says so.
+        App.Diagnostics.Write($"self-test: requested; report directory \"{directory}\"; arguments: {string.Join(" ", arguments)}");
         return Start(directory);
     }
 
@@ -189,6 +194,10 @@ internal static partial class SelfTest
         try
         {
             Directory.CreateDirectory(directory);
+            // A marker the verify script can find even when the report never gets written: it
+            // proves the run reached this point in this directory.
+            File.WriteAllText(Path.Combine(directory, "started.txt"), $"{started:O}{Environment.NewLine}");
+            App.Diagnostics.Write("self-test: started");
             if (!HasFlag(ShellOnlyFlag))
             {
                 var scheduler = new DispatcherScheduler(DispatcherQueue.GetForCurrentThread());
@@ -199,6 +208,7 @@ internal static partial class SelfTest
         }
         catch (Exception e)
         {
+            App.Diagnostics.Write($"self-test: the engine checks threw: {e}");
             checks.Add(new Check("selftest.completed", false, e.ToString()));
         }
 
@@ -219,7 +229,18 @@ internal static partial class SelfTest
         }
 
         var failed = checks.Count(c => !c.Passed);
-        Write(directory, started, checks);
+        try
+        {
+            Write(directory, started, checks);
+            App.Diagnostics.Write($"self-test: report written to \"{Path.Combine(directory, ReportFileName)}\": {checks.Count} checks, {failed} failed");
+        }
+        catch (Exception e)
+        {
+            // Without this a failed write would leave an unobserved exception, a process that never
+            // exits, and no explanation anywhere.
+            App.Diagnostics.Write($"self-test: could not write the report to \"{directory}\": {e}");
+            Environment.Exit(1);
+        }
         Environment.Exit(failed == 0 && checks.Count > 0 ? 0 : 1);
     }
 
