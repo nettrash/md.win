@@ -156,10 +156,19 @@ if ($running.Count -gt 0) {
 # Prove the binary in SelfTestBuild really carries the self-test: this string exists only in the
 # code that -p:SelfTest=true compiles in. A build that took the flag without defining SELFTEST is
 # an ordinary md, and step 4 would just open a document window.
+#
+# C# string literals live in the assembly's #US heap as UTF-16LE. Select-String reads a file as
+# text and sees no ASCII run there, so the first version of this check reported a REAL self-test
+# build as missing (nettrash's VM, 2026-09-26). The bytes are searched instead, for the UTF-16LE
+# spelling of the marker, which needs no alignment and no encoding guess: both sides are
+# decoded as Latin-1, one byte per char, and compared ordinally.
 $managed = Join-Path $SelfTestBuild 'md.dll'
 if (-not (Test-Path $managed)) { $managed = Join-Path $SelfTestBuild 'md.exe' }
-if (-not (Select-String -Path $managed -Pattern 'selftest.completed' -Quiet)) {
-    Stop-Verify 'self-test' "the build in $SelfTestBuild does not carry the self-test (no 'selftest.completed' in $managed): -p:SelfTest=true did not define SELFTEST"
+$latin1 = [System.Text.Encoding]::GetEncoding(28591)
+$haystack = $latin1.GetString([System.IO.File]::ReadAllBytes($managed))
+$needle = $latin1.GetString([System.Text.Encoding]::Unicode.GetBytes('selftest.completed'))
+if (-not $haystack.Contains($needle)) {
+    Stop-Verify 'self-test' "the build in $SelfTestBuild does not carry the self-test (no 'selftest.completed' literal in $managed): -p:SelfTest=true did not define SELFTEST"
 }
 $arguments = @('--selftest', "`"$Report`"")
 if ($NoInput) {
