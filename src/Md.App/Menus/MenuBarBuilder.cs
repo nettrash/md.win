@@ -47,6 +47,15 @@ internal sealed class MenuBarBuilder(CommandDispatcher dispatcher, MenuBarSource
     readonly List<Region> _regions = [];
     ShellSnapshot? _last;
 
+    /// <summary>
+    /// This bar's radio group. WinUI keeps RadioMenuFlyoutItem groups in one map per UI thread,
+    /// keyed by GroupName alone, so radios in different windows under the same name are ONE group:
+    /// with every bar using the constant, each new window's tick unchecked the page size in every
+    /// older window (the self-test's pageSizesOnce on 2026-09-26: "7 radios, 0 ticked" in every
+    /// window but the newest). The constant is the prefix; the suffix is this bar's own.
+    /// </summary>
+    readonly string _pageSizeGroup = CommandTable.PdfPageSizeGroupName + "/" + Guid.NewGuid().ToString("N");
+
     /// <summary>The seven menus, in bar order, with every static row in place and the dynamic runs still empty.</summary>
     public MenuBar Build()
     {
@@ -282,7 +291,7 @@ internal sealed class MenuBarBuilder(CommandDispatcher dispatcher, MenuBarSource
                     var radio = new RadioMenuFlyoutItem
                     {
                         Text = size.Label,
-                        GroupName = CommandTable.PdfPageSizeGroupName,
+                        GroupName = _pageSizeGroup,
                         IsChecked = CommandEnablement.IsRowChecked(id, size.Id, snapshot),
                     };
                     var argument = size.Id;

@@ -115,7 +115,14 @@ internal static partial class SelfTest
 
         static string Show(string text) => text.Replace("\r", "\\r", StringComparison.Ordinal).Replace("\n", "\\n", StringComparison.Ordinal);
 
-        static string Box(string lf) => EditorText.ToTextBox(lf);
+        /// <summary>
+        /// "The editor shows this text", judged as the pane judges it. TextBox.Text reports every
+        /// line break as \r whatever was assigned (EditorText's own note), so the box is read back
+        /// through the same FromTextBox the pane uses and compared in model space. The first real
+        /// run compared the raw \r text against the \n literal and failed 25 checks whose text was
+        /// right.
+        /// </summary>
+        static bool Shows(string boxText, string lf) => EditorText.FromTextBox(boxText) == lf;
 
         DocumentWindow Newest => _manager.Windows[^1];
 
@@ -417,28 +424,28 @@ internal static partial class SelfTest
             pane.SelectRange(0, 3);
             window.SelfTestFind.Replace();
             await Turn(150);
-            var once = Box("dog and Cat\ncat 😀cat");
-            Add("replace.one.text", box.Text == once, "\"" + Show(box.Text) + "\"");
+            const string once = "dog and Cat\ncat 😀cat";
+            Add("replace.one.text", Shows(box.Text, once), "\"" + Show(box.Text) + "\"");
             Add("replace.one.selectsTheNextHit", box.SelectionStart == 8 && box.SelectionLength == 3, $"{box.SelectionStart}+{box.SelectionLength}");
             Add("replace.one.reachesTheSession", window.Session.Text == "dog and Cat\ncat 😀cat" && window.Session.IsDirty,
                 $"session \"{Show(window.Session.Text)}\", dirty={window.Session.IsDirty}");
             Add("replace.one.titleSaysEdited", window.Title == WindowTitle.For("Replace", isDirty: true), window.Title);
             pane.Undo();
             await Turn(150);
-            Add("replace.one.oneUndoPutsItBack", box.Text == Box(original) && window.Session.Text == original, "\"" + Show(box.Text) + "\"");
+            Add("replace.one.oneUndoPutsItBack", Shows(box.Text, original) && window.Session.Text == original, "\"" + Show(box.Text) + "\"");
 
             window.SelfTestFind.ReplaceAll();
             await Turn(150);
             var all = "dog and dog\ndog 😀dog";
-            Add("replace.all.text", box.Text == Box(all) && window.Session.Text == all, "\"" + Show(box.Text) + "\"");
+            Add("replace.all.text", Shows(box.Text, all) && window.Session.Text == all, "\"" + Show(box.Text) + "\"");
             Add("replace.all.focusBackInTheEditor", ReferenceEquals(FocusManager.GetFocusedElement(window.SelfTestRoot.XamlRoot), box),
                 FocusManager.GetFocusedElement(window.SelfTestRoot.XamlRoot)?.GetType().Name ?? "nothing focused");
             pane.Undo();
             await Turn(150);
-            Add("replace.all.oneUndoPutsEveryHitBack", box.Text == Box(original) && window.Session.Text == original, "\"" + Show(box.Text) + "\"");
+            Add("replace.all.oneUndoPutsEveryHitBack", Shows(box.Text, original) && window.Session.Text == original, "\"" + Show(box.Text) + "\"");
             pane.Redo();
             await Turn(150);
-            Add("replace.all.redoIsLiteral", box.Text == Box(all), "\"" + Show(box.Text) + "\"");
+            Add("replace.all.redoIsLiteral", Shows(box.Text, all), "\"" + Show(box.Text) + "\"");
         }
 
         // ── the same edit on a file: autosave writes it, and the clobber guard holds ──
@@ -469,11 +476,18 @@ internal static partial class SelfTest
             window.SelfTestFind.SelfTestSetReplacement("cow");
             await Turn(150);
             window.SelfTestFind.ReplaceAll();
+            // TextChanged is asynchronous in WinUI: the edit reaches the session a frame after the
+            // box changes. Written inside that frame, the external change met a session that was
+            // still clean, which simply reloaded it — disk untouched, nothing to conflict about —
+            // and the first real run failed here with conflicted=False for a guard that had
+            // nothing to guard. The check now proves the edit arrived first.
+            await Turn(150);
+            var reached = window.Session.Text == "cow\ncow\n";
             await File.WriteAllTextAsync(path, "written elsewhere\n");
             await Turn(2500);
             var after = await File.ReadAllTextAsync(path);
-            Add("autosave.clobberGuardHolds", after == "written elsewhere\n" && window.Session.Conflicted,
-                $"disk \"{Show(after)}\", conflicted={window.Session.Conflicted}");
+            Add("autosave.clobberGuardHolds", reached && after == "written elsewhere\n" && window.Session.Conflicted,
+                $"edit reached the session before the external write={reached}, disk \"{Show(after)}\", conflicted={window.Session.Conflicted}");
         }
 
         // ── every associated extension, from an Explorer-shaped activation to an open editor ──
@@ -499,7 +513,7 @@ internal static partial class SelfTest
                 await Turn(300);
                 var window = _manager.Windows.FirstOrDefault(w => string.Equals(w.Session.EditingPath, path, StringComparison.OrdinalIgnoreCase));
                 Add("associations" + extension + ".opensAWindow",
-                    window is not null && window.SelfTestEditor.Control.Text == Box(text) && _manager.Windows.Count == before + 1,
+                    window is not null && Shows(window.SelfTestEditor.Control.Text, text) && _manager.Windows.Count == before + 1,
                     window is null ? "no window holds " + path : $"\"{Show(window.SelfTestEditor.Control.Text)}\", {before} → {_manager.Windows.Count} windows");
 
                 // A second activation of the same file brings that window forward instead.
@@ -524,7 +538,7 @@ internal static partial class SelfTest
             var count = _manager.Windows.Count;
             Activate(pack, folder: false);
             await Turn(300);
-            Add("associations.textpack.imports", _manager.Windows.Count == count + 1 && Newest.SelfTestEditor.Control.Text == Box("# Pack\n\nbody\n"),
+            Add("associations.textpack.imports", _manager.Windows.Count == count + 1 && Shows(Newest.SelfTestEditor.Control.Text, "# Pack\n\nbody\n"),
                 $"{count} → {_manager.Windows.Count} windows, \"{Show(Newest.SelfTestEditor.Control.Text)}\"");
 
             var bundle = Path.Combine(folder, "sample" + TextBundle.BundleExtension);
@@ -532,7 +546,7 @@ internal static partial class SelfTest
             count = _manager.Windows.Count;
             Activate(bundle, folder: true);
             await Turn(300);
-            Add("associations.textbundleFolder.imports", _manager.Windows.Count == count + 1 && Newest.SelfTestEditor.Control.Text == Box("# Bundle\n\nbody\n"),
+            Add("associations.textbundleFolder.imports", _manager.Windows.Count == count + 1 && Shows(Newest.SelfTestEditor.Control.Text, "# Bundle\n\nbody\n"),
                 $"{count} → {_manager.Windows.Count} windows, \"{Show(Newest.SelfTestEditor.Control.Text)}\"");
 
             // A drop goes down the same road (§6.1).
@@ -605,7 +619,7 @@ internal static partial class SelfTest
             for (var attempt = 0; attempt < 5; attempt++)
             {
                 window.Activate();
-                NativeMethods.SetForegroundWindow(window.Handle);
+                SelfTestInput.ForceForeground(window.Handle);
                 focus.Focus(FocusState.Programmatic);
                 await Turn(150);
                 if (SelfTestInput.GetForegroundWindow() == window.Handle && ReferenceEquals(FocusManager.GetFocusedElement(window.SelfTestRoot.XamlRoot), focus)) return true;
@@ -617,7 +631,7 @@ internal static partial class SelfTest
         async Task<bool> Front(string name, DocumentWindow window, UIElement focus)
         {
             if (await ForegroundAsync(window, focus)) return true;
-            Add(name, false, "could not put md in front with the focus on " + focus.GetType().Name + " — nothing was typed");
+            Add(name, false, "could not put md in front with the focus on " + focus.GetType().Name + " (in front: " + SelfTestInput.Describe(SelfTestInput.GetForegroundWindow()) + ") — nothing was typed");
             return false;
         }
 
@@ -655,7 +669,7 @@ internal static partial class SelfTest
             if (!await ForegroundAsync(window, box))
             {
                 Add("input.foreground", false,
-                    $"md could not take the foreground (foreground hwnd {SelfTestInput.GetForegroundWindow()}, ours {window.Handle}): keep the desktop unlocked and hands off the keyboard, or pass {NoInputFlag}");
+                    $"md could not take the foreground (in front: {SelfTestInput.Describe(SelfTestInput.GetForegroundWindow())}; ours {window.Handle}): keep the desktop unlocked and hands off the keyboard, or pass {NoInputFlag}");
                 return;
             }
             Add("input.foreground", true, "keystrokes go to the editor");

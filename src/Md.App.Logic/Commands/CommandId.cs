@@ -111,7 +111,7 @@ public enum CommandKind
     /// <summary>One <c>ToggleMenuFlyoutItem</c> per snapshot row, ticked on the current one (the Window list).</summary>
     DynamicToggles,
 
-    /// <summary>One <c>RadioMenuFlyoutItem</c> per snapshot row, sharing <see cref="CommandTable.PdfPageSizeGroupName"/> (PDF Page Size).</summary>
+    /// <summary>One <c>RadioMenuFlyoutItem</c> per snapshot row, in a group named from <see cref="CommandTable.PdfPageSizeGroupName"/> plus the window's own suffix (PDF Page Size).</summary>
     DynamicRadios,
 
     /// <summary>No menu row at all — the command exists only as a root accelerator (<see cref="CommandId.Escape"/>).</summary>

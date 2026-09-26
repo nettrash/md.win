@@ -149,18 +149,21 @@ internal sealed class ExportRenderer : IRenderSurface
         ArgumentNullException.ThrowIfNull(html);
 
         _html = html;
-        return NavigateAsync(AssetOrigin.IndexUrl, ct);
+        return UiDispatch.OnAsync(_ui, () => NavigateCoreAsync(AssetOrigin.IndexUrl, ct, awaitRenderComplete: true));
     }
 
     /// <summary>
-    /// Navigate anywhere and wait for render-complete. Exports always take
-    /// <see cref="LoadAsync"/> — the index URL, whose bytes <c>AssetHost</c> serves from memory — but
-    /// the self-test also has to open an exported <c>file://</c> page to prove it stands alone.
+    /// Navigate to a page of plain HTML and wait for the navigation alone. Exports always take
+    /// <see cref="LoadAsync"/> — the index URL, whose bytes <c>AssetHost</c> serves from memory, then
+    /// the render-complete poll — but the self-test also has to open an exported <c>file://</c> page
+    /// to prove it stands alone, and that page can never raise <c>data-md-render-complete</c>:
+    /// <c>HtmlExport</c>'s capture removes the flag along with the engines. Polling for it there is
+    /// one whole poll ceiling, ~120 s, of nothing (the first real self-test runs, 2026-09-26).
     /// </summary>
-    public Task NavigateAsync(string url, CancellationToken ct) =>
-        UiDispatch.OnAsync(_ui, () => NavigateCoreAsync(url, ct));
+    public Task OpenAsync(string url, CancellationToken ct) =>
+        UiDispatch.OnAsync(_ui, () => NavigateCoreAsync(url, ct, awaitRenderComplete: false));
 
-    async Task NavigateCoreAsync(string url, CancellationToken ct)
+    async Task NavigateCoreAsync(string url, CancellationToken ct, bool awaitRenderComplete)
     {
         ArgumentException.ThrowIfNullOrEmpty(url);
         ct.ThrowIfCancellationRequested();
@@ -186,7 +189,7 @@ internal sealed class ExportRenderer : IRenderSurface
             _web.NavigationCompleted -= OnCompleted;
         }
 
-        await _poller.WaitAsync(this, ct);
+        if (awaitRenderComplete) await _poller.WaitAsync(this, ct);
     }
 
     public Task<string> EvalAsync(string script) => UiDispatch.OnAsync(_ui, async () =>

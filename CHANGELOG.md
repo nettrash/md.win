@@ -105,6 +105,10 @@ own 1.4 — and from here md.win is versioned with them.
   Choosing View ▸ Edit while in Edit left no mode ticked, and choosing another
   window in the Window menu left two windows ticked, until something else
   changed; the tick now always shows the state.
+- **The PDF page size stays ticked in every window.** Opening a second window
+  took the tick off File ▸ Export ▸ PDF Page Size in the first — and in every
+  older window — because Windows treats radio rows that share one group name
+  as one group across all windows; each window now has a group of its own.
 - **Enter's list continuation is decided before the editor inserts its own
   newline.** It was read after the key had reached the editor, where a
   multi-line text box is free to have handled Enter first — which would have

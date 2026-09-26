@@ -1042,7 +1042,9 @@ internal sealed partial class BookWindow : Window
         foreach (var size in PageSize.All)
         {
             var id = size.Id;
-            var row = new RadioMenuFlyoutItem { Text = size.Label, GroupName = CommandTable.PdfPageSizeGroupName };
+            // This window's own group, as MenuBarBuilder's: WinUI groups radios by name across every
+            // window on the thread, and one shared name lets a new window untick every older one.
+            var row = new RadioMenuFlyoutItem { Text = size.Label, GroupName = CommandTable.PdfPageSizeGroupName + "/" + Id.ToString("N") };
             row.Click += (_, _) => _services.Settings.SetString(SettingsKeys.PdfPageSize, id);
             sizes.Items.Add(row);
         }

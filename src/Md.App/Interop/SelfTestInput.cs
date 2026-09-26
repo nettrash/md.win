@@ -62,6 +62,73 @@ internal static unsafe partial class SelfTestInput
     [LibraryImport("user32.dll")]
     internal static partial nint GetForegroundWindow();
 
+    [LibraryImport("user32.dll")]
+    private static partial uint GetWindowThreadProcessId(nint hWnd, out uint processId);
+
+    [LibraryImport("kernel32.dll")]
+    private static partial uint GetCurrentThreadId();
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool AttachThreadInput(uint idAttach, uint idAttachTo, [MarshalAs(UnmanagedType.Bool)] bool fAttach);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool BringWindowToTop(nint hWnd);
+
+    [LibraryImport("user32.dll", EntryPoint = "GetWindowTextW")]
+    private static partial int GetWindowText(nint hWnd, char* text, int maxCount);
+
+    /// <summary>
+    /// The window to the front, for the keystrokes. SetForegroundWindow is refused unless our
+    /// process received the last input or was started by the foreground process — and a GUI
+    /// process started from a PowerShell prompt was started by powershell.exe, which owns no window;
+    /// the terminal that does is another process. So the first real run (2026-09-26) never got in
+    /// front and typed nothing. The fallback is the long-standing workaround: attach this thread's
+    /// input queue to the foreground window's for the one call, so the request counts as that
+    /// window's own. Self-test only; nothing in a Store build does this.
+    /// </summary>
+    public static bool ForceForeground(nint hwnd)
+    {
+        if (NativeMethods.SetForegroundWindow(hwnd) && GetForegroundWindow() == hwnd) return true;
+
+        var front = GetForegroundWindow();
+        if (front == 0 || front == hwnd) return front == hwnd;
+        var theirs = GetWindowThreadProcessId(front, out _);
+        var ours = GetCurrentThreadId();
+        if (theirs == 0 || theirs == ours || !AttachThreadInput(ours, theirs, true)) return false;
+        try
+        {
+            BringWindowToTop(hwnd);
+            NativeMethods.SetForegroundWindow(hwnd);
+        }
+        finally
+        {
+            AttachThreadInput(ours, theirs, false);
+        }
+        return GetForegroundWindow() == hwnd;
+    }
+
+    /// <summary>A window for a failure detail — handle, title, owning process: what was in front instead of md.</summary>
+    public static string Describe(nint hwnd)
+    {
+        if (hwnd == 0) return "no foreground window";
+        var buffer = stackalloc char[256];
+        var length = GetWindowText(hwnd, buffer, 256);
+        var title = new string(buffer, 0, Math.Max(0, length));
+        GetWindowThreadProcessId(hwnd, out var pid);
+        string process;
+        try
+        {
+            process = System.Diagnostics.Process.GetProcessById((int)pid).ProcessName;
+        }
+        catch (Exception)
+        {
+            process = "?";
+        }
+        return $"hwnd {hwnd} \"{title}\" ({process}, pid {pid})";
+    }
+
     /// <summary>Every UTF-16 unit of <paramref name="text"/> as a Unicode key press and release — a surrogate pair is two units, as Windows expects.</summary>
     public static bool Text(string text)
     {

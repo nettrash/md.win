@@ -339,7 +339,7 @@ internal static partial class SelfTest
             bytes.Length.ToString(CultureInfo.InvariantCulture) + " bytes"));
 
         await using var renderer = await Web.ExportRenderer.OffCanvasAsync(host.Host, scheduler);
-        await renderer.NavigateAsync(new Uri(destination).AbsoluteUri, CancellationToken.None);
+        await renderer.OpenAsync(new Uri(destination).AbsoluteUri, CancellationToken.None);
 
         checks.Add(await Says(renderer, "html.standsAlone.noEngines", "document.querySelectorAll('script').length", 0));
         checks.Add(await Says(renderer, "html.standsAlone.noAssetUrls", "document.documentElement.outerHTML.split('rich/').length - 1", 0));

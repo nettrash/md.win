@@ -92,7 +92,11 @@ public static class CommandTable
     /// <summary>The seven menus, in bar order. The Mac's bar without its app menu (§2.1): About moved to Help, Quit to File ▸ Exit.</summary>
     public static readonly IReadOnlyList<string> MenuTitles = ["File", "Edit", "View", "Book", "Go", "Window", "Help"];
 
-    /// <summary>The <c>GroupName</c> the seven PDF Page Size radios share (§2.2).</summary>
+    /// <summary>
+    /// The <c>GroupName</c> prefix of the seven PDF Page Size radios (§2.2). Each window appends a
+    /// suffix of its own: WinUI groups radios by name across every window on the thread, and one
+    /// shared name made every new window untick the page size in every older one.
+    /// </summary>
     public const string PdfPageSizeGroupName = "PdfPageSize";
 
     /// <summary>View's full-screen row while the presenter is FullScreen (§2.5); <see cref="CommandId.FullScreen"/>'s table title is the other half.</summary>
