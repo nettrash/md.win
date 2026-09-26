@@ -53,6 +53,23 @@ function Write-Step([string] $Text) {
     Write-Host "==> $Text" -ForegroundColor Cyan
 }
 
+# The stage timings the self-test writes to md.log, this run only. The render-complete poll gives
+# up after ~120 s and the export calls that success, so a page that never raises its flag is
+# invisible in the report - but not as a stage two minutes slower than its neighbours.
+function Show-SelfTestTimings([DateTimeOffset] $Since) {
+    $log = Join-Path $env:LOCALAPPDATA 'md\md.log'
+    if (-not (Test-Path $log)) { return }
+    $culture = [System.Globalization.CultureInfo]::InvariantCulture
+    $lines = @(Get-Content $log | ForEach-Object {
+        if ($_ -match '^(\S+) self-test: (.+ took .+)$') {
+            try { if ([DateTimeOffset]::Parse($Matches[1], $culture) -ge $Since) { $Matches[2] } } catch { }
+        }
+    })
+    if ($lines.Count -eq 0) { Write-Host '   (no stage timings in md.log for this run)' -ForegroundColor DarkGray; return }
+    Write-Host '   stage timings (a stage ~120 s slower than its neighbours had a page that never finished rendering):' -ForegroundColor DarkGray
+    $lines | ForEach-Object { Write-Host "     $_" -ForegroundColor DarkGray }
+}
+
 function Stop-Verify([string] $Step, [string] $Why) {
     Write-Host ''
     Write-Host "VERIFY FAILED at step: $Step" -ForegroundColor Red
@@ -181,11 +198,16 @@ if ($NoInput) {
 }
 # md.exe is a GUI executable: PowerShell's & would not wait for it (nor set $LASTEXITCODE), which
 # is how CI's first self-test step passed without running. Start-Process waits, with a ceiling.
+# A run that wrote its report and then never exited is still read: the report is the verdict,
+# and the hang is reported after it, as its own failure.
+$runStart = [DateTimeOffset]::Now
 $process = Start-Process -FilePath (Join-Path $SelfTestBuild 'md.exe') -ArgumentList $arguments -PassThru
-if (-not $process.WaitForExit(15 * 60 * 1000)) {
+$killed = -not $process.WaitForExit(15 * 60 * 1000)
+if ($killed) {
     $process.Kill()
-    Stop-Verify 'self-test' "md.exe --selftest did not exit within 15 minutes and was killed; see $Report and %LOCALAPPDATA%\md\md.log"
+    Write-Host '   md.exe --selftest did not exit within 15 minutes and was killed.' -ForegroundColor Red
 }
+$exitCode = if ($killed) { 'killed' } else { $process.ExitCode }
 $reportFile = Join-Path $Report 'report.json'
 if (-not (Test-Path $reportFile)) {
     # Say everything that can be said before stopping: whether the run started at all, whether it
@@ -200,7 +222,7 @@ if (-not (Test-Path $reportFile)) {
         Write-Host "   last 40 lines of ${log}:" -ForegroundColor Yellow
         Get-Content $log -Tail 40 | ForEach-Object { Write-Host "     $_" }
     } else { Write-Host "   no md.log at $log" -ForegroundColor Yellow }
-    Stop-Verify 'self-test' "no report.json in $Report (exit code $($process.ExitCode)); the lines above say how far it got"
+    Stop-Verify 'self-test' "no report.json in $Report (exit code $exitCode); the lines above say how far it got"
 }
 $json = Get-Content $reportFile -Raw -Encoding UTF8 | ConvertFrom-Json
 foreach ($check in $json.checks) {
@@ -208,6 +230,10 @@ foreach ($check in $json.checks) {
     else { Write-Host ("   FAIL  {0}`n         {1}" -f $check.name, $check.detail) -ForegroundColor Red }
 }
 Write-Host ("   {0} passed, {1} failed - {2}" -f $json.passed, $json.failed, $reportFile)
+Show-SelfTestTimings $runStart
+if ($killed) {
+    Stop-Verify 'self-test' "the report was written but md.exe never exited: its Environment.Exit did not end the process; see %LOCALAPPDATA%\md\md.log"
+}
 if ($process.ExitCode -ne 0 -or $json.failed -gt 0 -or $json.passed -eq 0) {
     Stop-Verify 'self-test' "$($json.failed) check(s) failed (exit code $($process.ExitCode)). The FAIL lines above name each one."
 }

@@ -95,6 +95,7 @@ internal static partial class SelfTest
 
         async Task Section(string name, Func<Task> body)
         {
+            var watch = System.Diagnostics.Stopwatch.StartNew();
             try
             {
                 await body();
@@ -102,6 +103,10 @@ internal static partial class SelfTest
             catch (Exception e)
             {
                 Add(name + ".completed", false, e.ToString());
+            }
+            finally
+            {
+                App.Diagnostics.Write($"self-test: shell.{name} took {watch.Elapsed.TotalSeconds:0.0} s");
             }
         }
 

@@ -118,6 +118,17 @@ internal sealed class PreviewHost : UserControl
         await _web.EnsureCoreWebView2Async(environment);
 
         var core = _web.CoreWebView2;
+        if (core is null)
+        {
+            // Documented to complete with a non-null core, and it does — with one exception seen
+            // so far: the control was closed while the browser was starting (its window went, or
+            // the whole application was on its way out, as in the self-test's first real run on
+            // 2026-09-26). Then it completes with no core and no exception. There is nothing to
+            // attach to, and the log should say that rather than an NRE from the navigate below.
+            _initialising = null;
+            App.Diagnostics.Write("preview runtime: the control was closed while its core was starting; this window has no preview");
+            return;
+        }
         _core = core;
 
         // EnsureCoreWebView2Async on a control that already has a core hands back the same core, so

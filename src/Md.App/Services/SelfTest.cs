@@ -83,6 +83,13 @@ internal static partial class SelfTest
     /// <summary>The shell half's whole budget (SelfTest.Shell.cs); it needs about a minute.</summary>
     static readonly TimeSpan ShellTimeout = TimeSpan.FromMinutes(5);
 
+    /// <summary>
+    /// The engine half's budget: the engines, three exports and every example. Each page load is
+    /// already bounded by the render-complete poll's own ~120 s, so this only has to catch a core
+    /// that never comes up; it sits under the verify script's 15-minute ceiling with the shell's.
+    /// </summary>
+    static readonly TimeSpan EnginesTimeout = TimeSpan.FromMinutes(8);
+
     // ── fixtures: small on purpose, so a failure names one engine rather than a whole example ──
     //
     // Spelled as joined arrays, not raw string literals: this whole region is inside `#if SELFTEST`,
@@ -180,6 +187,15 @@ internal static partial class SelfTest
 
     private static partial bool Start(string directory)
     {
+        // The run's windows come and go — the export host closes before the shell half opens its
+        // first document window — and WinUI's default, DispatcherShutdownMode.OnLastWindowClose,
+        // ends the event loop the moment the window count touches zero. That is what the first
+        // real run did (2026-09-26, nettrash's Windows 11 ARM64 VM): the host's Dispose closed the
+        // only window, the shell's first DocumentWindow opened into a runtime already quitting,
+        // its WebView2 came back with no core, Application.Start returned, and the process exited
+        // 0 with started.txt and every export on disk but no report.json. This run ends by
+        // Environment.Exit below, never by running out of windows.
+        Microsoft.UI.Xaml.Application.Current.DispatcherShutdownMode = Microsoft.UI.Xaml.DispatcherShutdownMode.OnExplicitShutdown;
         _ = RunAsync(directory);
         return true;
     }
@@ -203,7 +219,13 @@ internal static partial class SelfTest
                 var scheduler = new DispatcherScheduler(DispatcherQueue.GetForCurrentThread());
 
                 using var host = new Web.ExportHostWindow();
-                await RunChecksAsync(host, scheduler, directory, checks);
+                // Bounded like the shell half: a core that never comes up must end as a failed
+                // check and an exit code, not as a process the verify script kills at its own
+                // ceiling with nothing to read.
+                var engines = RunChecksAsync(host, scheduler, directory, checks);
+                if (await Task.WhenAny(engines, Task.Delay(EnginesTimeout)) != engines)
+                    checks.Add(new Check("engines.completed", false, $"the engine checks did not finish within {EnginesTimeout.TotalMinutes:0} minutes; the last check above is where they stopped"));
+                else await engines;
             }
         }
         catch (Exception e)
@@ -246,11 +268,31 @@ internal static partial class SelfTest
 
     static async Task RunChecksAsync(Web.ExportHostWindow host, IScheduler scheduler, string directory, List<Check> checks)
     {
-        await EnginesAsync(host, scheduler, checks);
-        await SelfContainedHtmlAsync(host, scheduler, directory, checks);
-        await EpubAsync(host, scheduler, directory, checks);
-        await PdfAsync(host, scheduler, directory, checks);
-        await ExamplesAsync(host, scheduler, checks);
+        await Timed("engines", () => EnginesAsync(host, scheduler, checks));
+        await Timed("html", () => SelfContainedHtmlAsync(host, scheduler, directory, checks));
+        await Timed("epub", () => EpubAsync(host, scheduler, directory, checks));
+        await Timed("pdf", () => PdfAsync(host, scheduler, directory, checks));
+        await Timed("examples", () => ExamplesAsync(host, scheduler, checks));
+    }
+
+    /// <summary>
+    /// One stage, with its wall-clock time in md.log. The render-complete poll gives up after
+    /// ~120 s and calls that success (RenderCompletePoller: the export proceeds with whatever the
+    /// DOM holds), so a page that never raises its flag appears nowhere in the report — only as a
+    /// stage two minutes slower than its neighbours. The first real runs spent 2 min 16 s between
+    /// the engines' first page and the shell, four times to the second; these lines say where.
+    /// </summary>
+    static async Task Timed(string stage, Func<Task> body)
+    {
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        try
+        {
+            await body();
+        }
+        finally
+        {
+            App.Diagnostics.Write($"self-test: {stage} took {watch.Elapsed.TotalSeconds:0.0} s");
+        }
     }
 
     // ── the engines, offline ──
