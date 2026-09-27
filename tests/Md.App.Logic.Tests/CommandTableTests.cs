@@ -442,4 +442,14 @@ public class CommandTableTests
                 CommandId.Minimize, CommandId.Zoom, CommandId.ActivateWindow, CommandId.Escape,
             }.OrderBy(i => i),
             CommandTable.All.Where(s => s.WindowsOnly).Select(s => s.Id).OrderBy(i => i));
+
+    [Fact]
+    public void RootAcceleratorForAnswersTheRootChordsAndNotTheEditingKeys()
+    {
+        Assert.Equal(CommandId.FindNext, CommandTable.RootAcceleratorFor(CommandTable.For(CommandId.FindNext).Chord!.Value));
+        Assert.Equal(CommandId.Find, CommandTable.RootAcceleratorFor(new Chord(VirtualKeys.F, KeyModifiers.Ctrl)));
+        Assert.Null(CommandTable.RootAcceleratorFor(CommandTable.For(CommandId.Copy).Chord!.Value));
+        Assert.Null(CommandTable.RootAcceleratorFor(new Chord(VirtualKeys.F3, KeyModifiers.Alt)));
+        Assert.All(CommandTable.RootAccelerators, s => Assert.Equal(s.Id, CommandTable.RootAcceleratorFor(s.Chord!.Value)));
+    }
 }

@@ -381,6 +381,11 @@ internal sealed partial class BookWindow : Window
         // ScrollSync to both panes (BookWorkspace.editorPane / previewPane): without this the article
         // preview follows the editor but never the other way round.
         _preview.PreviewDidScroll += fraction => _panes.ScrollSync.PreviewDidScroll(fraction);
+        // The root chords from inside the article preview, as the document window wires them.
+        _preview.AcceleratorRequested += chord =>
+        {
+            if (CommandTable.RootAcceleratorFor(chord) is { } id) _commands.TryInvoke(id);
+        };
         PanesSlot.Content = _panes;
         FooterCountsSlot.Content = _counts;
 

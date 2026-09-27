@@ -109,6 +109,12 @@ own 1.4 — and from here md.win is versioned with them.
   took the tick off File ▸ Export ▸ PDF Page Size in the first — and in every
   older window — because Windows treats radio rows that share one group name
   as one group across all windows; each window now has a group of its own.
+- **Keyboard shortcuts work with the focus in the preview.** A shortcut
+  pressed after clicking into the rendered page — Ctrl+F, F3, Ctrl+S, F11 —
+  did nothing, because the key stayed inside the preview's own browser and
+  never reached the window. The page now reports the window's shortcuts
+  itself; the editing keys stay with whatever has focus, so Ctrl+C in the
+  preview still copies what you selected there.
 - **Enter's list continuation is decided before the editor inserts its own
   newline.** It was read after the key had reached the editor, where a
   multi-line text box is free to have handled Enter first — which would have

@@ -84,6 +84,13 @@ public sealed class TypingHooks
     /// <summary>A plan is waiting for <c>TextChanging</c>.</summary>
     public bool HasPendingPlan => _pending is not null;
 
+    /// <summary>
+    /// What the last <see cref="BeforeTextChanging"/> / <see cref="TextChanging"/> pair decided, in
+    /// words, for the self-test's report: a capital that did not appear on a real keystroke is
+    /// otherwise indistinguishable from one the rules declined. Never read by the app.
+    /// </summary>
+    public string LastDecision { get; private set; } = "";
+
     // ── settings (smart-typing.md §3.1) ───────────────────────────────────────────────────────
 
     /// <summary>Both bools, re-read on every store change for their keys. A function whose setting is off is never called, and its gesture has nothing to undo.</summary>
@@ -262,7 +269,11 @@ public sealed class TypingHooks
         ArgumentNullException.ThrowIfNull(text);
         ArgumentNullException.ThrowIfNull(newText);
         _pending = null;
-        if (_applying || _replacing) return;
+        if (_applying || _replacing)
+        {
+            LastDecision = "skipped: own change";
+            return;
+        }
 
         // The paste flag is consumed by the first judged change after the announcement, as before
         // the tracker existed; a change inside a composition or a history step leaves it alone.
@@ -274,12 +285,42 @@ public sealed class TypingHooks
             _pasting = false;
         }
 
-        if (TextEdit.Between(text, selectionStart, selectionLength, newText, _deleting) is not { } edit) return;
+        if (TextEdit.Between(text, selectionStart, selectionLength, newText, _deleting) is not { } edit)
+        {
+            LastDecision = "no edit";
+            return;
+        }
         var word = edit.IsInsertion && SmartTypingAdapter.IsWordInsertion(edit.Inserted);
         var asTyped = _tracker.Edited(edit, word);
 
-        if (!judged || !_capitalizeSentences || asTyped || !word || pasted) return;
+        // The same gate as one condition, spelled out so the decision can be named.
+        if (!judged)
+        {
+            LastDecision = _composing ? "skipped: composition in progress" : "skipped: history operation";
+            return;
+        }
+        if (!_capitalizeSentences)
+        {
+            LastDecision = "off";
+            return;
+        }
+        if (asTyped)
+        {
+            LastDecision = "as typed: the override";
+            return;
+        }
+        if (!word)
+        {
+            LastDecision = "not a word insertion";
+            return;
+        }
+        if (pasted)
+        {
+            LastDecision = "pasted";
+            return;
+        }
         _pending = SmartTypingAdapter.Plan(text, selectionStart, selectionLength, newText);
+        LastDecision = _pending is { } planned ? $"plan: {planned.Capital} at {planned.Position}" : "no capital: the function declined";
     }
 
     /// <summary>
@@ -294,9 +335,18 @@ public sealed class TypingHooks
         ArgumentNullException.ThrowIfNull(text);
         if (_pending is not { } plan) return null;
         _pending = null;
-        if (_applying || _replacing) return null;
-        if (!SmartTypingAdapter.Applies(plan, text, selectionStart, selectionLength)) return null;
+        if (_applying || _replacing)
+        {
+            LastDecision = "dropped: own change";
+            return null;
+        }
+        if (!SmartTypingAdapter.Applies(plan, text, selectionStart, selectionLength))
+        {
+            LastDecision = $"dropped: the insertion did not land as planned (selection {selectionStart}+{selectionLength}, text length {text.Length})";
+            return null;
+        }
         _tracker.Produced(plan.Position, plan.Capital);
+        LastDecision = $"applied: {plan.Capital} at {plan.Position}";
         return plan;
     }
 }

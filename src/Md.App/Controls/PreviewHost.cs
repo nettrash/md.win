@@ -2,6 +2,7 @@
 // drives. Every decision here is in Md.App.Logic — the re-render policy in PreviewCoordinator, the
 // navigation policy in LinkPolicy, the scripts in Scripts, the JSON in JsonScript — so this file is
 // only wiring, which is the half a Mac cannot compile.
+using Md.App.Logic.Commands;
 using Md.App.Logic.Preview;
 using Md.App.Logic.Seams;
 using Md.App.Logic.Settings;
@@ -76,6 +77,9 @@ internal sealed class PreviewHost : UserControl
     /// <summary>A scroll the reader made, as a fraction of the scrollable range; echoes of our own scrolling are dropped.</summary>
     public event Action<double>? PreviewDidScroll;
 
+    /// <summary>A root chord pressed with the focus in the page (<see cref="Scripts.KeyForward"/>); the window runs the command.</summary>
+    public event Action<Chord>? AcceleratorRequested;
+
     /// <summary>Editor → preview, the other half of the sync.</summary>
     public void ApplyScrollFraction(double fraction) => _ = EvalAsync(Scripts.SyncScrollTo(fraction));
 
@@ -144,10 +148,11 @@ internal sealed class PreviewHost : UserControl
             ApplySettings(core);
             ApplyTheme(_dark);
 
-            // Document start, not document end as on the Mac: neither script may touch the DOM at
-            // injection time, and neither does — they register listeners and define functions.
+            // Document start, not document end as on the Mac: none of the three scripts may touch
+            // the DOM at injection time, and none does — they register listeners and define functions.
             await core.AddScriptToExecuteOnDocumentCreatedAsync(Scripts.ScrollSync);
             await core.AddScriptToExecuteOnDocumentCreatedAsync(Scripts.LinkGuard);
+            await core.AddScriptToExecuteOnDocumentCreatedAsync(Scripts.KeyForward(CommandTable.RootAccelerators.Select(s => s.Chord!.Value)));
 
             core.WebMessageReceived += OnWebMessageReceived;
             core.NavigationStarting += OnNavigationStarting;
@@ -191,7 +196,14 @@ internal sealed class PreviewHost : UserControl
 
     void OnWebMessageReceived(CoreWebView2 sender, CoreWebView2WebMessageReceivedEventArgs e)
     {
-        var message = JsonScript.ScrollMessage(e.WebMessageAsJson);
+        var json = e.WebMessageAsJson;
+        // A root chord the page claimed (Scripts.KeyForward): the window runs the command.
+        if (JsonScript.KeyMessage(json) is { } chord)
+        {
+            AcceleratorRequested?.Invoke(chord);
+            return;
+        }
+        var message = JsonScript.ScrollMessage(json);
         // An echo is our own scroll coming back; forwarding it would fight the editor.
         if (message is { Echo: false } scroll) PreviewDidScroll?.Invoke(scroll.Fraction);
     }

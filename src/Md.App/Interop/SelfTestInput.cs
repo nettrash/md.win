@@ -15,6 +15,7 @@ internal static unsafe partial class SelfTestInput
     const uint KEYEVENTF_UNICODE = 0x0004;
 
     public const ushort VK_BACK = 0x08;
+    public const ushort VK_SHIFT = 0x10;
     public const ushort VK_RETURN = 0x0D;
     public const ushort VK_CONTROL = 0x11;
     public const ushort VK_F3 = 0x72;
@@ -61,6 +62,12 @@ internal static unsafe partial class SelfTestInput
 
     [LibraryImport("user32.dll")]
     internal static partial nint GetForegroundWindow();
+
+    [LibraryImport("user32.dll")]
+    private static partial short VkKeyScanW(ushort ch);
+
+    [LibraryImport("user32.dll")]
+    private static partial uint MapVirtualKeyW(uint code, uint mapType);
 
     [LibraryImport("user32.dll")]
     private static partial uint GetWindowThreadProcessId(nint hWnd, out uint processId);
@@ -129,14 +136,38 @@ internal static unsafe partial class SelfTestInput
         return $"hwnd {hwnd} \"{title}\" ({process}, pid {pid})";
     }
 
-    /// <summary>Every UTF-16 unit of <paramref name="text"/> as a Unicode key press and release — a surrogate pair is two units, as Windows expects.</summary>
+    /// <summary>
+    /// <paramref name="text"/> as a keyboard sends it: for every scalar the active layout can type,
+    /// its virtual key and scan code, with Shift held for a shifted one — WM_KEYDOWN, WM_CHAR,
+    /// WM_KEYUP, the road a letter takes. The first real run (2026-09-26) sent every letter as a
+    /// Unicode packet (VK_PACKET) instead, and the box takes those through the text-services path,
+    /// where they arrive as a composition — which the typing hooks, rightly, never judge: the typed
+    /// text came out right and not one keystroke was capitalized. A scalar the layout cannot type
+    /// (an emoji, a letter of another script) is still sent as a packet, one per UTF-16 unit as
+    /// Windows expects.
+    /// </summary>
     public static bool Text(string text)
     {
-        var inputs = new List<INPUT>(text.Length * 2);
-        foreach (var unit in text)
+        var inputs = new List<INPUT>(text.Length * 4);
+        foreach (var rune in text.EnumerateRunes())
         {
-            inputs.Add(Key(0, unit, KEYEVENTF_UNICODE));
-            inputs.Add(Key(0, unit, KEYEVENTF_UNICODE | KEYEVENTF_KEYUP));
+            var scan = rune.IsBmp ? VkKeyScanW((ushort)rune.Value) : (short)-1;
+            if (scan != -1 && (scan & 0x0600) == 0)          // typable, and without Ctrl or Alt
+            {
+                var virtualKey = (ushort)(scan & 0xFF);
+                var scanCode = (ushort)MapVirtualKeyW(virtualKey, 0);   // MAPVK_VK_TO_VSC
+                var shifted = (scan & 0x0100) != 0;
+                if (shifted) inputs.Add(Key(VK_SHIFT, 0, 0));
+                inputs.Add(Key(virtualKey, scanCode, 0));
+                inputs.Add(Key(virtualKey, scanCode, KEYEVENTF_KEYUP));
+                if (shifted) inputs.Add(Key(VK_SHIFT, 0, KEYEVENTF_KEYUP));
+                continue;
+            }
+            foreach (var unit in rune.ToString())
+            {
+                inputs.Add(Key(0, unit, KEYEVENTF_UNICODE));
+                inputs.Add(Key(0, unit, KEYEVENTF_UNICODE | KEYEVENTF_KEYUP));
+            }
         }
         return Send(inputs);
     }

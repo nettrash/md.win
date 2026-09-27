@@ -151,6 +151,9 @@ public sealed class EditorPane : UserControl
     /// </summary>
     public TextBox Control => _box;
 
+    /// <summary>The typing hooks, for the self-test's report (<see cref="TypingHooks.LastDecision"/>).</summary>
+    internal TypingHooks SelfTestHooks => _hooks;
+
     /// <summary>The document text, LF whatever the control reports.</summary>
     public string Text => EditorText.FromTextBox(_box.Text);
 

@@ -70,6 +70,26 @@ function Show-SelfTestTimings([DateTimeOffset] $Since) {
     $lines | ForEach-Object { Write-Host "     $_" -ForegroundColor DarkGray }
 }
 
+# Anything md.log recorded during this run that looks like trouble, with its stack frames: an
+# unhandled exception at exit (exit code -532462766 under a complete report), a preview that would
+# not start, a write that failed. The timing lines are printed separately.
+function Show-SelfTestLogLines([DateTimeOffset] $Since) {
+    $log = Join-Path $env:LOCALAPPDATA 'md\md.log'
+    if (-not (Test-Path $log)) { return }
+    $culture = [System.Globalization.CultureInfo]::InvariantCulture
+    $inRun = $false
+    $lines = @(Get-Content $log | ForEach-Object {
+        if ($_ -match '^(\S+) (.*)$') {
+            $stamp = $Matches[1]; $rest = $Matches[2]
+            try { $inRun = [DateTimeOffset]::Parse($stamp, $culture) -ge $Since } catch { $inRun = $false }
+            if ($inRun -and $rest -notmatch ' took ' -and $rest -match '(?i)unhandled|exception|could not|did not|failed|crash') { $rest }
+        } elseif ($inRun -and $_ -match '^\s+at ') { $_.Trim() }
+    })
+    if ($lines.Count -eq 0) { return }
+    Write-Host '   md.log, this run - lines that look like trouble, with their stack frames:' -ForegroundColor Yellow
+    $lines | Select-Object -First 60 | ForEach-Object { Write-Host "     $_" -ForegroundColor Yellow }
+}
+
 function Stop-Verify([string] $Step, [string] $Why) {
     Write-Host ''
     Write-Host "VERIFY FAILED at step: $Step" -ForegroundColor Red
@@ -231,6 +251,7 @@ foreach ($check in $json.checks) {
 }
 Write-Host ("   {0} passed, {1} failed - {2}" -f $json.passed, $json.failed, $reportFile)
 Show-SelfTestTimings $runStart
+Show-SelfTestLogLines $runStart
 if ($killed) {
     Stop-Verify 'self-test' "the report was written but md.exe never exited: its Environment.Exit did not end the process; see %LOCALAPPDATA%\md\md.log"
 }

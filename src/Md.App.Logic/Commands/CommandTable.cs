@@ -221,6 +221,17 @@ public static class CommandTable
     public static readonly IReadOnlyList<CommandSpec> RootAccelerators =
         [.. All.Where(s => s.Chord is not null && s.RootAccelerator)];
 
+    static readonly Dictionary<Chord, CommandId> RootAcceleratorByChord =
+        RootAccelerators.ToDictionary(s => s.Chord!.Value, s => s.Id);
+
+    /// <summary>
+    /// The root command a chord runs — what the preview page reports through
+    /// <c>Scripts.KeyForward</c> — or null: an editing key §2.4 leaves to the focused control, or no
+    /// command's chord at all.
+    /// </summary>
+    public static CommandId? RootAcceleratorFor(Chord chord) =>
+        RootAcceleratorByChord.TryGetValue(chord, out var id) ? id : null;
+
     static readonly Dictionary<CommandId, CommandSpec> ById = All.ToDictionary(s => s.Id);
 
     /// <summary>The row for <paramref name="id"/>. Throws when the table and the enum disagree — a build-time bug, pinned by a test.</summary>

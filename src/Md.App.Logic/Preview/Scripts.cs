@@ -1,4 +1,5 @@
 using System.Globalization;
+using Md.App.Logic.Commands;
 
 namespace Md.App.Logic.Preview;
 
@@ -90,6 +91,45 @@ public static class Scripts
           document.addEventListener('auxclick', guard, true);
         })();
         """);
+
+    /// <summary>
+    /// The window's chords, from inside the page. A KeyboardAccelerator on the window root fires
+    /// while the TextBox has focus; while the WebView2 has it the key goes to Chromium's own HWND
+    /// and — on Windows App SDK 2.4 with WebView2 153 — never reaches XAML at all (the self-test's
+    /// F3 from the preview, 2026-09-26: no fire, not the double fire #6231 describes). So the page
+    /// reports them: a keydown matching one of the root chords is claimed with preventDefault and
+    /// posted as <c>{"key":114,"ctrl":false,"alt":false,"shift":false}</c> — <c>keyCode</c> is the
+    /// Windows virtual-key code in Chromium — and the host runs the command. The editing keys §2.4
+    /// leaves to the focused control are not in the list, so Ctrl+C in the preview still copies
+    /// what the reader selected there. Should a WinUI build forward the key as well,
+    /// <c>CommandDispatcher</c>'s 150 ms guard absorbs the second arrival.
+    /// </summary>
+    public static string KeyForward(IEnumerable<Chord> chords)
+    {
+        ArgumentNullException.ThrowIfNull(chords);
+        var rows = chords.Select(c => string.Create(CultureInfo.InvariantCulture,
+            $"[{c.VirtualKey},{Flag(c, KeyModifiers.Ctrl)},{Flag(c, KeyModifiers.Alt)},{Flag(c, KeyModifiers.Shift)}]"));
+        return string.Join("\n",
+        [
+            "(function () {",
+            "  var chords = [" + string.Join(",", rows) + "];",
+            "  window.addEventListener('keydown', function (e) {",
+            "    if (e.isComposing) return;",
+            "    var ctrl = e.ctrlKey ? 1 : 0, alt = e.altKey ? 1 : 0, shift = e.shiftKey ? 1 : 0;",
+            "    for (var i = 0; i < chords.length; i++) {",
+            "      var c = chords[i];",
+            "      if (c[0] === e.keyCode && c[1] === ctrl && c[2] === alt && c[3] === shift) {",
+            "        e.preventDefault();",
+            "        window.chrome.webview.postMessage({ key: e.keyCode, ctrl: !!ctrl, alt: !!alt, shift: !!shift });",
+            "        return;",
+            "      }",
+            "    }",
+            "  }, true);",
+            "})();",
+        ]);
+
+        static int Flag(Chord chord, KeyModifiers modifier) => chord.Modifiers.HasFlag(modifier) ? 1 : 0;
+    }
 
     /// <summary>
     /// The render-complete probe (§4.8). Exports poll it; the live preview never waits. The JSON

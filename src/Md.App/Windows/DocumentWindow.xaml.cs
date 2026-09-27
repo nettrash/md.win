@@ -321,6 +321,13 @@ internal sealed partial class DocumentWindow : Window
         Panes.AttachScrollSync(_scrollGuard);
         Panes.ScrollSync.ScrollPreview = _previewHost.ApplyScrollFraction;
         _previewHost.PreviewDidScroll += fraction => Panes.ScrollSync.PreviewDidScroll(fraction);
+        // §2.9 from inside the preview: the page claims the root chords and posts them, because a
+        // key pressed with the WebView2 focused never reaches the root's KeyboardAccelerators on
+        // this SDK. The dispatcher's guard absorbs a second arrival should a build forward it too.
+        _previewHost.AcceleratorRequested += chord =>
+        {
+            if (CommandTable.RootAcceleratorFor(chord) is { } id) _dispatcher.TryInvoke(id);
+        };
 
         // §7.2: the print overlay covers every content row. It is added once and stays; the host
         // grid is what is shown and hidden, so nothing is re-parented while a WebView2 is loading.

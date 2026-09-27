@@ -1,4 +1,5 @@
 using System.Globalization;
+using Md.App.Logic.Commands;
 using Md.App.Logic.Preview;
 
 namespace Md.App.Logic.Tests.Preview;
@@ -162,5 +163,20 @@ public class ScriptsTests
              i = haystack.IndexOf(needle, i + needle.Length, StringComparison.Ordinal))
             count++;
         return count;
+    }
+
+    [Fact]
+    public void KeyForwardClaimsTheRootChordsAndLeavesTheEditingKeysToThePage()
+    {
+        var script = Scripts.KeyForward(CommandTable.RootAccelerators.Select(s => s.Chord!.Value));
+        Assert.Contains("[114,0,0,0]", script, StringComparison.Ordinal);        // F3: Find Next
+        Assert.Contains("[70,1,0,0]", script, StringComparison.Ordinal);         // Ctrl+F: Find…
+        Assert.DoesNotContain("[67,1,0,0]", script, StringComparison.Ordinal);   // Ctrl+C stays the page's copy
+        Assert.DoesNotContain("[65,1,0,0]", script, StringComparison.Ordinal);   // Ctrl+A stays the page's select-all
+        Assert.Contains("e.preventDefault();", script, StringComparison.Ordinal);
+        Assert.Contains("window.chrome.webview.postMessage({ key: e.keyCode, ctrl: !!ctrl, alt: !!alt, shift: !!shift });", script, StringComparison.Ordinal);
+        Assert.Contains("if (e.isComposing) return;", script, StringComparison.Ordinal);
+        Assert.DoesNotContain("\r", script, StringComparison.Ordinal);
+        Assert.StartsWith("(function () {\n  var chords = [];", Scripts.KeyForward([]), StringComparison.Ordinal);
     }
 }

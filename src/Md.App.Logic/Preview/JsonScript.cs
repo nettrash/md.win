@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Md.App.Logic.Commands;
 
 namespace Md.App.Logic.Preview;
 
@@ -44,6 +45,29 @@ public static class JsonScript
 
         var echo = value.Value.TryGetProperty("echo", out var e) && e.ValueKind == JsonValueKind.True;
         return (f, echo);
+    }
+
+    /// <summary>
+    /// The key message <see cref="Scripts.KeyForward"/> posts —
+    /// <c>{"key":114,"ctrl":false,"alt":false,"shift":false}</c> — as a <see cref="Chord"/>. Null
+    /// when it is not one: a scroll message has no <c>key</c>, and a key outside the virtual-key
+    /// range is not a chord.
+    /// </summary>
+    public static Chord? KeyMessage(string? json)
+    {
+        var value = Parse(json);
+        if (value is null || value.Value.ValueKind != JsonValueKind.Object) return null;
+        if (!value.Value.TryGetProperty("key", out var key) || key.ValueKind != JsonValueKind.Number) return null;
+        if (!key.TryGetInt32(out var virtualKey) || virtualKey <= 0 || virtualKey > 0xFF) return null;
+
+        var modifiers = KeyModifiers.None;
+        if (Flag(value.Value, "ctrl")) modifiers |= KeyModifiers.Ctrl;
+        if (Flag(value.Value, "alt")) modifiers |= KeyModifiers.Alt;
+        if (Flag(value.Value, "shift")) modifiers |= KeyModifiers.Shift;
+        return new Chord(virtualKey, modifiers);
+
+        static bool Flag(JsonElement element, string name) =>
+            element.TryGetProperty(name, out var flag) && flag.ValueKind == JsonValueKind.True;
     }
 
     static JsonElement? Parse(string? json)

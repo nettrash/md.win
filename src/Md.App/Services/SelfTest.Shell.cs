@@ -674,6 +674,12 @@ internal static partial class SelfTest
             }
             Add("input.foreground", true, "keystrokes go to the editor");
 
+            // For the report: the hooks' own account of the last keystroke, and how many
+            // compositions the box reported meanwhile — a composition is never judged, and a
+            // Unicode packet arrives as one.
+            var compositions = 0;
+            box.TextCompositionStarted += (_, _) => compositions++;
+
             // Every typing scenario, with the scenario's own switches and a fresh history.
             foreach (var scenario in SelfTestTyping.Scenarios)
             {
@@ -688,9 +694,11 @@ internal static partial class SelfTest
                     Add("input." + scenario.Name, false, "lost the foreground before the scenario");
                     continue;
                 }
+                compositions = 0;
                 foreach (var key in scenario.Keys) await PressAsync(key);
                 await Turn(200);
-                Add("input." + scenario.Name, box.Text == scenario.Expected, $"typed \"{Show(box.Text)}\", wanted \"{Show(scenario.Expected)}\"");
+                Add("input." + scenario.Name, box.Text == scenario.Expected,
+                    $"typed \"{Show(box.Text)}\", wanted \"{Show(scenario.Expected)}\"; hooks: {pane.SelfTestHooks.LastDecision}; compositions: {compositions}");
             }
             _settings.SetBool(SettingsKeys.ContinueLists, true);
             _settings.SetBool(SettingsKeys.CapitalizeSentences, true);

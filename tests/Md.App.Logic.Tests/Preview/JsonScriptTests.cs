@@ -1,3 +1,4 @@
+using Md.App.Logic.Commands;
 using Md.App.Logic.Preview;
 
 namespace Md.App.Logic.Tests.Preview;
@@ -79,5 +80,20 @@ public class JsonScriptTests
         var message = JsonScript.ScrollMessage("{\"fraction\":0.5}");
         Assert.NotNull(message);
         Assert.False(message!.Value.Echo);
+    }
+
+    [Fact]
+    public void TheKeyMessageIsAChordAndNothingElseIsOne()
+    {
+        Assert.Equal(new Chord(VirtualKeys.F3, KeyModifiers.Shift), JsonScript.KeyMessage("{\"key\":114,\"ctrl\":false,\"alt\":false,\"shift\":true}"));
+        Assert.Equal(new Chord(VirtualKeys.F, KeyModifiers.Ctrl), JsonScript.KeyMessage("{\"key\":70,\"ctrl\":true}"));
+        Assert.Equal(new Chord(VirtualKeys.F3), JsonScript.KeyMessage("{\"key\":114}"));
+        Assert.Null(JsonScript.KeyMessage("{\"fraction\":0.5,\"echo\":false}"));   // a scroll message
+        Assert.Null(JsonScript.KeyMessage("{\"key\":\"F3\"}"));
+        Assert.Null(JsonScript.KeyMessage("{\"key\":0}"));
+        Assert.Null(JsonScript.KeyMessage("{\"key\":256}"));
+        Assert.Null(JsonScript.KeyMessage("null"));
+        // And a key message is not a scroll message.
+        Assert.Null(JsonScript.ScrollMessage("{\"key\":114,\"ctrl\":false,\"alt\":false,\"shift\":false}"));
     }
 }
