@@ -231,6 +231,20 @@ public static class Strings
         public const string QueryPlaceholder = "Find";
 
         public const string ReplacementPlaceholder = "Replace with";
+
+        /// <summary>2026-09-27, the find panel: the chevron that shows and hides the replace row.</summary>
+        public const string ToggleReplace = "Toggle Replace";
+
+        /// <summary>The count when the query is not in the document.</summary>
+        public const string NoResults = "No results";
+
+        /// <summary>The count beside the query: "3 of 12" on a hit, "12 results" off one, <see cref="NoResults"/> for none, nothing for no query.</summary>
+        public static string Tally(int current, int total, bool hasQuery) =>
+            !hasQuery ? string.Empty
+            : total == 0 ? NoResults
+            : current > 0 ? string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{current} of {total}")
+            : total == 1 ? "1 result"
+            : string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{total} results");
     }
 
     /// <summary>§2.8: Help ▸ md Help / Privacy Policy / About md.</summary>

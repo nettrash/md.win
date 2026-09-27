@@ -149,7 +149,7 @@ Two `Microsoft.UI.Xaml.Window` subclasses, each hosting one root `Grid` built in
 
 | | `DocumentWindow` | `BookWindow` |
 | --- | --- | --- |
-| Content rows | `MenuBar` · content (§5.3) · `FindBar` · `InfoBar` · footer · `ExportCanvas` (off-canvas) · overlays (`ZenGrid`, `PrintOverlay`) | `MenuBar` · `SplitView` (sidebar + detail) · footer · `InfoBar` · `ExportCanvas` · `PrintOverlay` |
+| Content rows | `MenuBar` · content (§5.3, with the `FindBar` panel over it, §3.5) · `InfoBar` · footer · `ExportCanvas` (off-canvas) · overlays (`ZenGrid`, `PrintOverlay`) | `MenuBar` · `SplitView` (sidebar + detail) · footer · `InfoBar` · `ExportCanvas` · `PrintOverlay` |
 | Default client size | **900 × 640 epx** | **1000 × 700 epx** |
 | Minimum | **480 × 320 epx** (`OverlappedPresenter.PreferredMinimumWidth/Height`, windowed non-Zen only) | 700 × 400 with a book, 260 × 320 in the empty state |
 | Count | one per document | exactly one (created on demand by Show Book, `Activate()`d) |
@@ -470,14 +470,29 @@ If `ViewChanged` proves asynchronous on Windows, `ScrollSyncGuard` switches to a
 
 ### 3.5 Find and Replace bar (Win)
 
-A one-row `Grid` above the footer, hidden by default: a query `TextBox` and a replacement `TextBox`
-(both 17.3 epx = 13 pt, placeholders "Find" and "Replace with"), then "Next", "Previous", "Replace",
-"Replace All", "Done". Ctrl+F opens it with the query focused, Ctrl+H with the replacement focused;
-both seed the query from a non-empty selection. Enter in the query box is next and Shift+Enter
-previous; Enter in the replacement box is Replace and Shift+Enter Replace All. After a **Replace**
-focus stays in that box, so a run of Enters does not reach the editor and the hit the next one will
-act on is selected in the pane behind — which is why §3.1 sets `SelectionHighlightColorWhenNotFocused`
-as well as the focused colour. **Replace All** is a one-shot with no run to keep: focus goes back to
+A card floating over the **editor's top-right corner**, hidden by default — the way Windows 11's own
+editors (Notepad, Edge, VS Code) draw it; until 2026-09-27 it was a full-width row above the footer,
+which read as foreign on Windows. The window places it from the editor's measured bounds, so in Split
+side by side it sits in the middle of the window over the editor, not in the preview's corner, and
+stacked it sits at the top of the upper half; it is 460 epx wide, narrower if the editor is. Row
+one: a chevron that shows and hides row two, the query `TextBox` (17.3 epx = 13 pt, placeholder
+"Find"), the count ("3 of 12", "12 results" off a hit, "No results" — `TextSearch.Count`, which
+counts what Replace All would replace), and Previous, Next and Done as Segoe Fluent Icons buttons
+whose tooltips and accessible names are the Mac's words "Previous", "Next", "Done". Row two: the
+replacement `TextBox` (13 pt, "Replace with"), "Replace", "Replace All". Ctrl+F opens it with row
+two hidden and the query focused, Ctrl+H with row two shown and the replacement focused; both seed
+the query from a non-empty selection.
+
+**Find as you type.** Every change to the query searches again (`FindAsYouType`): from the
+**anchor** — where the caret stood when the panel opened or the query box got focus, or the start of
+the hit the last step landed on, so a longer query keeps the hit it has. The hit is selected with
+focus left in the query box (`EditorPane.ShowRange`); an empty query, or one that is not there, puts
+the caret back at the anchor. Enter in the query box is next and Shift+Enter previous, and they too
+leave focus in the panel; F3 from the editor selects in and keeps focus in the editor
+(`SelectRange`). Enter in the replacement box is Replace and Shift+Enter Replace All. After a
+**Replace** focus stays in that box, so a run of Enters does not reach the editor and the hit the
+next one will act on is selected in the pane behind — which is why §3.1 sets
+`SelectionHighlightColorWhenNotFocused` as well as the focused colour. **Replace All** is a one-shot with no run to keep: focus goes back to
 the editor with the rewritten span selected, so it is visible and the Ctrl+Z that puts every hit back
 reaches the document (Undo is not a root accelerator, §2.4 — the focused control owns that chord, and
 a replacement box left focused would undo the writer's typing in the box instead). Esc closes either
@@ -546,13 +561,20 @@ pins that); it reads the box at each event, asks the hooks, and applies the answ
 - **The letter** — decided in `BeforeTextChanging` (`TypingHooks.BeforeTextChanging(_box.Text, start,
   length, e.NewText)`: the change is reduced to one `TextEdit` and tracked first, then — exactly one
   replacement of the selection by a word insertion, the paste flag consumed, the tracker not having
-  said "as typed" → `Capitalize` on its first scalar), applied in `TextChanging` (synchronous, before
-  rendering) once `TypingHooks.TextChanging` confirms the insertion landed and makes the capital the
-  tracked one: the control's own insertion is undo unit one, the replacement by the capitalized
-  spelling is undo unit two, the caret goes after it. **Ctrl+Z immediately after a capital restores
-  the lowercase letter** — and, being the edit that removes the capital, arms the override at its
-  offset. The edit is never cancelled, so a keystroke cannot be lost; the worst surprise is a missing
-  capital.
+  said "as typed" → `Capitalize` on its first scalar), confirmed in `TextChanging` once
+  `TypingHooks.TextChanging` sees the insertion landed and makes the capital the tracked one, and
+  applied on a `DispatcherQueuePriority.High` turn right after, which runs ahead of the next input,
+  once `TypingHooks.StillApplies` sees the letter still there: the control's own insertion is undo
+  unit one, the replacement by the capitalized spelling is undo unit two, the caret goes after it.
+  **Ctrl+Z immediately after a capital restores the lowercase letter** — and, being the edit that
+  removes the capital, arms the override at its offset; RichEdit leaves the restored letter selected,
+  and the history turn collapses the caret after it (`TypingHooks.CaretAfterHistory`, only for that
+  one scalar). The edit is never cancelled, so a keystroke cannot be lost; the worst surprise is a
+  missing capital. *2026-09-27, on Windows:* a replacement made inside `TextChanging` itself reaches
+  the screen but raises no events and leaves `TextBox.Text` on the lowercase letter until the next
+  keystroke — a capital typed last never reached the session, and its Undo reported no change and
+  left the letter selected, so the next key replaced it. The self-test's
+  `capital.aCapitalTypedLastIsInTheText` and `capital.ctrlZThen…` scenarios pin all three.
 - **Tracking (smart-typing.md §3.4).** Every change the control reports — typing, Backspace, Delete,
   Cut, a paste, a composition update, Undo, Redo — is reduced to one `TextEdit` (anchored at the
   selection when the new text is the old with the selection replaced; a shrink at a collapsed caret
@@ -611,17 +633,19 @@ because docs/smart-typing.md is the family's byte-identical copy and is amended 
 one repo). smart-typing.md §3.3 "Windows — Letter" describes `e.Cancel = true` followed by a
 `SelectedText` assignment, and §3.5 counts "two `SelectedText` assignments (the letter, then the
 replacement)" as the two undo units. md.win does neither: the control inserts the letter itself (its
-own typing unit) and the **one** `SelectedText` assignment is the replacement, made inside
-`TextChanging`. The keystroke can therefore never be lost to a cancelled change, at the price that
-§3.5's guarantee rests on RichEdit giving a programmatic replacement issued inside `TextChanging` its
-own undo unit — the checklist item below. §3.1's "Windows shows both in Settings with a one-line hint
+own typing unit) and the **one** `SelectedText` assignment is the replacement, made on the High
+dispatcher turn after `TextChanging` (smart-typing.md's own fallback: "defer via
+`DispatcherQueue.TryEnqueue` and re-check"). The keystroke can therefore never be lost to a
+cancelled change, at the price that §3.5's guarantee rests on RichEdit giving that programmatic
+replacement its own undo unit — verified on Windows on 2026-09-27. §3.1's "Windows shows both in Settings with a one-line hint
 that Ctrl+Z undoes a capital" has no Settings page to land on: the two toggles are Edit ▸ Typing rows
 and the hint is in the README and the CHANGELOG.
 
 Not provable off Windows, on the checklist of the landing run — and, where a keystroke can show it,
 asserted by the self-test's SendInput tier (§11.4): that a handled `PreviewKeyDown` pre-empts the
-control's Enter; that a `SelectedText` assignment made inside `TextChanging` is its own undo unit after
-the typed letter (§3.5 — Ctrl+Z once after `m` → `M` must give `m`, not an empty line); that
+control's Enter; that the capital's `SelectedText` assignment is its own undo unit after
+the typed letter (§3.5 — Ctrl+Z once after `m` → `M` must give `m`, not an empty line, with the caret
+after it); that
 `TextChanging` reports the moved selection; that `PreviewKeyDown` sees Ctrl+Z / Ctrl+Y before the
 control undoes (type `hello`, Ctrl+Z ×3, Ctrl+Y ×3 → `Hello` with nothing lost); that Undo / Redo
 from the TextBox's **context menu** — which bypass `PreviewKeyDown` and the Edit rows — either raise no
@@ -1464,7 +1488,7 @@ by `OperatingSystem.IsWindows()` (skipped elsewhere, exercised on the Windows le
 | --- | --- |
 | `Program.cs`, `Redirection.cs` | §1.1 |
 | `App.xaml`, `App.xaml.cs` | theme dictionaries (§10), `TextControl*` resource overrides (§3.1), `OnLaunched` → `ActivationRouter`, `AppInstance.Activated`, `UnhandledException` logging |
-| `Windows/DocumentWindow.xaml(.cs)` | root `Grid` (rows: menu · content · find bar · info bar · footer), `ZenGrid`, `PrintOverlay` host, `ExportCanvas`; wires controllers ↔ controls; `AppWindow.Closing`, `Closed`, `Activated`, `Changed`, `SizeChanged`, `ActualThemeChanged` |
+| `Windows/DocumentWindow.xaml(.cs)` | root `Grid` (rows: menu · content, with the find panel over it · info bar · footer), `ZenGrid`, `PrintOverlay` host, `ExportCanvas`; wires controllers ↔ controls; `AppWindow.Closing`, `Closed`, `Activated`, `Changed`, `SizeChanged`, `ActualThemeChanged` |
 | `Windows/BookWindow.xaml(.cs)` | menu row, `SplitView`, sidebar `ListView`, detail `CommandBar`, `ArticlePanes`, stage placeholders, footer, `InfoBar`, `ExportCanvas` |
 | `Windows/WindowManager.cs` | live windows ↔ `WindowRegistry` ids; create / activate / cascade; `ShowBookWindow`; `SetForegroundWindow` after a redirect |
 | `Windows/TitleBarTint.cs` | `AppWindowTitleBar` colours + `PreferredTheme` from `Palette` |

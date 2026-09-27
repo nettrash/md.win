@@ -14,6 +14,9 @@ public sealed partial class FindBar
     /// <summary>The replacement field.</summary>
     internal TextBox SelfTestReplaceBox => ReplaceBox;
 
+    /// <summary>The count beside the query, as the writer reads it.</summary>
+    internal string SelfTestTally => CountText.Text;
+
     /// <summary>What the writer would have typed into the replacement field.</summary>
     internal void SelfTestSetReplacement(string replacement)
     {

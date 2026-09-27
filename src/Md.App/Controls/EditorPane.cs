@@ -44,12 +44,15 @@ namespace Md.App.Controls;
 /// </para>
 /// <para>
 /// <b>The letter</b> is decided in <c>BeforeTextChanging</c>, which carries the text the box is
-/// about to hold, and applied in <c>TextChanging</c>, which is raised synchronously once it holds it
-/// and before it is rendered. The control inserts the typed text itself (the first undo unit of
-/// §3.5), then the insertion is replaced by the same text with its first scalar capitalized (the
-/// second), and the caret is put after it — so <b>Ctrl+Z immediately after a capital restores the
-/// lowercase letter</b>, keeps the caret, and — being the edit that removes the capital — arms the
-/// override at its offset (smart-typing.md §3.4). The edit is never cancelled: whatever a real
+/// about to hold, confirmed in <c>TextChanging</c>, once it holds it, and applied on a High
+/// dispatcher turn right after — ahead of the next input. (2026-09-27: applied inside
+/// <c>TextChanging</c> itself, the replacement reached the screen but not <c>TextBox.Text</c>, which
+/// read the lowercase letter until the next keystroke.) The control inserts the typed text itself
+/// (the first undo unit of §3.5), then the insertion is replaced by the same text with its first
+/// scalar capitalized (the second), and the caret is put after it — so <b>Ctrl+Z immediately after a
+/// capital restores the lowercase letter</b>, and — being the edit that removes the capital — arms
+/// the override at its offset (smart-typing.md §3.4). RichEdit leaves that restored letter selected;
+/// the history turn collapses the caret after it, where the other ports leave it. The edit is never cancelled: whatever a real
 /// control does with the pre-change notification, the keystroke itself cannot be lost, and the
 /// worst surprise is a missing capital.
 /// </para>
@@ -271,6 +274,42 @@ public sealed class EditorPane : UserControl
     }
 
     /// <summary>
+    /// The find panel's own steps (2026-09-27): the hit is selected where the writer can see it
+    /// (§3.1's <c>SelectionHighlightColorWhenNotFocused</c>) and focus stays in the query box, so
+    /// typing on and Enter keep searching instead of landing in the document.
+    /// </summary>
+    public void ShowRange(int start, int length)
+    {
+        var reported = _box.Text.Length;
+        start = Math.Clamp(start, 0, reported);
+        length = Math.Clamp(length, 0, reported - start);
+        _box.Select(start, length);
+        BringIntoView(start);
+    }
+
+    /// <summary>
+    /// 2026-09-27, measured: an unfocused TextBox does not scroll to a programmatic selection, so a
+    /// hit the panel found two screens down stayed off screen. When the character is outside the
+    /// viewport, the view is moved to put it a third of the way down — where a writer's eye expects
+    /// a find to land — through the same template ScrollViewer the scroll sync drives.
+    /// </summary>
+    void BringIntoView(int index)
+    {
+        _scroller ??= FindScroller(_box);
+        if (_scroller is not { } sv || _box.Text.Length == 0) return;
+        Windows.Foundation.Rect rect;
+        try { rect = _box.GetRectFromCharacterIndex(Math.Min(index, _box.Text.Length - 1), false); }
+        catch (ArgumentException) { return; }
+        // The rectangle is in the text's own coordinates, not the viewport's (measured: the same
+        // character reads the same y at offset 0 and at offset 4351), so it is compared with the
+        // visible band [offset, offset + viewport] and is itself the target.
+        var viewport = sv.ViewportHeight;
+        var offset = sv.VerticalOffset;
+        if (rect.Top >= offset && rect.Bottom <= offset + viewport) return;
+        sv.ChangeView(null, Math.Max(0, rect.Top - viewport / 3), null, disableAnimation: true);
+    }
+
+    /// <summary>
     /// The find bar's Replace and Replace All (§3.5): <c>[start, start + length)</c> of the string
     /// the control reports becomes <paramref name="replacement"/>, with the caret after it. One
     /// <c>Select</c> + <c>SelectedText</c> pair — the Tab key's undo-preserving path, never
@@ -382,7 +421,14 @@ public sealed class EditorPane : UserControl
         // The typed text is in the box (undo unit one); replace it with the capitalized spelling
         // (undo unit two) — the hooks track the capital where it now stands (§3.4).
         if (_hooks.TextChanging(_box.Text, _box.SelectionStart, _box.SelectionLength) is not { } plan) return;
-        Apply(plan.Position, plan.Inserted.Length, plan.Replacement, plan.Position + plan.Replacement.Length);
+        // 2026-09-27: not here. Made inside TextChanging, the replacement reaches the screen but
+        // raises no events and leaves TextBox.Text on the lowercase letter until the next keystroke
+        // (TypingHooks.StillApplies has the whole finding). A High turn runs ahead of the next input.
+        _ = DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.High, () =>
+        {
+            if (!_hooks.StillApplies(plan, _box.Text, _box.SelectionStart, _box.SelectionLength)) return;
+            Apply(plan.Position, plan.Inserted.Length, plan.Replacement, plan.Position + plan.Replacement.Length);
+        });
     }
 
     /// <summary>
@@ -408,7 +454,16 @@ public sealed class EditorPane : UserControl
     void AnnounceHistory()
     {
         _hooks.AnnounceHistory();
+        // RichEdit leaves an undone or redone capital selected; the next keystroke would replace it.
+        // Queued first, so it reads the tracker the history step left, before the flag settles.
+        _ = DispatcherQueue.TryEnqueue(CollapseAfterHistory);
         _ = DispatcherQueue.TryEnqueue(_hooks.SettleHistory);
+    }
+
+    void CollapseAfterHistory()
+    {
+        if (_hooks.CaretAfterHistory(_box.Text, _box.SelectionStart, _box.SelectionLength) is { } caret)
+            _box.Select(caret, 0);
     }
 
     /// <summary>Settled a turn later like the history flag: a Backspace at the start of the text reports no change, and a key repeat announces again.</summary>

@@ -47,6 +47,7 @@ internal sealed partial class DocumentWindow : Window
     readonly ViewModeController _modes;
     readonly ZenController _zen;
     readonly ScrollSyncGuard _scrollGuard;
+    readonly FindAsYouType _findAsYouType = new();
     readonly DerivedTextScheduler _derived;
     readonly PreviewHost _previewHost;
     readonly Md.App.Logic.Preview.PreviewCoordinator _preview;
@@ -355,14 +356,19 @@ internal sealed partial class DocumentWindow : Window
         // §3.6: the two typing toggles reach the editor through the seam and follow Changed.
         Panes.Editor.UseSettings(_services.Settings);
         Panes.Editor.Control.SelectionChanged += (_, _) => Publish();
+        Panes.Editor.Control.SelectionChanged += (_, _) => UpdateFindTally();
         Panes.LayoutChanged += OnLayoutChanged;
+        // The find panel floats over the editor's top-right corner, wherever the layout puts it.
+        Panes.Editor.SizeChanged += (_, _) => PlaceFindBar();
+        ContentHost.SizeChanged += (_, _) => PlaceFindBar();
         ContentHost.PointerMoved += (_, _) => ZenCapsule.Reveal();
 
         Find.SearchRequested += OnFindRequested;
         Find.ReplaceRequested += OnReplaceRequested;
         Find.ReplaceAllRequested += OnReplaceAllRequested;
         Find.Dismissed += HideFindBar;
-        Find.QueryChanged += _ => Publish();
+        Find.QueryChanged += OnFindQueryChanged;
+        Find.QueryFocused += () => _findAsYouType.Focused(Editor.SelectionStart);
 
         _derived.Changed += OnDerivedChanged;
         _exports.Pipeline.BusyChanged += _busy.BusyChanged;
@@ -386,6 +392,7 @@ internal sealed partial class DocumentWindow : Window
         // The Mac's sync() guard, from this side: our own SetText echo is not an edit.
         if (string.Equals(text, _session.Text, StringComparison.Ordinal)) return;
         _session.Edit(text);
+        UpdateFindTally();
     }
 
     void OnSessionChanged()
@@ -888,8 +895,12 @@ internal sealed partial class DocumentWindow : Window
         // §5.4: Zen has no chrome at all, and the bar is one of the rows it collapses.
         if (_state.ZenActive) return;
         Find.Visibility = Visibility.Visible;
+        _findAsYouType.Focused(Editor.SelectionStart);   // now: the query's TextChanged may arrive before the box's GotFocus
+        Find.ShowReplace(false);
+        PlaceFindBar();
         if (Editor.SelectionLength > 0) Find.SetQuery(Editor.SelectedText);
         Find.FocusQuery();
+        UpdateFindTally();
         Publish();
     }
 
@@ -898,8 +909,11 @@ internal sealed partial class DocumentWindow : Window
     {
         if (_state.ZenActive) return;
         Find.Visibility = Visibility.Visible;
+        _findAsYouType.Focused(Editor.SelectionStart);
+        PlaceFindBar();
         if (Editor.SelectionLength > 0) Find.SetQuery(Editor.SelectedText);
         Find.FocusReplacement();
+        UpdateFindTally();
         Publish();
     }
 
@@ -914,7 +928,10 @@ internal sealed partial class DocumentWindow : Window
     {
         if (_state.ZenActive || Editor.SelectionLength == 0) return;
         Find.Visibility = Visibility.Visible;
+        _findAsYouType.Focused(Editor.SelectionStart);
+        PlaceFindBar();
         Find.SetQuery(Editor.SelectedText);
+        UpdateFindTally();
         Publish();
     }
 
@@ -925,7 +942,55 @@ internal sealed partial class DocumentWindow : Window
         var match = forward
             ? TextSearch.Next(text, query, Editor.SelectionStart + Editor.SelectionLength)
             : TextSearch.Previous(text, query, Editor.SelectionStart);
-        if (match is { } hit) Panes.Editor.SelectRange(hit.Index, hit.Length);
+        if (match is not { } hit) return;
+        _findAsYouType.Stepped(hit);
+        // Enter in the query box and the panel's arrows keep focus in the panel; F3 from the editor
+        // stays in the editor, which is where SelectRange puts it.
+        if (Find.HasFocusWithin) Panes.Editor.ShowRange(hit.Index, hit.Length);
+        else Panes.Editor.SelectRange(hit.Index, hit.Length);
+    }
+
+    /// <summary>
+    /// Find as you type (2026-09-27): every change to the query searches again from where the writer
+    /// was (<see cref="FindAsYouType"/>), selecting the hit without taking focus out of the query box.
+    /// Only while the writer is in the panel — a query set from code (Use Selection for Find, with
+    /// the selection already the hit) moves nothing. An empty query, or one that is not in the
+    /// document, puts the caret back where the search started.
+    /// </summary>
+    void OnFindQueryChanged(string query)
+    {
+        if (Find.Visibility == Visibility.Visible && Find.HasFocusWithin)
+        {
+            if (_findAsYouType.Search(Editor.Text, query) is { } hit) Panes.Editor.ShowRange(hit.Index, hit.Length);
+            else Panes.Editor.ShowRange(_findAsYouType.Anchor, 0);
+        }
+        UpdateFindTally();
+        Publish();
+    }
+
+    /// <summary>"3 of 12" beside the query, recounted on every change to the query, the text or the selection while the panel is up.</summary>
+    void UpdateFindTally()
+    {
+        if (_closed || Find.Visibility != Visibility.Visible) return;
+        var query = Find.Query;
+        var tally = TextSearch.Count(Editor.Text, query, Editor.SelectionStart, Editor.SelectionLength);
+        Find.SetTally(Strings.Find.Tally(tally.Current, tally.Total, query.Length > 0));
+    }
+
+    /// <summary>
+    /// The panel sits over the editor's top-right corner (2026-09-27), as Windows 11's own editors
+    /// place theirs: in Split side by side that is the middle of the window, not the preview's corner,
+    /// and stacked it is the top of the upper half. Measured from the editor's real bounds rather than
+    /// derived from the layout, so every arrangement ArticlePanes can make is covered by one rule.
+    /// </summary>
+    void PlaceFindBar()
+    {
+        // Not after OnClosed: TransformToVisual throws once the two elements no longer share a tree.
+        if (_closed || Find.Visibility != Visibility.Visible || Panes.Editor.ActualWidth <= 0) return;
+        var corner = Panes.Editor.TransformToVisual(ContentHost).TransformPoint(new Windows.Foundation.Point(Panes.Editor.ActualWidth, 0));
+        const double Gap = 16;   // clear of the editor's own vertical scrollbar
+        Find.Width = Math.Max(0, Math.Min(FindBar.PreferredWidth, Panes.Editor.ActualWidth - 2 * Gap));
+        Find.Margin = new Thickness(0, corner.Y + 8, Math.Max(0, ContentHost.ActualWidth - corner.X + Gap), 0);
     }
 
     /// <summary>
@@ -939,7 +1004,12 @@ internal sealed partial class DocumentWindow : Window
         var step = TextSearch.Replace(Editor.Text, query, replacement, Editor.SelectionStart, Editor.SelectionLength);
         if (step.Apply is { } edit) Panes.Editor.ReplaceRange(edit.Start, edit.Length, edit.Text);
         // Re-read: the box holds the replacement now, and SearchFrom is an offset into that text.
-        if (TextSearch.Next(Editor.Text, query, step.SearchFrom) is { } hit) Panes.Editor.SelectRange(hit.Index, hit.Length);
+        if (TextSearch.Next(Editor.Text, query, step.SearchFrom) is { } hit)
+        {
+            _findAsYouType.Stepped(hit);
+            Panes.Editor.ShowRange(hit.Index, hit.Length);    // focus stays in the replacement box (§3.5)
+        }
+        UpdateFindTally();
     }
 
     /// <summary>
@@ -957,6 +1027,7 @@ internal sealed partial class DocumentWindow : Window
         // not a root accelerator (§2.4), so the focused control owns the chord, and the find bar's
         // replacement box would have undone the writer's typing in the box instead.
         Panes.Editor.SelectRange(plan.Apply.Start, plan.Apply.Text.Length);
+        UpdateFindTally();
     }
 
     void OnEscape()
@@ -1103,7 +1174,10 @@ internal sealed partial class DocumentWindow : Window
         // routed that to Publish by then — so Build() ran against a window still assembling itself
         // and threw a NullReferenceException onto the XAML dispatcher. A snapshot of a half-built
         // window has no meaning anyway; the constructor takes the first one itself, last.
-        if (!_ready || _publishing) return;
+        // 2026-09-27: nor after OnClosed. The TextBox raises SelectionChanged again while the closed
+        // window's tree is torn down, and Build() then threw the same NullReferenceException — md
+        // disappeared on closing a window.
+        if (!_ready || _closed || _publishing) return;
         _publishing = true;
         try
         {

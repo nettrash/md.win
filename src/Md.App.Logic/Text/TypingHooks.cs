@@ -375,6 +375,49 @@ public sealed class TypingHooks
         LastDecision = $"applied: {plan.Capital} at {plan.Position}";
         return plan;
     }
+
+    /// <summary>
+    /// The pane applies a plan a dispatcher turn after <see cref="TextChanging"/> returned it, not
+    /// inside the event. 2026-09-27: a <c>Select</c> + <c>SelectedText</c> made inside
+    /// <c>TextChanging</c> reaches the screen but raises no events, and <c>TextBox.Text</c> goes on
+    /// reading the lowercase letter until the next keystroke — so a capital typed last never reached
+    /// the session, and the Undo of one reported no change at all. The turn is queued ahead of
+    /// input, so nothing should come between; should something have — the letter is no longer where
+    /// the plan put it, or the caret is no longer right after it (a second key already typed on,
+    /// which the capital's caret placement would otherwise land in front of) — the capital is not
+    /// made, and the tracking it started is forgotten.
+    /// </summary>
+    public bool StillApplies(CapitalizationPlan plan, string text, int selectionStart, int selectionLength)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        var end = plan.Position + plan.Inserted.Length;
+        if (plan.Position >= 0
+            && end <= text.Length
+            && text.AsSpan(plan.Position, plan.Inserted.Length).SequenceEqual(plan.Inserted)
+            && selectionLength == 0 && selectionStart == end)
+            return true;
+        if (_tracker.CapitalAt == plan.Position) _tracker.Clear();
+        LastDecision = $"dropped: the text moved on before {plan.Capital} at {plan.Position}";
+        return false;
+    }
+
+    /// <summary>
+    /// Where the caret belongs after an Undo or Redo, or null to leave the control's selection alone.
+    /// 2026-09-27: RichEdit undoes md's capital as the replacement it was and leaves the restored
+    /// letter <i>selected</i>, so the next keystroke replaced it (<c>m</c>, Ctrl+Z, Enter gave a
+    /// blank line and no <c>m</c>). The other ports leave the caret after the letter (§3.5), so the
+    /// selection is collapsed after it — only when it is exactly the one scalar the override is armed
+    /// on, which is what an Undo or Redo of the capital leaves; any other history step keeps the
+    /// selection Windows gives it.
+    /// </summary>
+    public int? CaretAfterHistory(string text, int selectionStart, int selectionLength)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        if (_tracker.ArmedAt is not { } q || selectionStart != q || selectionLength == 0) return null;
+        if (q >= text.Length) return null;
+        var scalar = char.IsHighSurrogate(text[q]) && q + 1 < text.Length && char.IsLowSurrogate(text[q + 1]) ? 2 : 1;
+        return selectionLength == scalar ? q + scalar : null;
+    }
 }
 
 /// <summary>

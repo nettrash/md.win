@@ -5,8 +5,8 @@
     xmlns:controls="using:Md.App.Controls"
     xmlns:ui="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
     <!--
-        One document window (shell-design.md §1.3, §11.2): the MenuBar row, the content, the find
-        bar, the conflict / save-error InfoBar and the footer, with the Zen capsule, the off-canvas
+        One document window (shell-design.md §1.3, §11.2): the MenuBar row, the content with the
+        find panel over it, the conflict / save-error InfoBar and the footer, with the Zen capsule, the off-canvas
         export surface and the print-overlay host layered over all of them.
 
         The attached rows are written `ui:Grid.Row` against a second prefix for the SAME presentation
@@ -28,7 +28,6 @@
                 <RowDefinition Height="*" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
             <ContentControl
@@ -41,15 +40,22 @@
                 <controls:ArticlePanes x:Name="Panes" />
             </Grid>
 
-            <controls:FindBar x:Name="Find" ui:Grid.Row="2" Visibility="Collapsed" />
+            <!-- The find panel floats over the content (2026-09-27): the code-behind places it on the
+                 editor's top-right corner, whichever arrangement ArticlePanes is showing. -->
+            <controls:FindBar
+                x:Name="Find"
+                ui:Grid.Row="1"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Top"
+                Visibility="Collapsed" />
 
             <InfoBar
                 x:Name="Info"
-                ui:Grid.Row="3"
+                ui:Grid.Row="2"
                 IsOpen="False"
                 IsClosable="False" />
 
-            <controls:FooterBar x:Name="Footer" ui:Grid.Row="4" />
+            <controls:FooterBar x:Name="Footer" ui:Grid.Row="3" />
         </Grid>
 
         <controls:ZenControls x:Name="ZenCapsule" Visibility="Collapsed" />

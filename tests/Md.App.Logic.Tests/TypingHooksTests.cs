@@ -1633,4 +1633,85 @@ public sealed class TypingHooksTests
         Assert.Null(hooks.TextChanging("One. Tw", 7, 0));
         Assert.StartsWith("declined \"w\" at 6", hooks.Trace[0], StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void UndoOfACapitalThenANewLineLeavesTheNextSentenceCapitalized()
+    {
+        // 2026-09-27, the manual checklist on Windows: "m" → "M", Ctrl+Z → "m", Enter, then
+        // "hello world" went in lowercase. The override armed by the undo belongs to the m alone.
+        var e = new Editor();
+        e.Type("m");
+        e.Undo();
+        Assert.Equal("m", e.Text);
+        e.Enter();
+        e.Type("hello world");
+        Assert.Equal("m\rHello world", e.Text);
+    }
+
+    [Fact]
+    public void ADeferredCapitalStillAppliesWhileTheLetterIsWhereThePlanPutIt()
+    {
+        var hooks = new TypingHooks();
+        hooks.BeforeTextChanging("One. ", 5, 0, "One. t");
+        var plan = hooks.TextChanging("One. t", 6, 0)!.Value;
+        Assert.True(hooks.StillApplies(plan, "One. t", 6, 0));
+        Assert.Equal(5, hooks.Tracker.CapitalAt);
+    }
+
+    [Fact]
+    public void ADeferredCapitalIsDroppedWhenASecondKeyGotThereFirst()
+    {
+        // "One. t" then "w" before the turn: the t is still at 5, but the caret is past the w, and
+        // the capital's caret placement would put it back between T and w.
+        var hooks = new TypingHooks();
+        hooks.BeforeTextChanging("One. ", 5, 0, "One. t");
+        var plan = hooks.TextChanging("One. t", 6, 0)!.Value;
+        Assert.False(hooks.StillApplies(plan, "One. tw", 7, 0));
+        Assert.False(hooks.Tracker.IsTracking);
+        Assert.False(new TypingHooks().StillApplies(plan, "One. t", 5, 1));   // a selection over it: not ours to replace either
+    }
+
+    [Fact]
+    public void ADeferredCapitalWhoseLetterMovedIsDroppedAndItsTrackingForgotten()
+    {
+        var hooks = new TypingHooks();
+        hooks.BeforeTextChanging("One. ", 5, 0, "One. t");
+        var plan = hooks.TextChanging("One. t", 6, 0)!.Value;
+        Assert.False(hooks.StillApplies(plan, "One. ", 5, 0));
+        Assert.False(hooks.Tracker.IsTracking);
+        Assert.StartsWith("dropped: the text moved on", hooks.LastDecision, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TheUndoneCapitalLeftSelectedGetsTheCaretAfterIt()
+    {
+        var e = new Editor();
+        e.Type("m");
+        e.Undo();
+        AssertArmed(e, 0);
+        Assert.Equal(1, e.Hooks.CaretAfterHistory("m", 0, 1));
+        Assert.Null(e.Hooks.CaretAfterHistory("m", 1, 0));      // already collapsed
+        Assert.Null(e.Hooks.CaretAfterHistory("mo", 0, 2));     // more than the letter: Windows' selection stands
+    }
+
+    [Fact]
+    public void AnOrdinaryHistoryStepKeepsItsSelection()
+    {
+        var e = new Editor();
+        e.Type("hi");
+        e.Undo();                                           // takes back the i; the capital still stands
+        AssertTracked(e, 0, "H");
+        Assert.Null(e.Hooks.CaretAfterHistory("H", 0, 1));
+    }
+
+    [Fact]
+    public void TheCaretAfterAnUndoneNonBmpCapitalSkipsBothUnits()
+    {
+        var e = new Editor();
+        e.Type("𐐨");                                        // DESERET SMALL LETTER LONG I → 𐐀
+        e.Undo();
+        AssertArmed(e, 0);
+        Assert.Equal(2, e.Hooks.CaretAfterHistory("𐐨", 0, 2));
+        Assert.Null(e.Hooks.CaretAfterHistory("𐐨", 0, 1));
+    }
 }

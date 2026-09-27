@@ -257,8 +257,10 @@ internal static partial class SelfTest
             await Turn();
             newest.SelfTestCommands.TryInvoke(CommandId.Find);
             newest.SelfTestFind.SetQuery(query);
-            box.Select(0, 0);
             await Turn(150);   // QueryChanged → Publish, so HasFindQuery is in the snapshot
+            // After the turn: the query box has focus, so the query itself already searched as you
+            // type (2026-09-27); Find Next is then measured from the top, as it always was.
+            box.Select(0, 0);
 
             Add("find.opensOnlyTheNewestBar",
                 newest.SelfTestFind.Visibility == Visibility.Visible && windows.Take(2).All(w => w.SelfTestFind.Visibility == Visibility.Collapsed),
@@ -761,6 +763,81 @@ internal static partial class SelfTest
                 await Turn(250);
                 Add("input.f3.findsTheNextHit", box.SelectionStart == 0 && box.SelectionLength == 3, $"{box.SelectionStart}+{box.SelectionLength}");
             }
+
+            // 2026-09-27, find as you type: each keystroke in the query searches from where the caret
+            // was, selects the hit with the focus left in the query box, and the count follows; Enter
+            // steps on, still in the box; a query that is not there puts the caret back.
+            window.SelfTestFind.SetQuery("");
+            box.Select(4, 0);
+            window.SelfTestCommands.TryInvoke(CommandId.Find);
+            await Turn(150);
+            var query = window.SelfTestFind.SelfTestQueryBox;
+            if (await Front("input.findAsYouType.selectsFromTheCaret", window, query))
+            {
+                SelfTestInput.Text("c");
+                await Turn(40);
+                SelfTestInput.Text("a");
+                await Turn(250);
+                var focused = FocusManager.GetFocusedElement(window.SelfTestRoot.XamlRoot);
+                Add("input.findAsYouType.selectsFromTheCaret",
+                    box.SelectionStart == 6 && box.SelectionLength == 2 && ReferenceEquals(focused, query) && window.SelfTestFind.SelfTestTally == "2 of 3",
+                    $"{box.SelectionStart}+{box.SelectionLength}, focus on {focused?.GetType().Name ?? "nothing"} ({(ReferenceEquals(focused, query) ? "the query" : "not the query")}), count \"{window.SelfTestFind.SelfTestTally}\"");
+
+                SelfTestInput.Key(SelfTestInput.VK_RETURN);
+                await Turn(250);
+                focused = FocusManager.GetFocusedElement(window.SelfTestRoot.XamlRoot);
+                Add("input.findAsYouType.enterStepsAndKeepsTheFocus",
+                    box.SelectionStart == 12 && box.SelectionLength == 2 && ReferenceEquals(focused, query) && window.SelfTestFind.SelfTestTally == "3 of 3",
+                    $"{box.SelectionStart}+{box.SelectionLength}, focus on the query: {ReferenceEquals(focused, query)}, count \"{window.SelfTestFind.SelfTestTally}\"");
+
+                SelfTestInput.Text("x");
+                await Turn(250);
+                Add("input.findAsYouType.noHitPutsTheCaretBack",
+                    box.SelectionStart == 12 && box.SelectionLength == 0 && window.SelfTestFind.SelfTestTally == Md.App.Logic.Strings.Find.NoResults && box.Text == "cat x cat y cat",
+                    $"{box.SelectionStart}+{box.SelectionLength}, count \"{window.SelfTestFind.SelfTestTally}\", editor \"{Show(box.Text)}\"");
+            }
+
+            // A hit far below the fold is brought into view while the focus stays in the query box:
+            // the panel selects without focusing the editor, which is the step that used to scroll.
+            var filler = string.Concat(Enumerable.Repeat("filler line\n", 200));
+            pane.SetText(filler + "zebra\n" + filler + "zebra\n");
+            pane.ResetHistory();
+            window.SelfTestFind.SetQuery("");
+            box.Select(0, 0);
+            window.SelfTestCommands.TryInvoke(CommandId.Find);
+            await Turn(300);
+            var scroller = Descendant<ScrollViewer>(box);
+            var top = scroller?.VerticalOffset ?? -1;
+            if (await Front("input.findAsYouType.scrollsTheHitIntoView", window, query))
+            {
+                SelfTestInput.Text("z");
+                await Turn(40);
+                SelfTestInput.Text("e");
+                await Turn(400);
+                var wanted = box.Text.IndexOf("zebra", StringComparison.Ordinal);
+                Add("input.findAsYouType.scrollsTheHitIntoView",
+                    scroller is not null && box.SelectionStart == wanted && box.SelectionLength == 2 && scroller.VerticalOffset > top + 100,
+                    $"selection {box.SelectionStart}+{box.SelectionLength} (wanted {wanted}+2), offset {top:0} → {scroller?.VerticalOffset:0}");
+
+                // Enter steps to the second zebra, 200 lines further: it must land inside the
+                // viewport too, which is what proves the character rectangle is read in the right
+                // space once the view is no longer at the top. (The rectangle is in the text's own
+                // coordinates, so "in view" is [offset, offset + viewport].)
+                var first = scroller?.VerticalOffset ?? 0;
+                SelfTestInput.Key(SelfTestInput.VK_RETURN);
+                await Turn(400);
+                var second = box.Text.IndexOf("zebra", wanted + 1, StringComparison.Ordinal);
+                var rect = box.GetRectFromCharacterIndex(box.SelectionStart, false);
+                var offset = scroller?.VerticalOffset ?? 0;
+                Add("input.findAsYouType.nextHitLandsInView",
+                    scroller is not null && box.SelectionStart == second && offset > first + 100
+                        && rect.Top >= offset && rect.Bottom <= offset + scroller.ViewportHeight,
+                    $"selection {box.SelectionStart} (wanted {second}), offset {first:0} → {offset:0}, hit at y {rect.Top:0}..{rect.Bottom:0}, view {offset:0}..{offset + (scroller?.ViewportHeight ?? 0):0}");
+            }
+            window.SelfTestFind.SetQuery("cat");
+            pane.SetText("cat x cat y cat");
+            pane.ResetHistory();
+            await Turn(150);
 
             window.SelfTestCommands.TryInvoke(CommandId.ViewSplit);
             await Turn(2000);   // the preview's WebView2 comes up

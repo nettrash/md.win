@@ -27,11 +27,19 @@ own 1.4 — and from here md.win is versioned with them.
 
 ### Added
 
-- **Replace, in the find bar.** The find bar (**Edit ▸ Find…**, Ctrl+F) now
-  carries a replacement field beside the query, and **Replace** and **Replace
-  All** beside Next and Previous; **Ctrl+H** (**Edit ▸ Replace…**) opens the
-  same bar with the caret already in the replacement field, and a non-empty
-  selection seeds the query there as it does for Find. Matching is the rule
+- **Replace, and a find panel that searches as you type.** **Edit ▸ Find…**
+  (Ctrl+F) opens a compact panel over the top-right corner of the editor, the
+  way Windows's own editors draw it: the query, a count of the hits ("3 of
+  12"), Previous and Next, and a chevron that shows a second row with the
+  replacement field, **Replace** and **Replace All**. **Ctrl+H** (**Edit ▸
+  Replace…**) opens it with that row showing and the caret already in the
+  replacement field, and a non-empty selection seeds the query there as it
+  does for Find. Every letter typed into the query searches again from where
+  the caret was, and the hit is selected — and scrolled into view — while you
+  go on typing; Enter and Shift+Enter step to the next and previous hit
+  without leaving the field, and a query that is not in the text puts the
+  caret back where it was. In Split the panel sits over the editor, not over
+  the page beside it. Matching is the rule
   the find has always used — case-insensitive, wrapping round the end of the
   file, and **no regular expressions**: a query is the characters you typed.
   What is searched is the text you are editing, never the rendered preview
@@ -40,14 +48,14 @@ own 1.4 — and from here md.win is versioned with them.
   caret somewhere else it is simply a Find Next. Enter in the replacement
   field is Replace and Shift+Enter is Replace All. After a Replace focus
   stays in the field, so a run of Enters never reaches the text, and the hit
-  the next press will replace stays visibly selected in the page behind the
-  bar. **Replace All is one press and one undo step**: every hit goes in as a
+  the next press will replace stays visibly selected in the text behind the
+  panel. **Replace All is one press and one undo step**: every hit goes in as a
   single edit, focus returns to the editor with the rewritten span selected,
   and one Ctrl+Z puts the lot back. Replacements go in exactly as typed —
   Capitalize Sentences never touches them — and the word count, the autosave,
   the dirty marker and the clobber guard see them like any other edit. The
-  bar leaves the screen with the editor: switch to Preview and it closes,
-  like the Find… and Replace… rows that open it. As with Find, the bar
+  panel leaves the screen with the editor: switch to Preview and it closes,
+  like the Find… and Replace… rows that open it. As with Find, the panel
   belongs to a document window; a book's article editor has none.
 - **Enter carries the list on, and sentences capitalize themselves.** Enter
   on a list item — a bullet, a number, a task box, a quote line — starts the
@@ -83,6 +91,17 @@ own 1.4 — and from here md.win is versioned with them.
 
 ### Fixed
 
+- **md no longer quits when you close a window.** Closing a document window —
+  or a book's window — could take the whole app down: the editor reported one
+  last selection change while the window was being taken apart, and md tried
+  to refresh the menus of a window that was already gone.
+- **A capital md writes is in the saved text, and Ctrl+Z after it behaves.**
+  On Windows the capital appeared on screen but the text behind it kept the
+  lowercase letter until the next key, so a capital typed last — `One. T`
+  and then Save — was written to the file as `One. t`. The same gap made
+  Ctrl+Z after a capital leave the restored letter selected, so the next key
+  replaced it: `m`, Ctrl+Z, Enter gave a blank line and no `m`. Both are
+  fixed, and Ctrl+Z still takes back only the capital.
 - **A `.text` file now opens by double-click.** The Open dialog listed the
   extension and the editor had always been able to save one, but the package
   never registered it, so File Explorer handed such a file to another app.

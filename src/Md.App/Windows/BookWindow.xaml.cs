@@ -138,6 +138,7 @@ internal sealed partial class BookWindow : Window
     bool _syncingSelection;
     bool _rendering;
     bool _closing;
+    bool _closed;
 
     public BookWindow(BookWindowServices services)
     {
@@ -579,6 +580,7 @@ internal sealed partial class BookWindow : Window
 
     void Cleanup()
     {
+        _closed = true;
         // Both of these are app-wide and outlive the window: left attached, the closed window is
         // kept alive and RecheckOwnership runs against a disposed session on the next activation.
         _services.Settings.Changed -= OnSettingChanged;
@@ -959,7 +961,15 @@ internal sealed partial class BookWindow : Window
         presenter.PreferredMinimumHeight = hasBook ? 400 : 320;
     }
 
-    void Publish() => _menus.Refresh(Snapshot());
+    void Publish()
+    {
+        // 2026-09-27: never after Cleanup. The article editor raises SelectionChanged while the
+        // closed window's tree is torn down, and Snapshot() then reads a window that is gone — the
+        // NullReferenceException that made md disappear on closing a document window, whose
+        // Publish has the same guard. (_closing cannot serve: a cancelled close clears it.)
+        if (_closed) return;
+        _menus.Refresh(Snapshot());
+    }
 
     // ───────────────────────────────── selection ─────────────────────────────────
 

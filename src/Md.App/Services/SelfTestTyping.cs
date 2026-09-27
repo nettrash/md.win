@@ -79,6 +79,15 @@ internal static class SelfTestTyping
             [TypingKey.Type("m"), TypingKey.Backspace, TypingKey.Type("md")], "md"),
         new("capital.ctrlZAfterACapitalRestoresTheLowercaseLetter", "", 0, false, true,
             [TypingKey.Type("m"), TypingKey.Undo], "m"),
+        // 2026-09-27, the manual checklist: after that Ctrl+Z, a new line's first word went in lowercase.
+        new("capital.ctrlZThenANewLineStillCapitalizes", "", 0, false, true,
+            [TypingKey.Type("m"), TypingKey.Undo, TypingKey.Enter, TypingKey.Type("hello")], "m\rHello"),
+        // The caret after that Ctrl+Z is collapsed after the letter: a d typed on is the second letter, not its replacement.
+        new("capital.ctrlZThenTypingOnKeepsTheLetter", "", 0, false, true,
+            [TypingKey.Type("m"), TypingKey.Undo, TypingKey.Type("d")], "md"),
+        // The box's text holds the capital itself, not only its screen: nothing typed after it refreshes the text.
+        new("capital.aCapitalTypedLastIsInTheText", "One. ", 5, false, true,
+            [TypingKey.Type("t")], "One. T"),
         new("capital.switchOffLeavesTheLetterAlone", "", 0, false, false,
             [TypingKey.Type("hello")], "hello"),
 

@@ -134,6 +134,38 @@ public static class TextSearch
         return new ReplaceAllPlan(whole, count, edit);
     }
 
+    /// <summary>The find panel's count: <see cref="Current"/> is the selection's place among the hits (1-based), 0 when the selection is not one.</summary>
+    public readonly record struct Tally(int Current, int Total);
+
+    /// <summary>
+    /// "3 of 12" (2026-09-27, the find panel). <see cref="Tally.Total"/> counts hits the way
+    /// <see cref="ReplaceAll"/> replaces them — left to right, never overlapping — so the number the
+    /// panel shows is the number Replace All would change. <see cref="Tally.Current"/> is the
+    /// selection's place in that run when the selection is a hit (<see cref="SelectionIsMatch"/>):
+    /// one plus the hits that start before it, which also places a hit that overlaps a counted one.
+    /// </summary>
+    public static Tally Count(string text, string query, int selectionStart, int selectionLength)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        ArgumentNullException.ThrowIfNull(query);
+        if (query.Length == 0 || query.Length > text.Length) return new Tally(0, 0);
+        var onHit = SelectionIsMatch(text, query, selectionStart, selectionLength);
+        var total = 0;
+        var before = 0;
+        var from = 0;
+        while (from <= text.Length - query.Length)
+        {
+            var at = text.IndexOf(query, from, StringComparison.OrdinalIgnoreCase);
+            if (at < 0) break;
+            total++;
+            if (onHit && at < selectionStart) before++;
+            from = at + query.Length;
+        }
+        // A hit that overlaps the last counted one ("aa" at 1 in "aaa") is placed on that one, never
+        // past the total: the panel must not read "2 of 1".
+        return new Tally(onHit ? Math.Min(before + 1, total) : 0, total);
+    }
+
     // Forward scan keeping the last hit that starts before the limit. IndexOf in a loop, not
     // LastIndexOf: LastIndexOf's (startIndex, count) window is measured backwards from startIndex
     // and is the classic source of an off-by-one at either end of the string.
