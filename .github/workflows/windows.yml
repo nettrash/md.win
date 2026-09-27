@@ -211,6 +211,26 @@ jobs:
           Write-Host "self-test: $($json.passed) passed, $($json.failed) failed (exit code $($p.ExitCode))"
           exit $p.ExitCode
 
+      # 2026-09-27: every run since the self-test was first awaited (bb60683) has died here within
+      # two seconds with 0xC000027B (a stowed XAML/WinRT exception) and no report — before the
+      # self-test's first line, and only on the hosted runner: the same binary and arguments pass
+      # on a real Windows 11 desktop. Neither the job log nor the report can say why, because
+      # md.log stays in the runner's %LOCALAPPDATA%\md and a stowed exception is recorded only in
+      # the Application event log. This prints both, with the OS and session it ran in.
+      - name: Print md.log and the crash record
+        if: failure() && matrix.platform == 'x64'
+        shell: pwsh
+        run: |
+          $log = Join-Path $env:LOCALAPPDATA 'md\md.log'
+          if (Test-Path $log) { Write-Host "== md.log ($log)"; Get-Content $log -Tail 80 } else { Write-Host "== no md.log at $log" }
+          Write-Host "== OS: $((Get-CimInstance Win32_OperatingSystem).Caption) $([Environment]::OSVersion.Version)"
+          Write-Host "== session $([System.Diagnostics.Process]::GetCurrentProcess().SessionId), interactive $([Environment]::UserInteractive)"
+          Write-Host "== Application event log, last 20 minutes"
+          Get-WinEvent -FilterHashtable @{ LogName = 'Application'; StartTime = (Get-Date).AddMinutes(-20) } -ErrorAction SilentlyContinue |
+            Where-Object { $_.ProviderName -in 'Application Error', '.NET Runtime', 'Windows Error Reporting' } |
+            Select-Object -First 12 |
+            ForEach-Object { Write-Host "--- $($_.TimeCreated.ToString('o')) $($_.ProviderName) $($_.Id)"; Write-Host $_.Message }
+
       - name: Upload the self-test report
         if: always() && matrix.platform == 'x64'
         uses: actions/upload-artifact@v5
