@@ -695,10 +695,11 @@ internal static partial class SelfTest
                     continue;
                 }
                 compositions = 0;
+                pane.SelfTestHooks.ClearTrace();
                 foreach (var key in scenario.Keys) await PressAsync(key);
                 await Turn(200);
                 Add("input." + scenario.Name, box.Text == scenario.Expected,
-                    $"typed \"{Show(box.Text)}\", wanted \"{Show(scenario.Expected)}\"; hooks: {pane.SelfTestHooks.LastDecision}; compositions: {compositions}");
+                    $"typed \"{Show(box.Text)}\", wanted \"{Show(scenario.Expected)}\"; hooks: {string.Join(" | ", pane.SelfTestHooks.Trace)}; compositions: {compositions}");
             }
             _settings.SetBool(SettingsKeys.ContinueLists, true);
             _settings.SetBool(SettingsKeys.CapitalizeSentences, true);

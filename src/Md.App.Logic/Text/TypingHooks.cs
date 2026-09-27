@@ -89,7 +89,25 @@ public sealed class TypingHooks
     /// words, for the self-test's report: a capital that did not appear on a real keystroke is
     /// otherwise indistinguishable from one the rules declined. Never read by the app.
     /// </summary>
-    public string LastDecision { get; private set; } = "";
+    public string LastDecision
+    {
+        get => _lastDecision;
+        private set
+        {
+            _lastDecision = value;
+            if (_trace.Count < TraceLimit) _trace.Add(value);
+        }
+    }
+
+    string _lastDecision = "";
+    readonly List<string> _trace = [];
+    const int TraceLimit = 64;
+
+    /// <summary>Every decision since <see cref="ClearTrace"/>, oldest first (at most 64): one keystroke's answer is not the scenario's.</summary>
+    public IReadOnlyList<string> Trace => _trace;
+
+    /// <summary>Starts a new <see cref="Trace"/>.</summary>
+    public void ClearTrace() => _trace.Clear();
 
     // ── settings (smart-typing.md §3.1) ───────────────────────────────────────────────────────
 
@@ -320,7 +338,15 @@ public sealed class TypingHooks
             return;
         }
         _pending = SmartTypingAdapter.Plan(text, selectionStart, selectionLength, newText);
-        LastDecision = _pending is { } planned ? $"plan: {planned.Capital} at {planned.Position}" : "no capital: the function declined";
+        // The plan is framed by the selection the box reports in BeforeTextChanging. Should a
+        // real keystroke report it already moved — the insertion then does not sit over it, and
+        // the plan is null for that reason alone — the edit the text itself shows is the same
+        // insertion, anchored where it happened.
+        if (_pending is null && (edit.Start != selectionStart || edit.Length != selectionLength))
+            _pending = SmartTypingAdapter.Plan(text, edit.Start, edit.Length, newText);
+        LastDecision = _pending is { } planned
+            ? $"plan: {planned.Capital} at {planned.Position}"
+            : $"declined \"{edit.Inserted}\" at {edit.Start} (selection {selectionStart}+{selectionLength}, length {text.Length}→{newText.Length})";
     }
 
     /// <summary>

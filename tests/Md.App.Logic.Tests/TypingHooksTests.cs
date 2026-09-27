@@ -1612,4 +1612,25 @@ public sealed class TypingHooksTests
         Assert.Throws<ArgumentNullException>(() => TextEdit.Between(null!, 0, 0, ""));
         Assert.Throws<ArgumentNullException>(() => TextEdit.Between("", 0, 0, null!));
     }
+
+    [Fact]
+    public void ACapitalStillAppliesWhenTheBoxReportsTheCaretAlreadyMoved()
+    {
+        // A real keystroke may report its selection after the insertion in BeforeTextChanging;
+        // the text alone still shows where the letter went.
+        var hooks = new TypingHooks();
+        hooks.Configure(new TypingSettings(ContinueLists: false, CapitalizeSentences: true));
+        hooks.BeforeTextChanging("One. ", 6, 0, "One. t");
+        var plan = hooks.TextChanging("One. t", 6, 0);
+        Assert.NotNull(plan);
+        Assert.Equal(5, plan!.Value.Position);
+        Assert.Equal("T", plan.Value.Replacement);
+        Assert.StartsWith("plan: T at 5", hooks.Trace[0], StringComparison.Ordinal);
+        Assert.StartsWith("applied: T at 5", hooks.Trace[1], StringComparison.Ordinal);
+
+        hooks.ClearTrace();
+        hooks.BeforeTextChanging("One. T", 6, 0, "One. Tw");          // mid-word: declined, and says so
+        Assert.Null(hooks.TextChanging("One. Tw", 7, 0));
+        Assert.StartsWith("declined \"w\" at 6", hooks.Trace[0], StringComparison.Ordinal);
+    }
 }

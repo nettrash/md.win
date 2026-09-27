@@ -619,7 +619,18 @@ internal sealed class WindowManager
 
     void TerminateFlush()
     {
-        foreach (var window in _windows.ToList()) window.Session.TerminateFlush();
+        // One window's failure must not cost the next one its flush or its rescue copy.
+        foreach (var window in _windows.ToList())
+        {
+            try
+            {
+                window.Session.TerminateFlush();
+            }
+            catch (Exception e)
+            {
+                App.Diagnostics.Write($"exit flush of \"{window.Session.Title}\" failed: {e}");
+            }
+        }
         // The article being written in the Book window is a file like any other; its 1 s autosave
         // bounds what this can miss, exactly as a document's does.
         _book?.SaveArticle();

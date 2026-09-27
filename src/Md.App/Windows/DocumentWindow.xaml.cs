@@ -390,6 +390,12 @@ internal sealed partial class DocumentWindow : Window
 
     void OnSessionChanged()
     {
+        // The exit-time flush (WindowManager.TerminateFlush) runs on ProcessExit's thread, not
+        // this window's; a conflict it finds notifies, and touching Title or the tree from there
+        // throws RPC_E_WRONG_THREAD — which killed the self-test's process at exit (2026-09-26,
+        // 0xE0434352 under a complete report) and would skip every later window's rescue copy.
+        // The window is going; there is nothing on it left to update.
+        if (!DispatcherQueue.HasThreadAccess) return;
         var title = WindowTitle.For(_session.Title, _session.IsDirty);
         if (!string.Equals(Title, title, StringComparison.Ordinal))
         {
