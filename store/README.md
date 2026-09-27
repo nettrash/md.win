@@ -15,7 +15,7 @@ now on, one submission per release.
 | --- | --- | --- | --- |
 | — | Product name | A reserved name; policy 10.1.1 forbids descriptive or marketing text in it, so reserve **md** (fallback if taken: **md by nettrash**, never "md — Markdown editor") | — |
 | `description.txt` | Store listing ▸ Description | 10 000 chars, plain text — no HTML, code snippets or URLs (links go in their own fields) | 5684 |
-| `release-notes.txt` | Store listing ▸ What's new in this version | 1 500 chars; **left blank on the first submission** — Microsoft says so in the field's own help — and written per submission from 1.5 on | 1300 |
+| `release-notes.txt` | Store listing ▸ What's new in this version | 1 500 chars; **left blank on the first submission** — Microsoft says so in the field's own help — and written per submission from 1.5 on | 1399 |
 | `features.txt` | Store listing ▸ Product features | up to 20 features, ≤ 200 chars each, one per line, **no bullets of our own** (the Store adds them) | 20 lines, longest 194 |
 | `short-description.txt` | Supplemental ▸ Short description | 1 000 chars, but some views show only the first 270 — keep under 270 | 265 |
 | `system-requirements.txt` | Supplemental ▸ Additional system requirements | up to 11 items each for Minimum and Recommended hardware, ≤ 200 chars each, no bullets | 3 minimum, 2 recommended, longest 91 |

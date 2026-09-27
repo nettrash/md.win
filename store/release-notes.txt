@@ -1,8 +1,9 @@
 Version 1.5
 
 FIND AND REPLACE
-• The find bar replaces as well as finds. Ctrl+F opens it, Ctrl+H opens it with the caret already in the replacement field, and Replace All rewrites the whole document as one undo step, so a single Ctrl+Z puts every hit back.
-• Matching is case-insensitive and wraps round the end of the file. There are no regular expressions, and the bar searches the text you are editing, not the rendered preview.
+• Find is a compact panel over the editor that searches as you type: each letter jumps to the next match, a count shows how many there are, and Enter or Shift+Enter steps through them.
+• Ctrl+H opens it with the replacement field ready, and Replace All rewrites the whole document as one undo step, so a single Ctrl+Z puts every hit back.
+• Matching is case-insensitive and wraps round the end of the file. There are no regular expressions, and the panel searches the text you are editing, not the rendered preview.
 
 TYPING
 • Enter carries on a list, a task list, a quote or a table row; on an item you left empty it ends the list instead.
