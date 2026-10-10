@@ -117,6 +117,24 @@ public class EpubCoverTests
         Assert.Empty(h.Fetched);
     }
 
+    [Theory]
+    [InlineData("https://a.example/c.png", "https://b.example/d.png", "https://b.example/d.png")]
+    [InlineData("https://a.example/x/c.png", "/d.png", "https://a.example/d.png")]
+    [InlineData("https://a.example/x/c.png", "d.png", "https://a.example/x/d.png")]
+    [InlineData("https://a.example/c.png", "//b.example/d.png", "https://b.example/d.png")]
+    [InlineData("https://a.example/c.png", "http://b.example/d.png", null)]
+    [InlineData("https://a.example/c.png", "ftp://b.example/d.png", null)]
+    public void ARedirectIsFollowedOnlyToHttps(string from, string location, string? expected)
+    {
+        var next = CoverReader.FollowedRedirect(new Uri(from), new Uri(location, UriKind.RelativeOrAbsolute));
+        Assert.Equal(expected, next?.AbsoluteUri);
+        Assert.Null(CoverReader.FollowedRedirect(new Uri(from), null));
+    }
+
+    [Fact]
+    public async Task ANonHttpsUrlIsNeverRequested() =>
+        Assert.Null(await CoverReader.FetchAsync("http://example.com/c.png", CancellationToken.None));
+
     [Fact]
     public async Task ABoundedReadStopsPastTheLimit()
     {
