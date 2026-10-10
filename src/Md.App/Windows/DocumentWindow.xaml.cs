@@ -669,7 +669,7 @@ internal sealed partial class DocumentWindow : Window
         _dispatcher.Register(CommandId.ShareRenderedPdf, () => TrackOutput(_exports.Pipeline.SharePdfAsync(_session.Text, _session.Title, PdfPageSize)));
         _dispatcher.Register(CommandId.ExportPdf, () => TrackOutput(_exports.Pipeline.ExportPdfAsync(_session.Text, _session.Title, PdfPageSize)));
         _dispatcher.Register(CommandId.ExportHtml, () => TrackOutput(_exports.Pipeline.ExportHtmlAsync(_session.Text, _session.Title)));
-        _dispatcher.Register(CommandId.ExportEpub, () => TrackOutput(_exports.Pipeline.ExportEpubAsync(_session.Text, _session.Title)));
+        _dispatcher.Register(CommandId.ExportEpub, () => TrackOutput(_exports.Pipeline.ExportEpubAsync(_session.Text, _session.Title, _session.EditingPath)));
         _dispatcher.Register(CommandId.ExportLaTeX, () => TrackOutput(_exports.Pipeline.ExportLaTeXAsync(_session.Text, _session.Title)));
         _dispatcher.Register(CommandId.ExportTextBundle, () => TrackOutput(_exports.Pipeline.ExportTextBundleAsync(_session.Text, _session.EditingPath, _session.Title)));
         // The menu row dispatches the diagram's ORDINAL (§2.2): the snapshot it was built from is up

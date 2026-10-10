@@ -258,6 +258,9 @@ internal sealed partial class BookWindow : Window
     public (string Text, string Title)? ActiveArticle =>
         _session.Stage is Stage.Editing ? (_session.Text, _session.Title) : null;
 
+    /// <summary>The open article's file, for what reads beside it (an EPUB's cover); null when none is open.</summary>
+    public string? ActiveArticlePath => _session.EditingPath;
+
     /// <summary>
     /// File ▸ Open Recent's rows as this window publishes them (§2.1: the row belongs to every
     /// window, not only to a document window). The manager's Open Recent handler reads the label

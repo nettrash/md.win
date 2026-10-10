@@ -192,7 +192,9 @@ for code).
   that fall between lines of text, `\newpage` starting a fresh page. Export
   it as one self-contained `.html` file that opens anywhere with nothing
   beside it (diagrams as drawings, formulas as selectable text), as an
-  **EPUB** e-book with the document's own headings as its table of contents,
+  **EPUB** e-book with the document's own headings as its table of contents
+  and its front matter's `author`, `language`, `date`, `description`,
+  `series` / `series_index` and `cover` as the book's metadata,
   as LaTeX `.tex` source (formulas as the `$…$` you typed rather than a
   picture of them; diagram and plot sources kept under a comment), as a
   single **diagram** (Mermaid, Graphviz, PlantUML or a plot — math is HTML

@@ -20,7 +20,8 @@ If that already answers your question, you don't need to read the rest.
 telemetry. It contacts no servers of ours — there are none. The one time
 the app touches the network at all is when a document you opened points at
 an image by remote URL, and the renderer fetches that image so it can be
-shown and printed (see **Permissions** below).
+shown and printed — or, when you export an EPUB, its front matter names its
+cover by an `https:` URL (see **Permissions** below).
 
 Two things around the app are Microsoft's, and it would be dishonest to let
 the sentence above stand for them. First, md draws its preview and its
@@ -141,12 +142,15 @@ references an image by remote URL (`![alt](https://…)`), the WebView2
 renderer fetches that image so it can be shown and printed — that request
 goes straight to the host **your own document names**, which sees your IP
 address exactly as it would if you opened the link in a browser. It
-happens only for documents that contain such a link. A local image beside
+happens only for documents that contain such a link. The same goes for an
+EPUB export whose front matter says `cover: https://…`: the export fetches
+that one image to put on the book, and nothing else. A local image beside
 the document is deliberately *not* shown in the preview (the family
 decision: md's document is its text); the one time md reads a file beside
 your document is **Export ▸ TextBundle…**, which copies the local images
 the document links into the new bundle's `assets/` — from disk, at your
-request.
+request — and, likewise, **Export ▸ EPUB…** reads the one image a
+`cover:` in the front matter names, from the document's own folder only.
 
 Everything else is built on your PC: the Markdown renderer, and the math
 and diagram engines (KaTeX with mhchem, Mermaid, Graphviz, PlantUML,

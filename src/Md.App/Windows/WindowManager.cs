@@ -337,7 +337,9 @@ internal sealed class WindowManager
         commands.Register(CommandId.ShareRenderedPdf, () => Article(window, a => exports.Pipeline.SharePdfAsync(a.Text, a.Title, PdfPageSize)));
         commands.Register(CommandId.ExportPdf, () => Article(window, a => exports.Pipeline.ExportPdfAsync(a.Text, a.Title, PdfPageSize)));
         commands.Register(CommandId.ExportHtml, () => Article(window, a => exports.Pipeline.ExportHtmlAsync(a.Text, a.Title)));
-        commands.Register(CommandId.ExportEpub, () => Article(window, a => exports.Pipeline.ExportEpubAsync(a.Text, a.Title)));
+        // The article's own path, so an EPUB's `cover:` beside it — inside the book folder md already
+        // has access to — is found (1.6).
+        commands.Register(CommandId.ExportEpub, () => Article(window, a => exports.Pipeline.ExportEpubAsync(a.Text, a.Title, window.ActiveArticlePath)));
         commands.Register(CommandId.ExportLaTeX, () => Article(window, a => exports.Pipeline.ExportLaTeXAsync(a.Text, a.Title)));
         // documentPath null: the article's images are the book's, and the Mac exports a bundle with
         // an empty assets/ from a document it publishes no URL for.
