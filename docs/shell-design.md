@@ -1587,8 +1587,7 @@ Ranked by how late the failure would be noticed.
    a dirty untitled window prompts on close and is not restored).
 5. **Product traits inherited on purpose (do not "fix")**: local relative images never render in the preview
    or the HTML export; `javascript:` links are blocked host-side only; Mermaid's first-block light-theme race
-   in dark mode (family-wide, documented in md.vscode); the `plantuml.js` 4096 px gate (app copy shipped —
-   the md.vscode lift is a one-line candidate, not taken); raw HTML escaped, no reference links, `.dot`
+   in dark mode (family-wide, documented in md.vscode); raw HTML escaped, no reference links, `.dot`
    unclaimed.
 6. **Caret colour**: the WinUI `TextBox` has no caret brush; the caret is ink, not accent.
 7. **Ctrl+Alt+↑/↓** may collide with legacy Intel display-rotation hotkeys; Alt+↑/↓ is the one-row fallback.

@@ -25,6 +25,17 @@ own 1.4 — and from here md.win is versioned with them.
 
 ## [1.6] — 2026-10-10
 
+### Changed
+
+- **Large PlantUML diagrams render.** A diagram wider or taller than 4096
+  pixels — a sequence diagram with forty-odd participants is already past
+  it — used to stop at "Diagram too large for browser rendering". The
+  bundled engine's size gate is raised the way md for VS Code raised it,
+  and `rich/plantuml.js` is now byte-identical to the extension's copy.
+  Every place md shows or exports a diagram takes its SVG, which has no
+  such limit; a pin test fails if a future engine update brings the gate
+  back. (#1)
+
 ## [1.5] — 2026-09-23
 
 ### Added
