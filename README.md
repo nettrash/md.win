@@ -285,7 +285,7 @@ The MSIX is produced by CI (`.github/workflows/windows.yml`), which builds
 ARM64 and uploads the packages **unsigned** — the Store signs what it
 publishes. The version is the MSIX `Version` in `Package.appxmanifest`
 (`Major.Minor.Build.Revision`, Revision 0 for the Store): the family's
-`1.5` is committed as `1.5.0.0`, and `BumpPackageVersion` in
+`1.6` is committed as `1.6.0.0`, and `BumpPackageVersion` in
 `Md.App.csproj` raises the third part on every build — there is no
 `agvtool bump` or Gradle `versionCode` finalizer, but a resubmission is
 still always strictly greater than the last

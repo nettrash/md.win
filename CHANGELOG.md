@@ -23,6 +23,8 @@ releases. Nothing is missing between the two — 1.0 already arrived, last
 of the five, with everything the other editions had learned through their
 own 1.4 — and from here md.win is versioned with them.
 
+## [1.6] — 2026-10-10
+
 ## [1.5] — 2026-09-23
 
 ### Added

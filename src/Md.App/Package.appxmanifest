@@ -17,7 +17,7 @@
 
   <!--
     Version is four parts, Major.Minor.Build.Revision, with Revision fixed at 0 because the
-    Store reserves it — so the md family's two-part 1.5 is committed here as 1.5.0.0. The
+    Store reserves it — so the md family's two-part 1.6 is committed here as 1.6.0.0. The
     third part is raised on every build by BumpPackageVersion in Md.App.csproj, which is how
     a resubmission is always strictly greater than the last one. Name and Publisher are the
     real Partner Center values and never change; only Version moves.
@@ -25,7 +25,7 @@
   <Identity
     Name="nttrsh.nettrash.md"
     Publisher="CN=28EC49E1-8A19-45EF-A576-FF596547E069"
-    Version="1.5.10.0" />
+    Version="1.6.0.0" />
 
   <Properties>
     <!--
