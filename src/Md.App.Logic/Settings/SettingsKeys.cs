@@ -52,12 +52,17 @@ public static class SettingsKeys
     /// same key on every md port. Written by the Edit menu toggle; read by <c>EditorPane</c> on every insertion.</summary>
     public const string CapitalizeSentences = "md.capitalizeSentences";
 
-    /// <summary>The ten LocalSettings keys, in §9 order.</summary>
+    /// <summary>bool — default <see cref="WrapSelectionDefault"/> (true). Edit ▸ Typing ▸ Wrap Selection When Typing
+    /// * _ ` $: whether one of those four typed over a selection wraps it instead of replacing it (docs/formatting.md §4).
+    /// Written by the Edit menu toggle; read by <c>EditorPane</c>.</summary>
+    public const string WrapSelection = "md.wrapSelection";
+
+    /// <summary>The eleven LocalSettings keys, in §9 order.</summary>
     public static readonly IReadOnlyList<string> All =
     [
         ViewModeMemory, PdfPageSize, BookBookmark, BookOpensInSeparateWindows,
         BookLastArticle, BookViewMode, DocumentWindowSize, BookWindowSize,
-        ContinueLists, CapitalizeSentences,
+        ContinueLists, CapitalizeSentences, WrapSelection,
     ];
 
     public const string PdfPageSizeDefault = "a4";
@@ -66,6 +71,7 @@ public static class SettingsKeys
     public const string BookWindowSizeDefault = "1000x700";
     public const bool ContinueListsDefault = true;
     public const bool CapitalizeSentencesDefault = true;
+    public const bool WrapSelectionDefault = true;
 
     // Not LocalSettings keys — the other names md stores state under (§9 "Not in LocalSettings").
 

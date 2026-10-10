@@ -1,18 +1,14 @@
-Version 1.5
+Version 1.6
 
-FIND AND REPLACE
-• Find is a compact panel over the editor that searches as you type: each letter jumps to the next match, a count shows how many there are, and Enter or Shift+Enter steps through them.
-• Ctrl+H opens it with the replacement field ready, and Replace All rewrites the whole document as one undo step, so a single Ctrl+Z puts every hit back.
-• Matching is case-insensitive and wraps round the end of the file. There are no regular expressions, and the panel searches the text you are editing, not the rendered preview.
+FORMATTING
+• A Format menu with the shortcuts every md app now shares: Bold (Ctrl+B), Italic (Ctrl+I), Code (Ctrl+Shift+C), Strikethrough (Ctrl+Shift+X), Link (Ctrl+K), Heading 1 to 6 (Ctrl+Alt+1 to 6), Bullet List (Ctrl+Shift+L), Task List (Ctrl+Shift+T), Quote (Ctrl+Shift+Q), Indent and Outdent (Ctrl+] and Ctrl+[).
+• Each one toggles, works on every line you have selected, and is a single undo step.
+• Typing *, _, a backtick or $ with text selected wraps the selection instead of replacing it. It is a switch under Edit, Typing, and on by default.
+• On keyboards where AltGr and a digit types a character, AltGr still types it; the left Ctrl+Alt is the heading shortcut.
 
-TYPING
-• Enter carries on a list, a task list, a quote or a table row; on an item you left empty it ends the list instead.
-• The first letter of a line and of a sentence is capitalized as you type it, never inside code, a table, math, a link or a path. Delete the capital and type the letter again and it stays lowercase.
-• Both helpers are switches under Edit, Typing, and either can be turned off.
+E-BOOKS
+• An EPUB now carries the author, language, date, description and series from the document's front matter, so it arrives in a reader's library properly labelled.
+• A cover: line in the front matter puts that image on the book: a picture beside the document, a web image, or one pasted inline. If it cannot be read, the book is written without one.
 
-FILE TYPES
-• Every Markdown spelling opens by double-click: .mdtxt, .mkd, .mkdn, .mdwn and .mkdown join .md, .markdown, .mdown, .markdn and .mdtext. PlantUML files gain .iuml and .pu.
-• Fixed: a .text file was offered in the Open dialog but never registered with Windows, so File Explorer handed it to another app.
-
-ABOUT THE NUMBER
-• This is the release after 1.0. md's version number is shared across all of its editions, and 1.5 is where they are.
+DIAGRAMS
+• Large PlantUML diagrams draw. A diagram wider or taller than 4096 pixels no longer stops at "Diagram too large".

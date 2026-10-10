@@ -506,6 +506,7 @@ internal sealed partial class DocumentWindow : Window
         // Another window picked a page size, opened a book or flipped a typing switch: this
         // window's menu ticks follow (the editor re-reads the typing switches itself, §3.6).
         if (key is SettingsKeys.PdfPageSize or SettingsKeys.BookBookmark || TypingSettings.IsKey(key)) _ui.Post(Publish);
+        else if (WrapSelectionSetting.IsKey(key)) _ui.Post(Publish);
     }
 
     void OnActivated(object sender, WindowActivatedEventArgs args)
@@ -712,6 +713,30 @@ internal sealed partial class DocumentWindow : Window
         // Typing (§2.4, §3.6): two settings; the tick and every open editor follow the store.
         _dispatcher.Register(CommandId.ContinueLists, () => ToggleTypingSetting(SettingsKeys.ContinueLists));
         _dispatcher.Register(CommandId.CapitalizeSentences, () => ToggleTypingSetting(SettingsKeys.CapitalizeSentences));
+        // 1.6: the third switch, docs/formatting.md §4 — not SmartTyping's, so its own setting.
+        _dispatcher.Register(CommandId.WrapSelection, () =>
+        {
+            WrapSelectionSetting.Toggle(_services.Settings);
+            Publish();
+        });
+
+        // Format (1.6, docs/formatting.md) — each one undoable edit through the pane.
+        _dispatcher.Register(CommandId.Bold, () => Panes.Editor.ApplyFormat(CommandId.Bold));
+        _dispatcher.Register(CommandId.Italic, () => Panes.Editor.ApplyFormat(CommandId.Italic));
+        _dispatcher.Register(CommandId.InlineCode, () => Panes.Editor.ApplyFormat(CommandId.InlineCode));
+        _dispatcher.Register(CommandId.Strikethrough, () => Panes.Editor.ApplyFormat(CommandId.Strikethrough));
+        _dispatcher.Register(CommandId.Link, () => Panes.Editor.ApplyFormat(CommandId.Link));
+        _dispatcher.Register(CommandId.Heading1, () => Panes.Editor.ApplyFormat(CommandId.Heading1));
+        _dispatcher.Register(CommandId.Heading2, () => Panes.Editor.ApplyFormat(CommandId.Heading2));
+        _dispatcher.Register(CommandId.Heading3, () => Panes.Editor.ApplyFormat(CommandId.Heading3));
+        _dispatcher.Register(CommandId.Heading4, () => Panes.Editor.ApplyFormat(CommandId.Heading4));
+        _dispatcher.Register(CommandId.Heading5, () => Panes.Editor.ApplyFormat(CommandId.Heading5));
+        _dispatcher.Register(CommandId.Heading6, () => Panes.Editor.ApplyFormat(CommandId.Heading6));
+        _dispatcher.Register(CommandId.BulletList, () => Panes.Editor.ApplyFormat(CommandId.BulletList));
+        _dispatcher.Register(CommandId.TaskList, () => Panes.Editor.ApplyFormat(CommandId.TaskList));
+        _dispatcher.Register(CommandId.Quote, () => Panes.Editor.ApplyFormat(CommandId.Quote));
+        _dispatcher.Register(CommandId.Indent, () => Panes.Editor.ApplyFormat(CommandId.Indent));
+        _dispatcher.Register(CommandId.Outdent, () => Panes.Editor.ApplyFormat(CommandId.Outdent));
 
         // View
         _dispatcher.Register(CommandId.ViewEdit, () => _modes.Select(ViewMode.Edit));
@@ -1224,7 +1249,8 @@ internal sealed partial class DocumentWindow : Window
             IsFullScreen: AppWindow.Presenter.Kind == AppWindowPresenterKind.FullScreen,
             FindBarOpen: Find.Visibility == Visibility.Visible,
             ContinueLists: typing.ContinueLists,
-            CapitalizeSentences: typing.CapitalizeSentences);
+            CapitalizeSentences: typing.CapitalizeSentences,
+            WrapSelection: WrapSelectionSetting.Read(_services.Settings));
     }
 
     // The MRU is a WinRT call per row; it changes on an open, a save and an activation, never on a

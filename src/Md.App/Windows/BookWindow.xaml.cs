@@ -579,6 +579,7 @@ internal sealed partial class BookWindow : Window
         else if (key == SettingsKeys.BookOpensInSeparateWindows) Render();
         // A typing switch flipped here or in a document window: the Edit menu's ticks follow.
         else if (TypingSettings.IsKey(key)) _services.UiThread.Post(Publish);
+        else if (WrapSelectionSetting.IsKey(key)) _services.UiThread.Post(Publish);
     }
 
     void Cleanup()
@@ -1197,6 +1198,7 @@ internal sealed partial class BookWindow : Window
             IsFullScreen = AppWindow.Presenter.Kind == AppWindowPresenterKind.FullScreen,
             ContinueLists = typing.ContinueLists,
             CapitalizeSentences = typing.CapitalizeSentences,
+            WrapSelection = WrapSelectionSetting.Read(_services.Settings),
         };
     }
 

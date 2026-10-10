@@ -313,13 +313,34 @@ with the focused control (the `WebView2` handles Ctrl+C on a preview selection).
 | (divider) | | | |
 | Typing ▸ Continue Lists and Tables | — | always | toggle; `md.continueLists` (§9); ticked from the snapshot |
 | Typing ▸ Capitalize Sentences | — | always | toggle; `md.capitalizeSentences` (§9); ticked from the snapshot |
+| Typing ▸ Wrap Selection When Typing * _ ` $ (1.6) | — | always | toggle; `md.wrapSelection` (§9); ticked from the snapshot — docs/formatting.md §4 |
 
 The Mac gets Find from `NSTextView`; the WinUI `TextBox` has none, so Find **and Replace** are md's own
 here. Spelling items are omitted — spell check is off (§3.1). The two typing rows sit in an **Edit ▸ Typing** submenu — the same heading, the same
 two settings and the same two titles as on every other md port (docs/smart-typing.md §3.1); a static
 submenu of toggles, which the builder fills like any other and ticks from the snapshot. They are settings,
 so they are live in every window, and a change reaches every open editor through `ISettingsStore.Changed`
-(§3.6).
+(§3.6). 1.6 adds a third, the selection wrap of docs/formatting.md §4, kept apart from SmartTyping's pair
+(`WrapSelectionSetting`, not `TypingSettings`).
+
+### 2.4a Format (1.6)
+
+docs/formatting.md is the specification and the shared oracle; `Md.Core.Text.MarkdownFormatting` the
+port, `Md.App.Logic.Text.FormattingAdapter` the CR/LF swap, `EditorPane.ApplyFormat` the one
+`Select` + `SelectedText` pair (one undo unit). Every row is enabled while an editor with a document is on
+screen, and every chord is a root accelerator.
+
+| Item | Shortcut | Action |
+| --- | --- | --- |
+| Bold / Italic | Ctrl+B / Ctrl+I | toggle `**` / `*` around the selection (or insert a pair at the caret) |
+| Code / Strikethrough | Ctrl+Shift+C / Ctrl+Shift+X | toggle `` ` `` / `~~` |
+| Link | Ctrl+K | `[text](url)` with `url` selected; a selected URL becomes `[](URL)` |
+| (divider) | | |
+| Heading ▸ Heading 1 … 6 | Ctrl+Alt+1 … 6 | set the level on every touched line, or remove it when all already have it. **AltGr guard:** when the keyboard layout types a character for Ctrl+Alt+digit (², @, { …) and the right Alt is the one held, the accelerator lets the key through (`HeadingChordGuard`); left Ctrl+Alt still formats |
+| (divider) | | |
+| Bullet List / Task List / Quote | Ctrl+Shift+L / T / Q | toggle `- ` / `- [ ] ` / `> ` on the touched lines |
+| (divider) | | |
+| Indent / Outdent | Ctrl+] / Ctrl+[ | two spaces in / one tab or up to two spaces out |
 
 ### 2.5 View
 
@@ -1390,6 +1411,7 @@ renderer if it exists, else the invoking document window's.
 | `md.win.windowSize.book` **(Win)** | string `"WxH"` | absent ⇒ `1000x700` | `BookWindow` close | Book window | |
 | `md.continueLists` | bool | `true` | Edit ▸ Typing ▸ Continue Lists and Tables | `EditorPane` (Enter, §3.6) | the same key on every md port (smart-typing.md §3.1) |
 | `md.capitalizeSentences` | bool | `true` | Edit ▸ Typing ▸ Capitalize Sentences | `EditorPane` (the letter, §3.6) | the same key on every md port |
+| `md.wrapSelection` | bool | `true` | Edit ▸ Typing ▸ Wrap Selection When Typing * _ ` $ | `EditorPane` (`BeforeTextChanging`, docs/formatting.md §4) | 1.6 |
 
 Not in LocalSettings: `md.viewMode`, `md.zen`, `md.zenReading` and window placements → `LocalFolder\session.json`
 (§1.6); recent documents → `MostRecentlyUsedList` (system-managed, 25); the book grant →

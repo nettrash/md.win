@@ -182,6 +182,18 @@ for code).
   Lists and Tables** and **Capitalize Sentences**, on by default and the
   same two switches on every md port; Shift+Enter is always a plain
   newline.
+- **Formatting.** A **Format** menu and the family's shortcuts: **Bold**
+  (Ctrl+B), **Italic** (Ctrl+I), **Code** (Ctrl+Shift+C),
+  **Strikethrough** (Ctrl+Shift+X), **Link** (Ctrl+K), **Heading 1–6**
+  (Ctrl+Alt+1–6), **Bullet List** (Ctrl+Shift+L), **Task List**
+  (Ctrl+Shift+T), **Quote** (Ctrl+Shift+Q), **Indent** / **Outdent**
+  (Ctrl+] / Ctrl+[). Each toggles — bold on `**word**` takes the stars
+  off — and each is one Ctrl+Z. AltGr still types: on a layout where
+  AltGr+2 is a character, it is the character, and the left Ctrl+Alt+2 is
+  the heading. Typing `*`, `_`, `` ` `` or `$` with a selection wraps it
+  instead of replacing it (**Edit ▸ Typing ▸ Wrap Selection When Typing
+  \* _ ` $**, on by default). The rules are the same on every md app,
+  pinned by one shared set of test vectors (`docs/formatting.md`).
 - **Print & share.** Print the *rendered* document (**File ▸ Print…**,
   Ctrl+P) through Chromium's print preview inside the window — paper and
   margins are the dialog's; untick its "Headers and footers" once and it

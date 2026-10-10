@@ -79,6 +79,9 @@ full:
 - `md.continueLists` and `md.capitalizeSentences` — the two typing helpers
   under Edit ▸ Typing (**Continue Lists and Tables**, **Capitalize
   Sentences**), on or off. Both start on.
+- `md.wrapSelection` — the third switch under Edit ▸ Typing (**Wrap
+  Selection When Typing * _ ` $**): whether typing one of those four over
+  a selection wraps it. Starts on.
 
 Beside those settings the app keeps, in its package folders, exactly the
 following:

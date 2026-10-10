@@ -55,6 +55,26 @@ public enum CommandId
     ContinueLists,
     /// <summary>Edit ▸ Capitalize Sentences: the <c>md.capitalizeSentences</c> toggle (docs/smart-typing.md §3.1).</summary>
     CapitalizeSentences,
+    /// <summary>Edit ▸ Wrap Selection When Typing * _ ` $: the <c>md.wrapSelection</c> toggle (docs/formatting.md §4).</summary>
+    WrapSelection,
+
+    // Format (1.6, docs/formatting.md) — each one undoable edit of the editor's text.
+    Bold,
+    Italic,
+    InlineCode,
+    Strikethrough,
+    Link,
+    Heading1,
+    Heading2,
+    Heading3,
+    Heading4,
+    Heading5,
+    Heading6,
+    BulletList,
+    TaskList,
+    Quote,
+    Indent,
+    Outdent,
 
     // View (§2.5)
     ViewEdit,

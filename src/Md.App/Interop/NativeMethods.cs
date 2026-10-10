@@ -1,4 +1,4 @@
-// The four Win32 / COM entry points the shell needs (shell-final.md §11.2). LibraryImport, not
+// The Win32 / COM entry points the shell needs (shell-final.md §11.2, and 1.6's AltGr guard). LibraryImport, not
 // DllImport: the marshalling is generated at compile time (hence AllowUnsafeBlocks in the csproj)
 // and there is nothing to resolve at run time.
 using System.Runtime.InteropServices;
@@ -19,6 +19,28 @@ internal static partial class NativeMethods
     /// <summary>The window's DPI (96 = 100 %), read before the window is shown to size its client area in physical pixels (§1.3).</summary>
     [LibraryImport("user32.dll")]
     internal static partial uint GetDpiForWindow(nint hWnd);
+
+    // ── The AltGr guard for the heading chords (docs/formatting.md §5, HeadingChordGuard) ──────
+
+    /// <summary>The high bit is set while the key is down, as of the message being processed.</summary>
+    [LibraryImport("user32.dll")]
+    internal static partial short GetKeyState(int nVirtKey);
+
+    /// <summary>The keyboard layout of a thread; 0 is the calling (UI) thread.</summary>
+    [LibraryImport("user32.dll")]
+    internal static partial nint GetKeyboardLayout(uint idThread);
+
+    internal const uint MAPVK_VK_TO_VSC = 0;
+
+    [LibraryImport("user32.dll", EntryPoint = "MapVirtualKeyExW")]
+    internal static partial uint MapVirtualKeyEx(uint uCode, uint uMapType, nint dwhkl);
+
+    /// <summary>Bit 2 of <c>wFlags</c>: do not change the keyboard state (no dead key is consumed). Windows 10 1607+.</summary>
+    internal const uint TOUNICODE_NO_STATE_CHANGE = 0x4;
+
+    /// <summary>What the layout types for a key under a given key state: &gt; 0 characters, &lt; 0 a dead key, 0 nothing.</summary>
+    [LibraryImport("user32.dll")]
+    internal static partial int ToUnicodeEx(uint wVirtKey, uint wScanCode, byte[] lpKeyState, [Out] ushort[] pwszBuff, int cchBuff, uint wFlags, nint dwhkl);
 
     internal const uint COWAIT_DEFAULT = 0;
 
