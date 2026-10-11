@@ -6,7 +6,8 @@ namespace Md.App.Logic.Export;
 
 /// <summary>
 /// The photographs an EPUB needs (§7.5, core-api.md §A4 "epub"): every formula and every diagram
-/// becomes a 2× PNG, because an EPUB reader has no KaTeX, no Mermaid and no Graphviz. Md.Core plans
+/// becomes a PNG — 2×, or less for a block so tall that 2× would pass <see cref="MaxSnapshotPixels"/>
+/// (<see cref="ScaleFor"/>) — because an EPUB reader has no KaTeX, no Mermaid and no Graphviz. Md.Core plans
 /// the book and pairs the images with the markup; this drives the browser for the one thing Core
 /// cannot do.
 /// </summary>
@@ -39,7 +40,10 @@ public sealed class RichSnapshotter(IRenderSurfaceFactory renderers, IScheduler?
     /// <summary>The offscreen layout viewport: 595 × 842 CSS px, and never shorter, whatever the document.</summary>
     public const double MinimumHeightCssPx = 842;
 
-    /// <summary>A genuine 2× bitmap, as <c>WKSnapshotConfiguration.snapshotWidth = width * 2</c> gives on the Mac.</summary>
+    /// <summary>
+    /// The preferred scale: a genuine 2× bitmap, as <c>WKSnapshotConfiguration.snapshotWidth = width * 2</c>
+    /// gives on the Mac. Every capture takes <see cref="ScaleFor"/>, which lowers it past the pixel budget.
+    /// </summary>
     public const double Scale = 2.0;
 
     /// <summary>

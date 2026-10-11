@@ -280,7 +280,7 @@ byte[]  Build(StructuredBook book, IReadOnlyDictionary<int, IReadOnlyList<RichSn
    b. Grow to content (`scrollHeight` → `SetHeightAsync`) and let it repaint (macOS sleeps 300 ms): the capture is in view coordinates, so every element must lie inside.
    c. `EvalAsync` over `document.querySelectorAll('<EpubExport.RichSelector>')` returning, per element and in DOM order, `[left+scrollX, top+scrollY, width, height, isMath?1:0]`. Keep degenerate rects — dropping one shifts every later image.
    d. **The DOM count must equal `unit.RichElements.Count`.** If it does not, abort with "Could not export EPUB" — do not call Core (Core would throw anyway).
-   e. Per rect in order: `CaptureRegionPngAsync(rect, scale: 2.0)` with width/height clamped to ≥ 1; build `new RichSnapshot(png, rect.Width)` — Core rounds the width half-away-from-zero.
+   e. Per rect in order: `CaptureRegionPngAsync(rect, scale: RichSnapshotter.ScaleFor(w, h))` with width/height clamped to ≥ 1 — 2.0 while the PNG fits 16 Mpx (`MaxSnapshotPixels`), less past it, the Apple ports' budget; build `new RichSnapshot(png, rect.Width)` — Core rounds the width half-away-from-zero.
    f. `snapshots[unit.Index] = thatList`.
 3. `var bytes = EpubExport.Assemble(plan, snapshots)`, or the one-call `BuildDocument` / `Build`.
 4. Count mismatch anywhere ⇒ `EpubSnapshotCountException` carrying `UnitIndex`, `UnitTitle`, `Expected`, `Actual`; map it to the "Could not export EPUB" alert. Never a partial book.
