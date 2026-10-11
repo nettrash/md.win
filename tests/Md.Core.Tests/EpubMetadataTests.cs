@@ -149,6 +149,18 @@ public class EpubMetadataTests
     }
 
     [Fact]
+    public void RefusesADataImagePastTheCapBeforeDecodingIt()
+    {
+        var image = new byte[EpubMetadataReader.MaxCoverBytes];
+        Png.CopyTo(image, 0);
+        var atTheCap = EpubMetadataReader.Reference("data:image/png;base64," + Convert.ToBase64String(image));
+        Assert.Equal(image, Assert.IsType<CoverReference.Inline>(atTheCap).Data);
+        var past = new byte[EpubMetadataReader.MaxCoverBytes + 3];
+        Png.CopyTo(past, 0);
+        Assert.Null(EpubMetadataReader.Reference("data:image/png;base64," + Convert.ToBase64String(past)));
+    }
+
+    [Fact]
     public void FetchesHttpsOnly()
     {
         Assert.Equal(new CoverReference.Https("https://example.com/c.png"), EpubMetadataReader.Reference("https://example.com/c.png"));

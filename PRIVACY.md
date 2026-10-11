@@ -147,7 +147,10 @@ goes straight to the host **your own document names**, which sees your IP
 address exactly as it would if you opened the link in a browser. It
 happens only for documents that contain such a link. The same goes for an
 EPUB export whose front matter says `cover: https://…`: the export fetches
-that one image to put on the book, and nothing else. A local image beside
+that one image to put on the book, and nothing else. If that host
+redirects the request, md follows at most five redirects, and only to
+`https` addresses; each host along the way sees your IP address in the same
+way. A local image beside
 the document is deliberately *not* shown in the preview (the family
 decision: md's document is its text); the one time md reads a file beside
 your document is **Export ▸ TextBundle…**, which copies the local images

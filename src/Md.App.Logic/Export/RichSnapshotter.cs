@@ -43,6 +43,24 @@ public sealed class RichSnapshotter(IRenderSurfaceFactory renderers, IScheduler?
     public const double Scale = 2.0;
 
     /// <summary>
+    /// The most pixels one capture may have: 16 Mpx, about what the old 4096 px PlantUML gate let a
+    /// page-wide diagram cost. 1.6 raised the gate, and the stylesheet caps only width, so nothing else
+    /// bounds a tall diagram's bitmap — the Apple ports' budget, the same number.
+    /// </summary>
+    public const double MaxSnapshotPixels = 16 * 1024 * 1024;
+
+    /// <summary>
+    /// The capture scale for a block of <paramref name="width"/> × <paramref name="height"/> CSS px:
+    /// <see cref="Scale"/> while the PNG fits <see cref="MaxSnapshotPixels"/>, less past it. Both capture
+    /// paths — the DevTools clip and the canvas contingency — take this scale.
+    /// </summary>
+    public static double ScaleFor(double width, double height)
+    {
+        var area = Math.Max(width, 1) * Math.Max(height, 1);
+        return Math.Min(Scale, Math.Sqrt(MaxSnapshotPixels / area));
+    }
+
+    /// <summary>
     /// One list of PNGs per unit that has rich content, keyed by <see cref="EpubUnitPlan.Index"/> and
     /// in document order within the unit — exactly what <see cref="EpubExport.Assemble"/> takes.
     /// Empty (and no renderer at all) for a plan with nothing to photograph.
@@ -94,7 +112,7 @@ public sealed class RichSnapshotter(IRenderSurfaceFactory renderers, IScheduler?
             // what the <img> carries, exactly as the Mac writes Int(rect.width.rounded()).
             var rect = measured.Rect;
             var clip = new RectD(rect.X, rect.Y, Math.Max(rect.Width, 1), Math.Max(rect.Height, 1));
-            var png = await surface.CaptureRegionPngAsync(clip, Scale).ConfigureAwait(false);
+            var png = await surface.CaptureRegionPngAsync(clip, ScaleFor(clip.Width, clip.Height)).ConfigureAwait(false);
             if (png.Length == 0) throw new ExportException(Strings.Exports.RichImagesNotCaptured);
 
             taken.Add(new RichSnapshot(png, rect.Width));

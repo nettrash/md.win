@@ -38,6 +38,22 @@ public class EpubCoverTests
         Assert.Empty(h.Fetched);
     }
 
+    [Fact]
+    public void ACoverFilePastTheCapIsNeverRead()
+    {
+        using var h = new ExportHarness();
+        var big = new byte[EpubMetadataReader.MaxCoverBytes + 1];
+        Png.CopyTo(big, 0);
+        h.Files.AddFile(ExportHarness.Docs + @"ig.png", big);
+        var path = h.WillSave(".epub");
+
+        h.Drain(h.Pipeline.ExportEpubAsync(Source("big.png"), "notes.md", ExportHarness.Docs + @"
+otes.md"));
+
+        Assert.DoesNotContain("properties=\"cover-image\"", Opf(h, path), StringComparison.Ordinal);
+        Assert.DoesNotContain(h.Files.Reads, r => r.EndsWith("big.png", StringComparison.Ordinal));
+    }
+
     [Theory]
     [InlineData("../outside.png")]        // climbs out of the document's folder
     [InlineData("missing.png")]           // not there
