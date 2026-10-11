@@ -220,6 +220,36 @@ public class ExportPipelineTests
     }
 
     [Fact]
+    public void AVeryTallDiagramIsPhotographedWithinThePixelBudget()
+    {
+        var expected = EpubExport.PlanDocument(Rich, "Doc").Units[0].RichElements.Count;
+
+        using var h = new ExportHarness();
+        h.Eval = script => script == Scripts.ScrollHeight ? "80000" : ExportHarness.Rects(expected, 700, 40_000);
+        h.WillSave(".epub");
+
+        h.Drain(h.Pipeline.ExportEpubAsync(Rich, "Doc.md"));
+
+        var surface = Assert.Single(h.Created);
+        Assert.Equal(expected, surface.Captures.Count);
+        Assert.All(surface.Captures, c =>
+        {
+            Assert.True(c.Scale < 2.0);
+            Assert.True(c.Rect.Width * c.Scale * c.Rect.Height * c.Scale <= RichSnapshotter.MaxSnapshotPixels * 1.0001);
+        });
+    }
+
+    [Fact]
+    public void TheSnapshotScaleIsTwiceUntilTheBudgetThenLess()
+    {
+        Assert.Equal(2.0, RichSnapshotter.ScaleFor(700, 1000));
+        Assert.Equal(2.0, RichSnapshotter.ScaleFor(0, 0));
+        var tall = RichSnapshotter.ScaleFor(700, 40_000);
+        Assert.True(tall < 2.0);
+        Assert.Equal(RichSnapshotter.MaxSnapshotPixels, 700 * tall * 40_000 * tall, 3);
+    }
+
+    [Fact]
     public void TheOffscreenSurfaceIsNeverShorterThanTheStandardPage()
     {
         var expected = EpubExport.PlanDocument(Rich, "Doc").Units[0].RichElements.Count;

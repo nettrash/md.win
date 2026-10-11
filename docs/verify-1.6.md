@@ -7,7 +7,7 @@ Release build, then note the date and build here.
 
 ## #1 Large PlantUML diagrams
 
-1. Open a document with a ```plantuml sequence diagram of 48 participants
+1. Open a document with a `plantuml` fenced sequence diagram of 48 participants
    (`participant P1` … `participant P48`, then `P1 -> P48 : hi`).
    - Preview: the diagram draws, scaled to the page — no "Diagram too large for
      browser rendering" error.
