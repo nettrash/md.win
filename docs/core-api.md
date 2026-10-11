@@ -244,7 +244,9 @@ public static class HtmlExport
 
 **(3) Public API as implemented** — namespace `Md.Core.Export`
 
-Types: `RichElement(int Start, int Length, bool IsMath){ End, Alt }`; `RichSnapshot(byte[] Png, double Width){ DisplayWidth }` (structural equality); `EpubImage(string File, byte[] Data)` (structural); `EpubUnit(File, Title, Xhtml)`; `NavEntry(string Title, string File, IReadOnlyList<NavEntry>? Children = null)`; `EpubUnitPlan(int Index, string File, string Title, string Document, string Body, IReadOnlyList<RichElement> RichElements, bool IsHeadingPage)`; `EpubPlan(string Title, string Identifier, IReadOnlyList<EpubUnitPlan> Units, IReadOnlyList<NavEntry> NavEntries){ RichUnits }`; `sealed class EpubSnapshotCountException : InvalidOperationException { UnitIndex, UnitTitle, Expected, Actual }`.
+Types: `RichElement(int Start, int Length, bool IsMath){ End, Alt }`; `RichSnapshot(byte[] Png, double Width){ DisplayWidth }` (structural equality); `EpubImage(string File, byte[] Data)` (structural); `EpubUnit(File, Title, Xhtml)`; `NavEntry(string Title, string File, IReadOnlyList<NavEntry>? Children = null)`; `EpubUnitPlan(int Index, string File, string Title, string Document, string Body, IReadOnlyList<RichElement> RichElements, bool IsHeadingPage)`; `EpubPlan(string Title, string Identifier, IReadOnlyList<EpubUnitPlan> Units, IReadOnlyList<NavEntry> NavEntries, EpubMetadata? Metadata = null, CoverReference? Cover = null){ RichUnits }`; `sealed class EpubSnapshotCountException : InvalidOperationException { UnitIndex, UnitTitle, Expected, Actual }`.
+
+1.6 metadata and cover (`EpubMetadata.cs`): `EpubMetadata(string? Creator, string Language, string? Date, string? Description, string? Series, string? SeriesIndex){ static Default }`; `EpubCover(string Extension, string MediaType, byte[] Data){ Href }` (structural, by bytes); `abstract record CoverReference { Inline(byte[] Data), Https(string Url), Local(string Path) }`; `static class EpubMetadataReader { const int MaxCoverBytes; string? FieldValue(IReadOnlyList<MetadataField>, string key); EpubMetadata FromFrontMatter(IReadOnlyList<MetadataField>); bool IsW3CDate(string); CoverReference? Reference(string?); EpubCover? Recognise(byte[]?); IReadOnlyList<string> Lines(EpubMetadata, EpubCover?); string ManifestItem(EpubCover) }`. `PlanDocument` fills `Metadata` and `Cover` from the front matter; `PlanBook` leaves both null (a book keeps the defaults).
 
 `static class EpubExport`:
 ```
@@ -257,14 +259,14 @@ IReadOnlyList<RichElement> RichElements(string html)
 string ReplacingRichElements(string html, IReadOnlyList<string> tags)
 string ImageTag(string file, bool isMath, int width); string ImageFileName(int unit, int element); string UnitFileName(int index)
 string XhtmlDocument(string title, string body);  string Nav(string title, IReadOnlyList<NavEntry> entries)
-string Opf(title, identifier, modified, IReadOnlyList<string> units, IReadOnlyList<string> images, IReadOnlyCollection<int>? svgUnits = null)
+string Opf(title, identifier, modified, IReadOnlyList<string> units, IReadOnlyList<string> images, IReadOnlyCollection<int>? svgUnits = null, EpubMetadata? metadata = null, EpubCover? cover = null)
 string Stylesheet();  string StableIdentifier(string title);  string ModifiedNow();  string Modified(DateTimeOffset when)
 EpubPlan PlanDocument(string source, string title);   EpubPlan PlanBook(StructuredBook book)
-byte[]  Assemble(EpubPlan plan, IReadOnlyDictionary<int, IReadOnlyList<RichSnapshot>>? snapshots = null, string? modified = null, string? identifier = null)
+byte[]  Assemble(EpubPlan plan, IReadOnlyDictionary<int, IReadOnlyList<RichSnapshot>>? snapshots = null, string? modified = null, string? identifier = null, EpubCover? cover = null)
 IReadOnlyList<ZipEntry> Entries(EpubPlan plan, …same…)
-IReadOnlyList<ZipEntry> Entries(string title, IReadOnlyList<EpubUnit> units, IReadOnlyList<NavEntry> navEntries, IReadOnlyList<EpubImage> images, string identifier, string modified)
-IReadOnlyList<ZipEntry> DocumentEntries(string title, string body, IReadOnlyList<EpubImage> images, IReadOnlyList<OutlineEntry> outline, string modified, string? identifier = null)
-byte[]  BuildDocument(string source, string title, IReadOnlyList<RichSnapshot>? snapshots = null, string? modified = null, string? identifier = null)
+IReadOnlyList<ZipEntry> Entries(string title, IReadOnlyList<EpubUnit> units, IReadOnlyList<NavEntry> navEntries, IReadOnlyList<EpubImage> images, string identifier, string modified, EpubMetadata? metadata = null, EpubCover? cover = null)
+IReadOnlyList<ZipEntry> DocumentEntries(string title, string body, IReadOnlyList<EpubImage> images, IReadOnlyList<OutlineEntry> outline, string modified, string? identifier = null, EpubMetadata? metadata = null, EpubCover? cover = null)
+byte[]  BuildDocument(string source, string title, IReadOnlyList<RichSnapshot>? snapshots = null, string? modified = null, string? identifier = null, EpubCover? cover = null)
 byte[]  Build(StructuredBook book, IReadOnlyDictionary<int, IReadOnlyList<RichSnapshot>>? snapshots = null, string? modified = null, string? identifier = null)
 ```
 

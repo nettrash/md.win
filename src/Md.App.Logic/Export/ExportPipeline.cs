@@ -285,7 +285,8 @@ public sealed class ExportPipeline
     {
         var snapshots = await _snapshotter.CaptureAsync(plan, ct).ConfigureAwait(false);
         var cover = await CoverReader.ReadAsync(
-            plan.Cover, AssetReader.Beside(documentPath, _fileSystem, _identity), _fetchCover, ct).ConfigureAwait(false);
+            plan.Cover, AssetReader.Beside(documentPath, _fileSystem, _identity, EpubMetadataReader.MaxCoverBytes),
+            _fetchCover, ct).ConfigureAwait(false);
         _fileSystem.WriteAllBytesInPlace(path, EpubExport.Assemble(plan, snapshots, cover: cover));
     }
 

@@ -179,8 +179,12 @@ public static class EpubMetadataReader
             if (comma < 0) return null;
             var header = value[5..comma];
             if (!header.EndsWith(";base64", StringComparison.OrdinalIgnoreCase)) return null;
+            var length = value.Length - comma - 1;
+            if (length == 0 || length % 4 != 0) return null;
+            // Past the cover cap once decoded: refused before the payload is copied, matched or decoded.
+            if (length / 4 * 3 > MaxCoverBytes + 2) return null;
             var payload = value[(comma + 1)..];
-            if (payload.Length == 0 || payload.Length % 4 != 0 || !Base64Payload.IsMatch(payload)) return null;
+            if (!Base64Payload.IsMatch(payload)) return null;
             return new CoverReference.Inline(Convert.FromBase64String(payload));
         }
         if (StartsWithAsciiIgnoringCase(value, "https://")) return new CoverReference.Https(value);

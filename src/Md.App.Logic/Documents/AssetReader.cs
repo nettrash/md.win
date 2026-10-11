@@ -20,9 +20,11 @@ public static class AssetReader
 {
     /// <summary>
     /// The <c>resolveAsset</c> Core's <c>TextBundle.ExportRewriting</c> takes. An unsaved document
-    /// (null path) resolves nothing, so it exports with an empty <c>assets/</c>.
+    /// (null path) resolves nothing, so it exports with an empty <c>assets/</c>. A file longer than
+    /// <paramref name="maxBytes"/> — the EPUB cover's cap — is not found, and is never read.
     /// </summary>
-    public static Func<string, byte[]?> Beside(string? documentPath, IFileSystem fileSystem, IFileIdentity identity)
+    public static Func<string, byte[]?> Beside(string? documentPath, IFileSystem fileSystem, IFileIdentity identity,
+                                              long maxBytes = long.MaxValue)
     {
         ArgumentNullException.ThrowIfNull(fileSystem);
         ArgumentNullException.ThrowIfNull(identity);
@@ -37,7 +39,9 @@ public static class AssetReader
             if (Resolve(folder, canonicalFolder, relative, identity) is not { } path) return null;
             try
             {
-                return fileSystem.FileExists(path) ? fileSystem.ReadAllBytes(path) : null;
+                if (!fileSystem.FileExists(path)) return null;
+                if (fileSystem.Stamp(path) is { } stamp && stamp.Length > maxBytes) return null;
+                return fileSystem.ReadAllBytes(path);
             }
             catch (Exception e) when (FileFailure.IsOne(e))
             {
