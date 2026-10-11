@@ -1227,7 +1227,8 @@ then `BookOutput.ExportEpub()` → flush gate → `BookFolder.ReadStructuredBook
    without it: Mermaid's `max-width: 100%` layout must be final before rects are read;
 3. `rects = EvalAsync<double[][]>(Scripts.RichElements)` (the 5-column Mac script; rows with `Length != 5`
    dropped, degenerate rects **kept**);
-4. per rect `CaptureRegionPngAsync(rect, 2)`; Core pairs PNGs 1:1 with `ReplacingRichElements` and **throws**
+4. per rect `CaptureRegionPngAsync(rect, RichSnapshotter.ScaleFor(w, h))` — 2 while the PNG fits 16 Mpx, less past
+   it (1.6: the raised PlantUML gate no longer bounds a tall diagram); Core pairs PNGs 1:1 with `ReplacingRichElements` and **throws**
    on a DOM-count vs markup-count mismatch (Android's guard, adopted) → "The rich-content images could not be
    captured."; tags `<img src="images/unit-{unit:000}-rich-{i}.png" alt="{formula|diagram}" width="{Math.Round(w, MidpointRounding.AwayFromZero)}"/>`.
 Alert "Could not export EPUB".
