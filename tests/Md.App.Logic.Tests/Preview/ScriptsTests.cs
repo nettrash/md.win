@@ -176,6 +176,7 @@ public class ScriptsTests
         Assert.Contains("e.preventDefault();", script, StringComparison.Ordinal);
         Assert.Contains("window.chrome.webview.postMessage({ key: e.keyCode, ctrl: !!ctrl, alt: !!alt, shift: !!shift });", script, StringComparison.Ordinal);
         Assert.Contains("if (e.isComposing) return;", script, StringComparison.Ordinal);
+        Assert.Contains("if (e.getModifierState && e.getModifierState('AltGraph')) return;", script, StringComparison.Ordinal);
         Assert.DoesNotContain("\r", script, StringComparison.Ordinal);
         Assert.StartsWith("(function () {\n  var chords = [];", Scripts.KeyForward([]), StringComparison.Ordinal);
     }

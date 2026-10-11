@@ -67,7 +67,9 @@ public static class FormattingAdapter
         ArgumentNullException.ThrowIfNull(newText);
         if (selectionLength <= 0 || !Fits(boxText, selectionStart, selectionLength)) return null;
         var inserted = SmartTypingAdapter.InsertionOverSelection(boxText, selectionStart, selectionLength, newText);
-        if (inserted is not { Length: 1 }) return null;
+        // Asked on every keystroke over a selection: anything but the four is answered before the
+        // box's text is copied.
+        if (inserted is not ("*" or "_" or "`" or "$")) return null;
         var edit = MarkdownFormatting.WrapTyped(boxText.Replace('\r', '\n'), selectionStart, selectionStart + selectionLength, inserted);
         return edit is { } e ? e with { Text = e.Text.Replace('\n', '\r') } : null;
     }

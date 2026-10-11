@@ -49,7 +49,10 @@ the third Typing toggle. Left for a person:
 3. **AltGr**: add German and Polish. German AltGr+2 types ², AltGr+3 types ³ —
    no heading; **left** Ctrl+Alt+2 makes Heading 2. US layout: Ctrl+Alt+2 (either
    Alt) is Heading 2. Check that letting the key through really delivers the
-   character to the TextBox (the guard sets `Handled = false`).
+   character to the TextBox (the guard sets `Handled = false`). Then with the
+   focus in the **preview** (Split): German AltGr+2 does nothing to the editor
+   (the page script lets AltGraph through), and left Ctrl+Alt+2 still makes
+   Heading 2.
 4. **Wrap**: select a word, type `*` → `*word*`, the word still selected; the same
    for `_`, `` ` ``, `$`. Ctrl+Z once → `*` alone in its place, again → the word.
    With an IME composing, and for a paste of `*`, nothing wraps. Edit ▸ Typing ▸
