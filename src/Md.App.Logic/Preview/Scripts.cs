@@ -115,6 +115,10 @@ public static class Scripts
             "  var chords = [" + string.Join(",", rows) + "];",
             "  window.addEventListener('keydown', function (e) {",
             "    if (e.isComposing) return;",
+            // AltGr is Ctrl+Alt on many European layouts: AltGr+2 types ² on German, and with the
+            // focus in the page it must not become Heading 2 in the editor. The XAML accelerators
+            // ask HeadingChordGuard; the page has the browser's own answer.
+            "    if (e.getModifierState && e.getModifierState('AltGraph')) return;",
             "    var ctrl = e.ctrlKey ? 1 : 0, alt = e.altKey ? 1 : 0, shift = e.shiftKey ? 1 : 0;",
             "    for (var i = 0; i < chords.length; i++) {",
             "      var c = chords[i];",

@@ -258,6 +258,9 @@ internal sealed partial class BookWindow : Window
     public (string Text, string Title)? ActiveArticle =>
         _session.Stage is Stage.Editing ? (_session.Text, _session.Title) : null;
 
+    /// <summary>The open article's file, for what reads beside it (an EPUB's cover); null when none is open.</summary>
+    public string? ActiveArticlePath => _session.EditingPath;
+
     /// <summary>
     /// File ▸ Open Recent's rows as this window publishes them (§2.1: the row belongs to every
     /// window, not only to a document window). The manager's Open Recent handler reads the label
@@ -576,6 +579,7 @@ internal sealed partial class BookWindow : Window
         else if (key == SettingsKeys.BookOpensInSeparateWindows) Render();
         // A typing switch flipped here or in a document window: the Edit menu's ticks follow.
         else if (TypingSettings.IsKey(key)) _services.UiThread.Post(Publish);
+        else if (WrapSelectionSetting.IsKey(key)) _services.UiThread.Post(Publish);
     }
 
     void Cleanup()
@@ -1194,6 +1198,7 @@ internal sealed partial class BookWindow : Window
             IsFullScreen = AppWindow.Presenter.Kind == AppWindowPresenterKind.FullScreen,
             ContinueLists = typing.ContinueLists,
             CapitalizeSentences = typing.CapitalizeSentences,
+            WrapSelection = WrapSelectionSetting.Read(_services.Settings),
         };
     }
 

@@ -337,7 +337,9 @@ internal sealed class WindowManager
         commands.Register(CommandId.ShareRenderedPdf, () => Article(window, a => exports.Pipeline.SharePdfAsync(a.Text, a.Title, PdfPageSize)));
         commands.Register(CommandId.ExportPdf, () => Article(window, a => exports.Pipeline.ExportPdfAsync(a.Text, a.Title, PdfPageSize)));
         commands.Register(CommandId.ExportHtml, () => Article(window, a => exports.Pipeline.ExportHtmlAsync(a.Text, a.Title)));
-        commands.Register(CommandId.ExportEpub, () => Article(window, a => exports.Pipeline.ExportEpubAsync(a.Text, a.Title)));
+        // The article's own path, so an EPUB's `cover:` beside it — inside the book folder md already
+        // has access to — is found (1.6).
+        commands.Register(CommandId.ExportEpub, () => Article(window, a => exports.Pipeline.ExportEpubAsync(a.Text, a.Title, window.ActiveArticlePath)));
         commands.Register(CommandId.ExportLaTeX, () => Article(window, a => exports.Pipeline.ExportLaTeXAsync(a.Text, a.Title)));
         // documentPath null: the article's images are the book's, and the Mac exports a bundle with
         // an empty assets/ from a document it publishes no URL for.
@@ -360,6 +362,25 @@ internal sealed class WindowManager
         // the store's Changed, as every document window's do.
         commands.Register(CommandId.ContinueLists, () => TypingSettings.Toggle(_services.Settings, SettingsKeys.ContinueLists));
         commands.Register(CommandId.CapitalizeSentences, () => TypingSettings.Toggle(_services.Settings, SettingsKeys.CapitalizeSentences));
+        commands.Register(CommandId.WrapSelection, () => WrapSelectionSetting.Toggle(_services.Settings));
+
+        // Format (1.6, docs/formatting.md) — the article's editor, one undoable edit each.
+        commands.Register(CommandId.Bold, () => window.EditorPane.ApplyFormat(CommandId.Bold));
+        commands.Register(CommandId.Italic, () => window.EditorPane.ApplyFormat(CommandId.Italic));
+        commands.Register(CommandId.InlineCode, () => window.EditorPane.ApplyFormat(CommandId.InlineCode));
+        commands.Register(CommandId.Strikethrough, () => window.EditorPane.ApplyFormat(CommandId.Strikethrough));
+        commands.Register(CommandId.Link, () => window.EditorPane.ApplyFormat(CommandId.Link));
+        commands.Register(CommandId.Heading1, () => window.EditorPane.ApplyFormat(CommandId.Heading1));
+        commands.Register(CommandId.Heading2, () => window.EditorPane.ApplyFormat(CommandId.Heading2));
+        commands.Register(CommandId.Heading3, () => window.EditorPane.ApplyFormat(CommandId.Heading3));
+        commands.Register(CommandId.Heading4, () => window.EditorPane.ApplyFormat(CommandId.Heading4));
+        commands.Register(CommandId.Heading5, () => window.EditorPane.ApplyFormat(CommandId.Heading5));
+        commands.Register(CommandId.Heading6, () => window.EditorPane.ApplyFormat(CommandId.Heading6));
+        commands.Register(CommandId.BulletList, () => window.EditorPane.ApplyFormat(CommandId.BulletList));
+        commands.Register(CommandId.TaskList, () => window.EditorPane.ApplyFormat(CommandId.TaskList));
+        commands.Register(CommandId.Quote, () => window.EditorPane.ApplyFormat(CommandId.Quote));
+        commands.Register(CommandId.Indent, () => window.EditorPane.ApplyFormat(CommandId.Indent));
+        commands.Register(CommandId.Outdent, () => window.EditorPane.ApplyFormat(CommandId.Outdent));
 
         // Window (§2.8)
         commands.Register(CommandId.Minimize, () => (window.AppWindow.Presenter as OverlappedPresenter)?.Minimize());

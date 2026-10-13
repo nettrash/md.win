@@ -11,13 +11,14 @@ WRITE AND SEE
 • The Go menu lists every heading and jumps both panes to it. Private author notes — an HTML comment on its own line whose text begins with the word note — are listed in the Go menu and never appear in the preview, the PDF or the printout.
 • A live word and character count sits under every page, and a find and replace bar (Ctrl+F, or Ctrl+H straight to the replacement) searches the text you are editing: case-insensitive, wrapping round the end, no regular expressions. Replace All is one undo step, so a single Ctrl+Z puts every hit back.
 • Every document reopens in the layout you last had it in — the notes you write in stay in Edit, the reference you only read stays in Preview — remembered on this PC for the last 200 files you opened.
-• Enter carries on what you are writing: the next bullet, the next number, the next task box, the next quote line, the next table row, and an empty item ends the list. The first letter of a line and of a sentence is capitalized as you type it, never inside code, a table, math, a link or a path. Delete the capital and type the letter again and it stays lowercase. Both helpers are switches under Edit, Typing.
+• A Format menu with the shortcuts to match: Bold (Ctrl+B), Italic (Ctrl+I), Code, Strikethrough, Link (Ctrl+K), Heading 1 to 6 (Ctrl+Alt+1 to 6), bullet and task lists, Quote, Indent and Outdent. Bold on bold text takes it off again, the line commands work on every line you have selected, and each command is one undo step. Typing *, _, a backtick or $ with text selected wraps the selection instead of replacing it.
+• Enter carries on what you are writing: the next bullet, the next number, the next task box, the next quote line, the next table row, and an empty item ends the list. The first letter of a line and of a sentence is capitalized as you type it, never inside code, a table, math, a link or a path. Delete the capital and type the letter again and it stays lowercase. These helpers, and wrapping a selection, are switches under Edit, Typing.
 
 PRINT AND EXPORT
 • Print or export real A4 pages — or A5, US Letter, US Legal, or a paperback trim size for a book bound for print. Breaks fall between lines, and \newpage starts a fresh page wherever you decide.
 • Export as HTML: one self-contained file that opens anywhere, diagrams as drawings and formulas as real, selectable text.
 • Export as LaTeX: a .tex file where your mathematics stays mathematics, ready to paste into a paper.
-• Export a diagram or a plot as a standalone .svg vector, or the document as a standard EPUB 3 with its own headings as the table of contents.
+• Export a diagram or a plot as a standalone .svg vector, or the document as a standard EPUB 3 with its own headings as the table of contents — and the author, language, date, description, series and cover its front matter names, so it arrives in a reader's library properly labelled.
 • Share the rendered PDF or the Markdown source through the Windows Share pane, export through the standard save dialog, open a TextBundle or TextPack — the Markdown-with-images container — and export a TextBundle of your own.
 
 WRITER MODE: BOOKS
@@ -36,6 +37,6 @@ A REAL WINDOWS APP
 PRIVATE BY DESIGN
 • No accounts, no sign-in, no analytics, no tracking, no ads.
 • Your documents stay where you put them: on your PC, or in your own cloud-synced folders.
-• Everything is rendered on your PC. The only thing md fetches from the network is an image your own document points at by URL.
+• Everything is rendered on your PC. The only things md fetches from the network are an image your own document points at by URL, and the cover an EPUB's front matter names by an https address.
 
 Written in C# for WinUI 3. The only outside code is the open-source engines that draw the math, chemistry, diagrams and code — KaTeX, mhchem, Mermaid, Graphviz, PlantUML and highlight.js — bundled in and run on your PC. The source is public.

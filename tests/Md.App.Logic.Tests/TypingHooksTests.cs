@@ -277,6 +277,46 @@ public sealed class TypingHooksTests
 
     // ── the echo (finding: SetText's echo disarmed the override after every keystroke) ────────
 
+    /// <summary>
+    /// 1.6: a Format command is applied through the same <c>ExternalEdit</c> as Replace
+    /// (<c>EditorPane.ApplyEdit</c>), which clears the tracking first. So wrapping a word md has just
+    /// capitalized leaves no override armed where it began — straight after the command or after its
+    /// Undo — and the next word typed there is capitalized: the bug the Apple ports had, pinned absent.
+    /// </summary>
+    [Fact]
+    public void AFormattingEditOverAFreshCapitalLeavesNoOverrideBehind()
+    {
+        var e = new Editor();
+        e.Type("word");
+        Assert.Equal("Word", e.Text);
+        AssertTracked(e, 0, "W");
+
+        e.ReplaceRange(0, 4, "**Word**");
+        Assert.Equal("**Word**", e.Text);
+        AssertIdle(e);
+        e.Undo();
+        Assert.Equal("Word", e.Text);
+        AssertIdle(e);
+
+        e.Select(0, 0);
+        e.Type("big");
+        Assert.Equal("BigWord", e.Text);
+    }
+
+    /// <summary>The typed wrap: the control inserts the <c>*</c> over the selection (which arms the override), then the wrap replaces it through <c>ExternalEdit</c>, which disarms it.</summary>
+    [Fact]
+    public void ATypedWrapOverAFreshCapitalLeavesNoOverrideBehind()
+    {
+        var e = new Editor();
+        e.Type("word");
+        e.Select(0, 4);
+        e.Type("*");
+        AssertArmed(e, 0);
+        e.ReplaceRange(0, 1, "*Word*");
+        Assert.Equal("*Word*", e.Text);
+        AssertIdle(e);
+    }
+
     [Fact]
     public void TheEchoOfAKeystrokeLeavesTheCapitalTracked()
     {

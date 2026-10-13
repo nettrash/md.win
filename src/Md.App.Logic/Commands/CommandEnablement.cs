@@ -105,6 +105,14 @@ public static class CommandEnablement
             // writer may turn them off from the Book window or with no editor on screen.
             CommandId.ContinueLists => true,
             CommandId.CapitalizeSentences => true,
+            CommandId.WrapSelection => true,
+
+            // Format (1.6) — an edit of the editor's text, so an editor on screen with a document in it.
+            CommandId.Bold or CommandId.Italic or CommandId.InlineCode or CommandId.Strikethrough or CommandId.Link
+                or CommandId.Heading1 or CommandId.Heading2 or CommandId.Heading3
+                or CommandId.Heading4 or CommandId.Heading5 or CommandId.Heading6
+                or CommandId.BulletList or CommandId.TaskList or CommandId.Quote
+                or CommandId.Indent or CommandId.Outdent => s.EditorVisible && HasActiveDocument(s),
 
             // View (§2.5)
             CommandId.ViewEdit => HasActiveDocument(s),
@@ -179,6 +187,7 @@ public static class CommandEnablement
             // Ticked from the settings snapshot, never from the click (smart-typing.md §3.1).
             CommandId.ContinueLists => s.ContinueLists,
             CommandId.CapitalizeSentences => s.CapitalizeSentences,
+            CommandId.WrapSelection => s.WrapSelection,
             _ => false,
         };
     }

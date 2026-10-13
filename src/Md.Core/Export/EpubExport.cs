@@ -106,11 +106,19 @@ public sealed record EpubUnitPlan(
 /// An export that is complete but for the photographs: the identifier, the reading order and the
 /// navigation are all fixed here, so nothing a browser does can change the shape of the book.
 /// </summary>
+/// <remarks>
+/// <see cref="Metadata"/> and <see cref="Cover"/> come from a single document's front matter
+/// (<see cref="EpubMetadataReader"/>); a book keeps the defaults. The cover is a reference, not
+/// bytes: reading it — a file beside the document, an https fetch — is the app's, and the bytes it
+/// finds go to <see cref="EpubExport.Assemble"/>.
+/// </remarks>
 public sealed record EpubPlan(
     string Title,
     string Identifier,
     IReadOnlyList<EpubUnitPlan> Units,
-    IReadOnlyList<NavEntry> NavEntries)
+    IReadOnlyList<NavEntry> NavEntries,
+    EpubMetadata? Metadata = null,
+    CoverReference? Cover = null)
 {
     /// <summary>The units that carry rich content, in reading order — the ones the app must render.</summary>
     public IReadOnlyList<EpubUnitPlan> RichUnits =>
@@ -461,7 +469,10 @@ public static class EpubExport
     /// OPF-014 without it and the book is invalid. Until the <c>```plot</c> fence no EPUB this
     /// family produced had ever contained one, since the engines all arrive as PNG snapshots.
     /// The identifier and the timestamp are generated, so they are not escaped; the title is.
-    /// <c>dc:language</c> is hard-coded <c>en</c> — a product fact, not an oversight.
+    /// The lines between <c>dc:title</c> and <c>dcterms:modified</c> are
+    /// <see cref="EpubMetadataReader.Lines"/> — with no front matter, the one
+    /// <c>&lt;dc:language&gt;en&lt;/dc:language&gt;</c> of 1.5, byte for byte — and a cover is the
+    /// manifest's last item, outside the spine.
     /// </remarks>
     public static string Opf(
         string title,
@@ -469,7 +480,9 @@ public static class EpubExport
         string modified,
         IReadOnlyList<string> units,
         IReadOnlyList<string> images,
-        IReadOnlyCollection<int>? svgUnits = null)
+        IReadOnlyCollection<int>? svgUnits = null,
+        EpubMetadata? metadata = null,
+        EpubCover? cover = null)
     {
         var manifest = new StringBuilder();
         manifest.Append("<item id=\"nav\" href=\"nav.xhtml\" media-type=\"application/xhtml+xml\" properties=\"nav\"/>\n");
@@ -485,15 +498,19 @@ public static class EpubExport
             manifest.Append(CultureInfo.InvariantCulture,
                 $"<item id=\"i{index}\" href=\"{images[index]}\" media-type=\"image/png\"/>\n");
         }
+        if (cover is not null) manifest.Append(EpubMetadataReader.ManifestItem(cover)).Append('\n');
         var spine = string.Join("\n", Enumerable.Range(0, units.Count).Select(index =>
             string.Format(CultureInfo.InvariantCulture, "<itemref idref=\"u{0}\"/>", index)));
-        return string.Join("\n",
+        var lines = new List<string>
+        {
             "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
             "<package xmlns=\"http://www.idpf.org/2007/opf\" version=\"3.0\" unique-identifier=\"bookid\">",
             "<metadata xmlns:dc=\"http://purl.org/dc/elements/1.1/\">",
             "<dc:identifier id=\"bookid\">" + identifier + "</dc:identifier>",
             "<dc:title>" + XmlEscape(title) + "</dc:title>",
-            "<dc:language>en</dc:language>",
+        };
+        lines.AddRange(EpubMetadataReader.Lines(metadata ?? EpubMetadata.Default, cover));
+        return string.Join("\n", lines) + "\n" + string.Join("\n",
             "<meta property=\"dcterms:modified\">" + modified + "</meta>",
             "</metadata>",
             "<manifest>",
@@ -572,7 +589,7 @@ public static class EpubExport
     public static string Modified(DateTimeOffset when) =>
         when.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture);
 
-    private static string XmlEscape(string s) => s
+    internal static string XmlEscape(string s) => s
         .Replace("&", "&amp;", StringComparison.Ordinal)
         .Replace("<", "&lt;", StringComparison.Ordinal)
         .Replace(">", "&gt;", StringComparison.Ordinal)
@@ -600,7 +617,10 @@ public static class EpubExport
         var body = BodyHtml(document);
         var elements = ContainsRichContent(body) ? RichElements(body) : [];
         var unit = new EpubUnitPlan(0, ContentFileName, title, document, body, elements, IsHeadingPage: false);
-        return new EpubPlan(title, StableIdentifier(title), [unit], DocumentNavEntries(title, MarkdownParser.Outline(source)));
+        var fields = MarkdownParser.FrontMatter(source);
+        return new EpubPlan(title, StableIdentifier(title), [unit], DocumentNavEntries(title, MarkdownParser.Outline(source)),
+            EpubMetadataReader.FromFrontMatter(fields),
+            EpubMetadataReader.Reference(EpubMetadataReader.FieldValue(fields, "cover")));
     }
 
     /// <summary>
@@ -672,6 +692,7 @@ public static class EpubExport
     /// </param>
     /// <param name="modified">The <c>dcterms:modified</c> stamp; <see cref="ModifiedNow"/> when null.</param>
     /// <param name="identifier">Overrides the title-derived identifier (a test seam).</param>
+    /// <param name="cover">The plan's <see cref="EpubPlan.Cover"/>, read and recognised; null for none.</param>
     /// <exception cref="EpubSnapshotCountException">
     /// A unit's snapshot count does not match its rich-element count.
     /// </exception>
@@ -679,15 +700,17 @@ public static class EpubExport
         EpubPlan plan,
         IReadOnlyDictionary<int, IReadOnlyList<RichSnapshot>>? snapshots = null,
         string? modified = null,
-        string? identifier = null) =>
-        ZipWriter.Archive(Entries(plan, snapshots, modified, identifier));
+        string? identifier = null,
+        EpubCover? cover = null) =>
+        ZipWriter.Archive(Entries(plan, snapshots, modified, identifier, cover));
 
     /// <summary>The archive's members, in order — the seam the tests drive and the packing runs through.</summary>
     public static IReadOnlyList<ZipEntry> Entries(
         EpubPlan plan,
         IReadOnlyDictionary<int, IReadOnlyList<RichSnapshot>>? snapshots = null,
         string? modified = null,
-        string? identifier = null)
+        string? identifier = null,
+        EpubCover? cover = null)
     {
         var units = new List<EpubUnit>(plan.Units.Count);
         var images = new List<EpubImage>();
@@ -718,7 +741,7 @@ public static class EpubExport
             units.Add(new EpubUnit(unit.File, unit.Title, xhtml));
         }
         return Entries(plan.Title, units, plan.NavEntries, images,
-            identifier ?? plan.Identifier, modified ?? ModifiedNow());
+            identifier ?? plan.Identifier, modified ?? ModifiedNow(), plan.Metadata, cover);
     }
 
     /// <summary>
@@ -731,7 +754,9 @@ public static class EpubExport
         IReadOnlyList<NavEntry> navEntries,
         IReadOnlyList<EpubImage> images,
         string identifier,
-        string modified)
+        string modified,
+        EpubMetadata? metadata = null,
+        EpubCover? cover = null)
     {
         // Whichever units still hold an `<svg>` of their own — today that means a ```plot fence,
         // since every engine has become a PNG by now — carry properties="svg".
@@ -743,7 +768,9 @@ public static class EpubExport
         var opf = Opf(title, identifier, modified,
             units.Select(unit => unit.File).ToList(),
             images.Select(image => image.File).ToList(),
-            svgUnits);
+            svgUnits,
+            metadata,
+            cover);
         var entries = new List<ZipEntry>(6 + units.Count + images.Count)
         {
             new("mimetype", Utf8.GetBytes(Mimetype)),
@@ -754,6 +781,7 @@ public static class EpubExport
         };
         foreach (var unit in units) entries.Add(new ZipEntry("OEBPS/" + unit.File, Utf8.GetBytes(unit.Xhtml)));
         foreach (var image in images) entries.Add(new ZipEntry("OEBPS/" + image.File, image.Data));
+        if (cover is not null) entries.Add(new ZipEntry("OEBPS/" + cover.Href, cover.Data));
         return entries;
     }
 
@@ -768,11 +796,13 @@ public static class EpubExport
         IReadOnlyList<EpubImage> images,
         IReadOnlyList<OutlineEntry> outline,
         string modified,
-        string? identifier = null)
+        string? identifier = null,
+        EpubMetadata? metadata = null,
+        EpubCover? cover = null)
     {
         var unit = new EpubUnit(ContentFileName, title, XhtmlDocument(title, body));
         return Entries(title, [unit], DocumentNavEntries(title, outline), images,
-            identifier ?? StableIdentifier(title), modified);
+            identifier ?? StableIdentifier(title), modified, metadata, cover);
     }
 
     // MARK: - Entry points
@@ -787,8 +817,9 @@ public static class EpubExport
         string title,
         IReadOnlyList<RichSnapshot>? snapshots = null,
         string? modified = null,
-        string? identifier = null) =>
-        Assemble(PlanDocument(source, title), Single(snapshots), modified, identifier);
+        string? identifier = null,
+        EpubCover? cover = null) =>
+        Assemble(PlanDocument(source, title), Single(snapshots), modified, identifier, cover);
 
     /// <summary>
     /// Build the EPUB 3 of a whole book. <paramref name="snapshots"/> maps a unit index (as

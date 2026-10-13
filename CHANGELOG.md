@@ -23,6 +23,51 @@ releases. Nothing is missing between the two — 1.0 already arrived, last
 of the five, with everything the other editions had learned through their
 own 1.4 — and from here md.win is versioned with them.
 
+## [1.6] — 2026-10-13
+
+### Changed
+
+- **Large PlantUML diagrams render.** A diagram wider or taller than 4096
+  pixels — a sequence diagram with forty-odd participants is already past
+  it — used to stop at "Diagram too large for browser rendering". The
+  bundled engine's size gate is raised the way md for VS Code raised it,
+  and `rich/plantuml.js` is now byte-identical to the extension's copy.
+  The preview and the HTML, PDF and SVG exports keep the diagram as SVG,
+  which has no such limit; an EPUB photographs it as a PNG, at most 16
+  megapixels — a very tall diagram is drawn at a little less than double
+  size rather than at any size. A pin test fails if a future engine update
+  brings the gate back. (#1)
+
+### Added
+
+- **An EPUB carries its author, language, date, description, series and
+  cover.** They come from the front matter — `author`, `language`, `date`,
+  `description`, `series` and `series_index`, matched as `title` is —
+  instead of the fixed `en` and nothing else every md EPUB carried. A
+  language that is not a tag stays `en`; a date that is not a real W3C
+  date (2026-02-29, a 13th month, 24:00) is left out. `cover:` puts an
+  image on the book when it can be read — a file beside the document (or
+  beside the article, inside a book folder), an `https:` image or a
+  `data:` image, in PNG, JPEG, GIF or WebP — and is skipped silently
+  otherwise. Every md EPUB writer changed together and writes the same
+  lines; without front matter the package document is byte-identical to
+  1.5's. A book's own EPUB keeps its defaults. (#2)
+- **A Format menu, and the shortcuts every md app now shares.** Bold
+  (Ctrl+B), Italic (Ctrl+I), Code (Ctrl+Shift+C), Strikethrough
+  (Ctrl+Shift+X), Link (Ctrl+K), Heading 1–6 (Ctrl+Alt+1–6), Bullet List
+  (Ctrl+Shift+L), Task List (Ctrl+Shift+T), Quote (Ctrl+Shift+Q), Indent
+  and Outdent (Ctrl+] and Ctrl+[). Bold, Italic, Code, Strikethrough, the
+  headings, the lists and Quote toggle — Bold on `**word**` takes the stars
+  off, a heading command on a heading of that level removes it; Link
+  inserts link syntax, and Indent and Outdent add and remove indentation.
+  The commands work on every line a selection touches, and each is one undo
+  step. On keyboard layouts where AltGr+digit types a character (² on
+  German), AltGr still types it; the left Ctrl+Alt is the heading chord.
+  Typing `*`, `_`, `` ` `` or `$` with text selected wraps the selection
+  instead of replacing it, a new third switch under Edit ▸ Typing, on by
+  default. The rules are written once (`docs/formatting.md`) and held by
+  137 test vectors every md app carries. (#3)
+
 ## [1.5] — 2026-09-23
 
 ### Added

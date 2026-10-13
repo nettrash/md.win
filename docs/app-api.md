@@ -20,7 +20,9 @@ public enum CommandId { New, Open, OpenRecentEntry, ClearRecent, OpenTextBundleF
     Close, Save, SaveAs, Duplicate, Rename, MoveTo, RevertToSaved, Print, ShareSource, ShareRenderedPdf,
     ExportPdf, ExportHtml, ExportEpub, ExportLaTeX, ExportTextBundle, ExportDiagramSvg, PdfPageSize, Exit,
     Undo, Redo, Cut, Copy, Paste, Delete, SelectAll, Find, FindNext, FindPrevious, Replace, UseSelectionForFind,
-    ContinueLists, CapitalizeSentences,
+    ContinueLists, CapitalizeSentences, WrapSelection,
+    Bold, Italic, InlineCode, Strikethrough, Link, Heading1, Heading2, Heading3, Heading4, Heading5, Heading6,
+    BulletList, TaskList, Quote, Indent, Outdent,
     ViewEdit, ViewSplit, ViewPreview, ZenMode, ShowSidebar, FullScreen,
     NewBook, OpenBook, ShowBook, CloseBook, ShareBookPdf, PrintBook, ExportBookPdf, ExportBookEpub,
     ExportBookLaTeX, PreviousArticle, NextArticle, Contents, Notes, Minimize, Zoom, ActivateWindow,
@@ -51,8 +53,8 @@ public static class CommandTable {
     public static readonly IReadOnlyList<string> MenuTitles;   // File, Edit, View, Book, Go, Window, Help
     public const string PdfPageSizeGroupName = "PdfPageSize";
     public const string ExitFullScreenTitle = "Exit Full Screen";
-    public static readonly IReadOnlyList<CommandSpec> All;             // 65 rows
-    public static readonly IReadOnlyList<CommandSpec> RootAccelerators; // 21 of the 28 chords
+    public static readonly IReadOnlyList<CommandSpec> All;             // 82 rows
+    public static readonly IReadOnlyList<CommandSpec> RootAccelerators; // 37 of the 44 chords
     public static CommandSpec For(CommandId id);
     public static IReadOnlyList<MenuNode> Menus { get; }               // the seven menus as a tree
     public static string DisplayTitle(CommandId id, ShellSnapshot s);  // Enter/Exit Full Screen
@@ -67,7 +69,8 @@ public sealed record ShellSnapshot(bool HasDocument, bool IsBookWindow, bool IsE
     bool CanPrevious, bool CanNext, bool EditorVisible, bool CanUndo, bool CanRedo,
     IReadOnlyList<RecentEntry> RecentEntries, IReadOnlyList<(Guid Id, string Title, bool IsThis)> WindowTitles,
     bool HasSelection, bool HasFindQuery, string PdfPageSizeId,
-    bool SidebarOpen = false, bool IsFullScreen = false, bool FindBarOpen = false) {
+    bool SidebarOpen = false, bool IsFullScreen = false, bool FindBarOpen = false,
+    bool ContinueLists = true, bool CapitalizeSentences = true, bool WrapSelection = true) {
     public static readonly ShellSnapshot Empty;
     public Md.Core.Document.ViewMode PublishedMode { get; } }   // Zen rule of §2.5 applied
 
@@ -102,10 +105,10 @@ App side (internal): `Md.App.Menus.MenuBarSources(IReadOnlyList<Md.Core.Document
 **Part B Core API I had to work around.** `Md.Core.Export.DiagramSvg.Diagram` does not exist in this checkout (Wave C). §13.2 puts it in `ShellSnapshot`; I carry `DiagramRef(int Ordinal, string MenuTitle)` instead — the only two fields the menu uses. Integration is one line at the snapshot producer: `Diagrams = DiagramSvg.Diagrams(text).Select(d => new DiagramRef(d.Ordinal, d.MenuTitle)).ToList()`. This also means `Md.App` no longer references Core for the command surface at all (§13.5's one stated exception disappears) — Md.App still references `Md.Core.Document.{Example, PageSize, ViewMode}` from the builder.
 
 **Decisions I had to take (all deviations from a literal §13.2, none from §2's behaviour):**
-1. `CommandSpec` gained two trailing optional parameters. `int Group` places the dividers §2 draws (a group change between siblings ⇒ a separator) without needing separator ids that would break "every id appears exactly once". `bool RootAccelerator` marks the seven chords §2.4 leaves to the focused control (Ctrl+Z/Y/X/C/V/A and Del): they are shown via `KeyboardAcceleratorTextOverride` but never registered on the root, so the `TextBox` and the `WebView2` keep their editing keys. 21 of the 28 chords are root accelerators.
+1. `CommandSpec` gained two trailing optional parameters. `int Group` places the dividers §2 draws (a group change between siblings ⇒ a separator) without needing separator ids that would break "every id appears exactly once". `bool RootAccelerator` marks the seven chords §2.4 leaves to the focused control (Ctrl+Z/Y/X/C/V/A and Del): they are shown via `KeyboardAcceleratorTextOverride` but never registered on the root, so the `TextBox` and the `WebView2` keep their editing keys. 37 of the 44 chords are root accelerators (21 of 28 before 1.6's Format menu).
 2. `MenuPath` is `MenuPath?` — null only for `Escape`, whose `CommandKind.Accelerator` has no menu row.
 3. **Submenu containers are not table rows.** "Share ▸", "Export ▸", "Export Book ▸", "Open Recent ▸", "Examples ▸", "Diagram as SVG ▸", "PDF Page Size ▸", "Contents ▸", "Notes ▸" come from the paths, so no ids had to be invented. Their enablement is `IsSubmenuEnabled` = "any command inside is enabled", which reproduces every §2 row exactly, including "Export ▸ is never disabled" (PDF Page Size inside it never is).
-4. **`ShellSnapshot` gained three trailing optional flags** the §13.2 field list omits but §2/§1.3 require: `SidebarOpen` (View ▸ Show Sidebar's tick), `IsFullScreen` (the Enter/Exit Full Screen title), `FindBarOpen` (with `ZenActive`, what makes Esc a command — an open find bar with an empty query is not `HasFindQuery`). Every producer of a snapshot must set these.
+4. **`ShellSnapshot` gained three trailing optional flags** the §13.2 field list omits but §2/§1.3 require: `SidebarOpen` (View ▸ Show Sidebar's tick), `IsFullScreen` (the Enter/Exit Full Screen title), `FindBarOpen` (with `ZenActive`, what makes Esc a command — an open find bar with an empty query is not `HasFindQuery`). Every producer of a snapshot must set these. The Edit ▸ Typing toggles follow them, each defaulting to on as its setting does: `ContinueLists`, `CapitalizeSentences` and (1.6) `WrapSelection` — the ticks of the three Typing rows, which every producer must also set from the window's settings.
 5. `DisplayedMode` is `Md.Core.Document.ViewMode` (§13.2 wrote `Mode`). `ShellSnapshot.PublishedMode` applies the Zen rule (`zenReading ? Preview : Edit`) so the View ticks are right even if a producer passes the window's raw mode.
 6. **`ShellSnapshot` has structural equality** over its five lists (records give reference equality). This is the Mac's focused-value semantics and is what makes "rebuild the Go/Diagram submenus on snapshot change" (§2.9, §14 row 27) not rebuild on every 250 ms derived-text tick.
 7. `Chord` uses `int VirtualKey` (§13.2) rather than §2.9's `KeyCode`; `VirtualKeys` gives them names and the values are `Windows.System.VirtualKey`'s, so `AcceleratorInstaller`'s cast is just a cast. `DisplayText` orders modifiers Ctrl → Alt → Shift (unambiguous for every chord md defines).

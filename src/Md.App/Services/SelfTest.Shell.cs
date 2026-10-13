@@ -197,9 +197,12 @@ internal static partial class SelfTest
 
             var typing = Submenu(bar, "Edit", "Typing");
             var typingRows = typing?.OfType<ToggleMenuFlyoutItem>().ToList() ?? [];
-            Add("menus." + label + ".typingTwoToggles",
-                typingRows.Select(t => t.Text).SequenceEqual([CommandTable.For(CommandId.ContinueLists).Title, CommandTable.For(CommandId.CapitalizeSentences).Title])
-                && typing!.Count == 2,
+            Add("menus." + label + ".typingThreeToggles",
+                typingRows.Select(t => t.Text).SequenceEqual([
+                    CommandTable.For(CommandId.ContinueLists).Title,
+                    CommandTable.For(CommandId.CapitalizeSentences).Title,
+                    CommandTable.For(CommandId.WrapSelection).Title])
+                && typing!.Count == 3,
                 string.Join(" | ", typingRows.Select(t => t.Text + (t.IsChecked ? " ✓" : ""))));
 
             var sizes = bar.Items.FirstOrDefault(i => i.Title == "File")?.Items.OfType<MenuFlyoutSubItem>().FirstOrDefault(s => s.Text == "Export")
@@ -382,7 +385,22 @@ internal static partial class SelfTest
             await Turn();
             Add("typing.enterIsOneUndoUnit", pane.Control.Text == "- a", "after one Undo: \"" + Show(pane.Control.Text) + "\"");
 
-            foreach (var (id, key) in new[] { (CommandId.ContinueLists, SettingsKeys.ContinueLists), (CommandId.CapitalizeSentences, SettingsKeys.CapitalizeSentences) })
+            // 1.6, docs/formatting.md: Format ▸ Bold through the dispatcher — the accelerator's path —
+            // wraps the selection, keeps it selected, and is one undo unit.
+            pane.SetText("say hello");
+            await Turn();
+            pane.Control.Select(4, 5);
+            window.SelfTestCommands.ResetDebounce();
+            var bolded = window.SelfTestCommands.TryInvoke(CommandId.Bold);
+            await Turn();
+            Add("format.boldWrapsTheSelection",
+                bolded && pane.Control.Text == "say **hello**" && pane.Control.SelectionStart == 6 && pane.Control.SelectionLength == 5,
+                $"ran={bolded}, text \"{Show(pane.Control.Text)}\", selection {pane.Control.SelectionStart}+{pane.Control.SelectionLength}");
+            pane.Undo();
+            await Turn();
+            Add("format.boldIsOneUndoUnit", pane.Control.Text == "say hello", "after one Undo: \"" + Show(pane.Control.Text) + "\"");
+
+            foreach (var (id, key) in new[] { (CommandId.ContinueLists, SettingsKeys.ContinueLists), (CommandId.CapitalizeSentences, SettingsKeys.CapitalizeSentences), (CommandId.WrapSelection, SettingsKeys.WrapSelection) })
             {
                 foreach (var wanted in new[] { false, true })
                 {

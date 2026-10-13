@@ -54,6 +54,7 @@ public class CommandAdversarialTests
         ["IsFullScreen"] = true,
         ["FindBarOpen"] = true,
         ["ContinueLists"] = false,                            // Empty's is the default, true
+        ["WrapSelection"] = false,                            // likewise
         ["CapitalizeSentences"] = false,
     };
 

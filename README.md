@@ -182,6 +182,20 @@ for code).
   Lists and Tables** and **Capitalize Sentences**, on by default and the
   same two switches on every md port; Shift+Enter is always a plain
   newline.
+- **Formatting.** A **Format** menu and the family's shortcuts: **Bold**
+  (Ctrl+B), **Italic** (Ctrl+I), **Code** (Ctrl+Shift+C),
+  **Strikethrough** (Ctrl+Shift+X), **Link** (Ctrl+K), **Heading 1–6**
+  (Ctrl+Alt+1–6), **Bullet List** (Ctrl+Shift+L), **Task List**
+  (Ctrl+Shift+T), **Quote** (Ctrl+Shift+Q), **Indent** / **Outdent**
+  (Ctrl+] / Ctrl+[). Bold, Italic, Code, Strikethrough, the headings, the
+  lists and Quote toggle — bold on `**word**` takes the stars off; Link
+  inserts link syntax, and Indent and Outdent add and remove indentation.
+  Each is one Ctrl+Z. AltGr still types: on a layout where AltGr+2 is a
+  character, it is the character, and the left Ctrl+Alt+2 is the heading.
+  Typing `*`, `_`, `` ` `` or `$` with a selection wraps it instead of
+  replacing it (**Edit ▸ Typing ▸ Wrap Selection When Typing \* _ ` $**,
+  on by default). The rules are the same on every md app, pinned by one
+  shared set of test vectors (`docs/formatting.md`).
 - **Print & share.** Print the *rendered* document (**File ▸ Print…**,
   Ctrl+P) through Chromium's print preview inside the window — paper and
   margins are the dialog's; untick its "Headers and footers" once and it
@@ -192,7 +206,9 @@ for code).
   that fall between lines of text, `\newpage` starting a fresh page. Export
   it as one self-contained `.html` file that opens anywhere with nothing
   beside it (diagrams as drawings, formulas as selectable text), as an
-  **EPUB** e-book with the document's own headings as its table of contents,
+  **EPUB** e-book with the document's own headings as its table of contents
+  and its front matter's `author`, `language`, `date`, `description`,
+  `series` / `series_index` and `cover` as the book's metadata,
   as LaTeX `.tex` source (formulas as the `$…$` you typed rather than a
   picture of them; diagram and plot sources kept under a comment), as a
   single **diagram** (Mermaid, Graphviz, PlantUML or a plot — math is HTML
@@ -285,7 +301,7 @@ The MSIX is produced by CI (`.github/workflows/windows.yml`), which builds
 ARM64 and uploads the packages **unsigned** — the Store signs what it
 publishes. The version is the MSIX `Version` in `Package.appxmanifest`
 (`Major.Minor.Build.Revision`, Revision 0 for the Store): the family's
-`1.5` is committed as `1.5.0.0`, and `BumpPackageVersion` in
+`1.6` is committed as `1.6.0.0`, and `BumpPackageVersion` in
 `Md.App.csproj` raises the third part on every build — there is no
 `agvtool bump` or Gradle `versionCode` finalizer, but a resubmission is
 still always strictly greater than the last

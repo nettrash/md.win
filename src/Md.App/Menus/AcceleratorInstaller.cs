@@ -6,7 +6,9 @@
 // forwarded by the WebView2 that would fire three times), and there is no CoreWebView2Controller
 // bridge — the WinUI WebView2 does not expose its controller. The double fire the forwarding causes
 // (microsoft-ui-xaml #6231) is absorbed by CommandDispatcher's 150 ms guard instead.
+using Md.App.Interop;
 using Md.App.Logic.Commands;
+using Md.App.Logic.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Input;
 using Windows.System;
@@ -37,7 +39,20 @@ internal static class AcceleratorInstaller
                 Key = (VirtualKey)chord.VirtualKey,
                 Modifiers = Modifiers(chord.Modifiers),
             };
-            accelerator.Invoked += (_, args) => args.Handled = dispatcher.TryInvoke(id);
+            accelerator.Invoked += (_, args) =>
+            {
+                // docs/formatting.md §5: AltGr is Ctrl+Alt, so AltGr+2 (² on German) arrives as the
+                // Heading 2 chord. When the layout types a character there and the right Alt is the
+                // one held, the key is the writer's, not ours — let it through unhandled.
+                if (HeadingChordGuard.IsHeading(id)
+                    && !HeadingChordGuard.Formats(
+                        KeyboardLayout.TypesCharacterWithCtrlAlt(chord.VirtualKey), KeyboardLayout.RightAltDown, KeyboardLayout.LeftAltDown))
+                {
+                    args.Handled = false;
+                    return;
+                }
+                args.Handled = dispatcher.TryInvoke(id);
+            };
             root.KeyboardAccelerators.Add(accelerator);
         }
     }

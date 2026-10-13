@@ -77,7 +77,14 @@ public sealed class FakeFileSystem : IFileSystem
 
     public bool DirectoryExists(string path) => _dirs.Contains(Key(path));
 
-    public byte[] ReadAllBytes(string path) => Existing(path).Bytes.ToArray();
+    /// <summary>Every path <see cref="ReadAllBytes"/> was asked for, in order.</summary>
+    public List<string> Reads { get; } = [];
+
+    public byte[] ReadAllBytes(string path)
+    {
+        Reads.Add(path);
+        return Existing(path).Bytes.ToArray();
+    }
 
     public void WriteAllBytesInPlace(string path, ReadOnlySpan<byte> bytes)
     {

@@ -1,4 +1,5 @@
 using Md.App.Logic.Commands;
+using Md.App.Logic.Text;
 using Md.Core.Markdown;
 
 namespace Md.App.Logic.Tests;
@@ -188,6 +189,23 @@ public class CommandTableTests
         { CommandId.NextArticle, "Ctrl+Alt+Down" },
         { CommandId.Help, "F1" },
         { CommandId.Escape, "Esc" },
+        // Format (1.6, docs/formatting.md §5) — the family's chords, nettrash's 2026-10-10 decision.
+        { CommandId.Bold, "Ctrl+B" },
+        { CommandId.Italic, "Ctrl+I" },
+        { CommandId.InlineCode, "Ctrl+Shift+C" },
+        { CommandId.Strikethrough, "Ctrl+Shift+X" },
+        { CommandId.Link, "Ctrl+K" },
+        { CommandId.Heading1, "Ctrl+Alt+1" },
+        { CommandId.Heading2, "Ctrl+Alt+2" },
+        { CommandId.Heading3, "Ctrl+Alt+3" },
+        { CommandId.Heading4, "Ctrl+Alt+4" },
+        { CommandId.Heading5, "Ctrl+Alt+5" },
+        { CommandId.Heading6, "Ctrl+Alt+6" },
+        { CommandId.BulletList, "Ctrl+Shift+L" },
+        { CommandId.TaskList, "Ctrl+Shift+T" },
+        { CommandId.Quote, "Ctrl+Shift+Q" },
+        { CommandId.Indent, "Ctrl+]" },
+        { CommandId.Outdent, "Ctrl+[" },
     };
 
     [Theory]
@@ -200,7 +218,7 @@ public class CommandTableTests
     }
 
     [Fact]
-    public void OnlyTheseTwentyEightRowsCarryAChord()
+    public void OnlyTheseFortyFourRowsCarryAChord()
     {
         var withChords = CommandTable.All.Where(s => s.Chord is not null).Select(s => s.Id).ToHashSet();
         Assert.Equal(Chords.Select(row => (CommandId)row[0]!).OrderBy(i => i), withChords.OrderBy(i => i));
@@ -246,7 +264,7 @@ public class CommandTableTests
         }
         Assert.Equal(controlOwned.OrderBy(i => i), CommandTable.All.Where(s => !s.RootAccelerator).Select(s => s.Id).OrderBy(i => i));
         Assert.DoesNotContain(CommandTable.RootAccelerators, s => controlOwned.Contains(s.Id));
-        Assert.Equal(21, CommandTable.RootAccelerators.Count);
+        Assert.Equal(37, CommandTable.RootAccelerators.Count);
     }
 
     [Theory]
@@ -268,9 +286,9 @@ public class CommandTableTests
     // ── The bar ───────────────────────────────────────────────────────────────────────────────
 
     [Fact]
-    public void TheBarIsSevenMenusInTheMacsOrderWithoutTheAppMenu()
+    public void TheBarIsEightMenusInTheMacsOrderWithoutTheAppMenu()
     {
-        Assert.Equal<string>(["File", "Edit", "View", "Book", "Go", "Window", "Help"], CommandTable.MenuTitles);
+        Assert.Equal<string>(["File", "Edit", "Format", "View", "Book", "Go", "Window", "Help"], CommandTable.MenuTitles);
         Assert.Equal(CommandTable.MenuTitles, CommandTable.Menus.Select(m => m.Title).ToList());
         Assert.All(CommandTable.Menus, m => Assert.Null(m.Command));
     }
@@ -322,8 +340,9 @@ public class CommandTableTests
     public void TheTypingRowsAreTogglesWithoutChordsUnderEditTypingWordedAsEveryPortWordsThem()
     {
         // smart-typing.md §3.1: the same two titles on every md port, under the same "Typing" heading
-        // (a submenu here, as on the Mac), no shortcut, ticked from the settings.
-        foreach (var id in new[] { CommandId.ContinueLists, CommandId.CapitalizeSentences })
+        // (a submenu here, as on the Mac), no shortcut, ticked from the settings. 1.6 adds the third,
+        // the wrap of docs/formatting.md §4, worded as that document words it.
+        foreach (var id in new[] { CommandId.ContinueLists, CommandId.CapitalizeSentences, CommandId.WrapSelection })
         {
             var spec = CommandTable.For(id);
             Assert.Equal(CommandKind.Toggle, spec.Kind);
@@ -334,7 +353,7 @@ public class CommandTableTests
         var typing = Child(Menu("Edit"), "Typing");
         Assert.Null(typing.Command);                                  // a container, not a row
         Assert.True(typing.SeparatorBefore);
-        Assert.Equal<string>(["Continue Lists and Tables", "Capitalize Sentences"], Rows(typing));
+        Assert.Equal<string>(["Continue Lists and Tables", "Capitalize Sentences", "Wrap Selection When Typing * _ ` $"], Rows(typing));
         Assert.All(typing.Children, c => Assert.Equal(CommandKind.Toggle, c.Command!.Kind));
     }
 
@@ -348,10 +367,46 @@ public class CommandTableTests
             "File ▸ Open Recent", "File ▸ Examples", "File ▸ Share", "File ▸ Export",
             "File ▸ Export ▸ Diagram as SVG", "File ▸ Export ▸ PDF Page Size",
             "Edit ▸ Typing",
+            "Format ▸ Heading",
             "Book ▸ Export Book",
             "Go ▸ Contents", "Go ▸ Notes",
         ], submenus);
     }
+
+    [Fact]
+    public void FormatReadsAsTheFormattingSpecDoes()
+    {
+        // docs/formatting.md §5: the inline marks, the headings, the line blocks, the indent pair.
+        Assert.Equal<string>(
+        [
+            "Bold", "Italic", "Code", "Strikethrough", "Link",
+            "—", "Heading",
+            "—", "Bullet List", "Task List", "Quote",
+            "—", "Indent", "Outdent",
+        ], Rows(Menu("Format")));
+        Assert.Equal<string>(["Heading 1", "Heading 2", "Heading 3", "Heading 4", "Heading 5", "Heading 6"], Rows(Child(Menu("Format"), "Heading")));
+        Assert.All(FormattingAdapter.Commands, id =>
+        {
+            var spec = CommandTable.For(id);
+            Assert.Equal(CommandKind.Item, spec.Kind);
+            Assert.True(spec.RootAccelerator);
+            Assert.False(spec.WindowsOnly);
+        });
+        Assert.Equal(16, FormattingAdapter.Commands.Count);
+    }
+
+    [Fact]
+    public void NoTwoRowsShareAChord()
+    {
+        var chords = CommandTable.All.Where(s => s.Chord is not null).Select(s => s.Chord!.Value).ToList();
+        Assert.Equal(chords.Count, chords.Distinct().Count());
+    }
+
+    [Theory]
+    [InlineData(VirtualKeys.OpenBracket, "[")]
+    [InlineData(VirtualKeys.CloseBracket, "]")]
+    [InlineData(VirtualKeys.Number6, "6")]
+    public void TheBracketKeysReadAsTheirCharacters(int virtualKey, string expected) => Assert.Equal(expected, Chord.KeyName(virtualKey));
 
     [Fact]
     public void ViewReadsAsSection25Does() =>

@@ -44,6 +44,12 @@ sealed class ExportHarness : IDisposable
 
     public ExportPipeline Pipeline { get; }
 
+    /// <summary>What an EPUB cover fetch answers; null (a failed fetch) unless a test says otherwise. No test reaches the network.</summary>
+    public Func<string, byte[]?> Fetch { get; set; } = _ => null;
+
+    /// <summary>Every https cover URL the pipeline asked for, in order.</summary>
+    public List<string> Fetched { get; } = [];
+
     /// <remarks>
     /// The harness holds a <see cref="NoSyncContext"/> for its lifetime, so
     /// <c>using var h = new ExportHarness();</c> is not optional — see that type for why.
@@ -64,7 +70,12 @@ sealed class ExportHarness : IDisposable
 
         Pipeline = new ExportPipeline(
             Renderers, Pickers, Share, Alerts, Files, ReadAsset,
-            Scheduler, Identity, Temp, (wrapper, folder) => Bundles.Add((wrapper, folder)));
+            Scheduler, Identity, Temp, (wrapper, folder) => Bundles.Add((wrapper, folder)),
+            (url, _) =>
+            {
+                Fetched.Add(url);
+                return Task.FromResult(Fetch(url));
+            });
     }
 
     byte[]? ReadAsset(string key)
