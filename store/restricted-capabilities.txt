@@ -14,6 +14,6 @@ WHAT IT DOES NOT DO
 md installs no service, driver, scheduled task or startup entry, and never requests elevation. It writes nothing outside the files the user chose and its own app data. It declares no camera, microphone, location or contacts capability, and no broad file system access. It has no accounts, sign-in, purchases, analytics or advertising, and no servers of ours.
 
 CODE AND NETWORK
-The rendering engines (KaTeX with mhchem, Mermaid, Graphviz via Viz.js, PlantUML and highlight.js) are open source and bundled inside the package. They are served to WebView2 from the package itself, and nothing is downloaded, updated or executed from a remote source at run time. The only network use is the WebView2 renderer fetching an image that a user's own document references by URL. The WebView2 Runtime is the one Windows 11 ships.
+The rendering engines (KaTeX with mhchem, Mermaid, Graphviz via Viz.js, PlantUML and highlight.js) are open source and bundled inside the package. They are served to WebView2 from the package itself, and nothing is downloaded, updated or executed from a remote source at run time. The only network use is the WebView2 renderer fetching an image that a user's own document references by URL, and an EPUB export fetching the one https cover image that the document's front matter names (at most 20 MB in 15 seconds, following at most five redirects, each of which must stay https). The WebView2 Runtime is the one Windows 11 ships.
 
 Privacy policy: https://nettrash.me/msstore/md/privacy.html

@@ -2,7 +2,7 @@ Version 1.6
 
 FORMATTING
 • A Format menu with the shortcuts every md app now shares: Bold (Ctrl+B), Italic (Ctrl+I), Code (Ctrl+Shift+C), Strikethrough (Ctrl+Shift+X), Link (Ctrl+K), Heading 1 to 6 (Ctrl+Alt+1 to 6), Bullet List (Ctrl+Shift+L), Task List (Ctrl+Shift+T), Quote (Ctrl+Shift+Q), Indent and Outdent (Ctrl+] and Ctrl+[).
-• Each one toggles, works on every line you have selected, and is a single undo step.
+• Bold, Italic, Code, Strikethrough, the headings, the lists and Quote take the mark off again when it is already there. Headings, lists, quotes and indents work on every line you have selected, and every command is a single undo step.
 • Typing *, _, a backtick or $ with text selected wraps the selection instead of replacing it. It is a switch under Edit, Typing, and on by default.
 • On keyboards where AltGr and a digit types a character, AltGr still types it; the left Ctrl+Alt is the heading shortcut.
 

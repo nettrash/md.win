@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Effective date:** 6 September 2026
+**Effective date:** 13 October 2026
 **Applies to:** md for Windows — the Windows 11 Markdown editor published
 by nettrash on the Microsoft Store. This policy is versioned alongside the
 app's source code; the most recent commit on `main` is authoritative.
