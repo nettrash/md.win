@@ -1124,7 +1124,8 @@ Autosave never clears it; only an explicit Save does. Imported bundles show the 
 - `EvalAsync<T>(script)`: `ExecuteScriptAsync` → JSON-decode (`JsonSerializer.Deserialize<T>`; the four
   characters `null` → `default`). Never write a raw result to disk.
 - `CaptureRegionPngAsync(rect, scale)`: `CallDevToolsProtocolMethodAsync("Page.captureScreenshot", json)` with
-  `{"format":"png","clip":{"x":X,"y":Y,"width":max(W,1),"height":max(H,1),"scale":2},"captureBeyondViewport":true}`
+  `{"format":"png","clip":{"x":X,"y":Y,"width":max(W,1),"height":max(H,1),"scale":scale},"captureBeyondViewport":true}`
+  — `scale` is the caller's `RichSnapshotter.ScaleFor(W, H)` (§7.5), 2 unless the PNG would pass 16 Mpx —
   → `{"data": base64}` → bytes. Fallback if the CDP call throws on some runtime: `Scripts.CanvasRasterise`
   (the VS Code canvas rasteriser — formulas then keep their source text).
 - `PdfAsync(settings)`: `PrintToPdfAsync(tempPath, settings)` (returns `false` → "The PDF pages could not be produced.").
@@ -1206,7 +1207,8 @@ then `BookOutput.ExportEpub()` → flush gate → `BookFolder.ReadStructuredBook
    without it: Mermaid's `max-width: 100%` layout must be final before rects are read;
 3. `rects = EvalAsync<double[][]>(Scripts.RichElements)` (the 5-column Mac script; rows with `Length != 5`
    dropped, degenerate rects **kept**);
-4. per rect `CaptureRegionPngAsync(rect, 2)`; Core pairs PNGs 1:1 with `ReplacingRichElements` and **throws**
+4. per rect `CaptureRegionPngAsync(rect, RichSnapshotter.ScaleFor(w, h))` — 2 while the PNG fits 16 Mpx, less past
+   it (1.6: the raised PlantUML gate no longer bounds a tall diagram); Core pairs PNGs 1:1 with `ReplacingRichElements` and **throws**
    on a DOM-count vs markup-count mismatch (Android's guard, adopted) → "The rich-content images could not be
    captured."; tags `<img src="images/unit-{unit:000}-rich-{i}.png" alt="{formula|diagram}" width="{Math.Round(w, MidpointRounding.AwayFromZero)}"/>`.
 Alert "Could not export EPUB".
@@ -1587,8 +1589,7 @@ Ranked by how late the failure would be noticed.
    a dirty untitled window prompts on close and is not restored).
 5. **Product traits inherited on purpose (do not "fix")**: local relative images never render in the preview
    or the HTML export; `javascript:` links are blocked host-side only; Mermaid's first-block light-theme race
-   in dark mode (family-wide, documented in md.vscode); the `plantuml.js` 4096 px gate (app copy shipped —
-   the md.vscode lift is a one-line candidate, not taken); raw HTML escaped, no reference links, `.dot`
+   in dark mode (family-wide, documented in md.vscode); raw HTML escaped, no reference links, `.dot`
    unclaimed.
 6. **Caret colour**: the WinUI `TextBox` has no caret brush; the caret is ink, not accent.
 7. **Ctrl+Alt+↑/↓** may collide with legacy Intel display-rotation hotkeys; Alt+↑/↓ is the one-row fallback.
