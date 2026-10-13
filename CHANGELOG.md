@@ -38,6 +38,21 @@ own 1.4 — and from here md.win is versioned with them.
   size rather than at any size. A pin test fails if a future engine update
   brings the gate back. (#1)
 
+### Added
+
+- **An EPUB carries its author, language, date, description, series and
+  cover.** They come from the front matter — `author`, `language`, `date`,
+  `description`, `series` and `series_index`, matched as `title` is —
+  instead of the fixed `en` and nothing else every md EPUB carried. A
+  language that is not a tag stays `en`; a date that is not a real W3C
+  date (2026-02-29, a 13th month, 24:00) is left out. `cover:` puts an
+  image on the book when it can be read — a file beside the document (or
+  beside the article, inside a book folder), an `https:` image or a
+  `data:` image, in PNG, JPEG, GIF or WebP — and is skipped silently
+  otherwise. Every md EPUB writer changed together and writes the same
+  lines; without front matter the package document is byte-identical to
+  1.5's. A book's own EPUB keeps its defaults. (#2)
+
 ## [1.5] — 2026-09-23
 
 ### Added

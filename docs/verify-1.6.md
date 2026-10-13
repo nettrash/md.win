@@ -15,3 +15,20 @@ Release build, then note the date and build here.
    - Export as EPUB: the snapshot is present and not blank (it is drawn at the
      page width, then scaled by the reader).
 2. A 3-participant diagram looks exactly as it did in 1.5.
+
+## #2 EPUB metadata and cover
+
+Core and App.Logic carry the rules and the reading (EPUBCheck 5.1.0 passed on
+Core's output on macOS); what is left is the real file system, the network and
+a real reader.
+
+1. Save `C:\tmp\book\notes.md` with front matter `author`, `language: de`,
+   `date: 2026-10-10`, `series: S`, `series_index: 2` and `cover: cover.png`,
+   with a PNG `cover.png` beside it. Export ▸ EPUB…: the book opens in a reader
+   (e.g. Thorium) with that cover, author and series.
+2. Change to `cover: https://<any https PNG/JPEG>` — the cover appears; with the
+   network off the export still succeeds, without a cover, after at most 15 s.
+3. `cover: ../outside.png` (a file one folder up): no cover, no error.
+4. Open the folder as a book, export the article holding `cover: cover.png`
+   (beside the article): the cover appears.
+5. A document with no front matter exports exactly as in 1.5.

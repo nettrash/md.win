@@ -52,6 +52,7 @@ public sealed class ExportPipeline
     readonly string _temporaryFolder;
     readonly Action<BundleWrapper, string> _writeBundle;
     readonly RichSnapshotter _snapshotter;
+    readonly Func<string, CancellationToken, Task<byte[]?>> _fetchCover;
     readonly SemaphoreSlim _gate = new(1, 1);
     readonly CancellationTokenSource _cancellation = new();
 
@@ -72,6 +73,10 @@ public sealed class ExportPipeline
     /// How a TextBundle folder is written. Core does the real I/O (staging directory, atomic swap);
     /// the parameter exists so a test can watch it happen without touching a disk.
     /// </param>
+    /// <param name="fetchCover">
+    /// Fetches an EPUB's <c>cover: https://…</c> image; <see cref="CoverReader.FetchAsync"/> by default.
+    /// A test seam, so no test reaches the network.
+    /// </param>
     public ExportPipeline(
         IRenderSurfaceFactory renderers,
         IPickers pickers,
@@ -82,7 +87,8 @@ public sealed class ExportPipeline
         IScheduler? scheduler = null,
         IFileIdentity? identity = null,
         string? temporaryFolder = null,
-        Action<BundleWrapper, string>? writeBundle = null)
+        Action<BundleWrapper, string>? writeBundle = null,
+        Func<string, CancellationToken, Task<byte[]?>>? fetchCover = null)
     {
         ArgumentNullException.ThrowIfNull(renderers);
         ArgumentNullException.ThrowIfNull(pickers);
@@ -102,6 +108,7 @@ public sealed class ExportPipeline
         _temporaryFolder = temporaryFolder ?? Path.GetTempPath();
         _writeBundle = writeBundle ?? ((wrapper, folder) => wrapper.Write(folder));
         _snapshotter = new RichSnapshotter(renderers, scheduler);
+        _fetchCover = fetchCover ?? CoverReader.FetchAsync;
     }
 
     /// <summary>
@@ -244,7 +251,11 @@ public sealed class ExportPipeline
     /// matches it, the picker opens before anything is photographed, and the plan is fixed before the
     /// browser is involved at all.
     /// </summary>
-    public Task ExportEpubAsync(string source, string fileName) =>
+    /// <param name="documentPath">
+    /// The document's file, so a <c>cover:</c> naming an image beside it can be read (contained, as
+    /// the TextBundle export reads images); null for an unsaved document, which then finds none.
+    /// </param>
+    public Task ExportEpubAsync(string source, string fileName, string? documentPath = null) =>
         Guarded(Strings.Exports.CouldNotExportEpub, async ct =>
         {
             var title = EpubExport.DocumentTitle(source, fileName);
@@ -252,7 +263,7 @@ public sealed class ExportPipeline
             var picked = await _pickers.SaveFileAsync(ExportNames.Epub(title), ExportNames.EpubChoices, ExportNames.EpubExtension).ConfigureAwait(false);
             if (picked is null) return;
 
-            await BuildEpubAsync(EpubExport.PlanDocument(source, title), picked, ct).ConfigureAwait(false);
+            await BuildEpubAsync(EpubExport.PlanDocument(source, title), picked, ct, documentPath).ConfigureAwait(false);
         });
 
     /// <summary>
@@ -270,10 +281,13 @@ public sealed class ExportPipeline
             await BuildEpubAsync(EpubExport.PlanBook(book), picked, ct).ConfigureAwait(false);
         });
 
-    async Task BuildEpubAsync(EpubPlan plan, string path, CancellationToken ct)
+    async Task BuildEpubAsync(EpubPlan plan, string path, CancellationToken ct, string? documentPath = null)
     {
         var snapshots = await _snapshotter.CaptureAsync(plan, ct).ConfigureAwait(false);
-        _fileSystem.WriteAllBytesInPlace(path, EpubExport.Assemble(plan, snapshots));
+        var cover = await CoverReader.ReadAsync(
+            plan.Cover, AssetReader.Beside(documentPath, _fileSystem, _identity, EpubMetadataReader.MaxCoverBytes),
+            _fetchCover, ct).ConfigureAwait(false);
+        _fileSystem.WriteAllBytesInPlace(path, EpubExport.Assemble(plan, snapshots, cover: cover));
     }
 
     // ────────────────────────── LaTeX and SVG (§7.6) ────────────────────────────
