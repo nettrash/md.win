@@ -14,9 +14,9 @@ now on, one submission per release.
 | File | Partner Center field | Limit | Current |
 | --- | --- | --- | --- |
 | — | Product name | A reserved name; policy 10.1.1 forbids descriptive or marketing text in it, so reserve **md** (fallback if taken: **md by nettrash**, never "md — Markdown editor") | — |
-| `description.txt` | Store listing ▸ Description | 10 000 chars, plain text — no HTML, code snippets or URLs (links go in their own fields) | 5684 |
-| `release-notes.txt` | Store listing ▸ What's new in this version | 1 500 chars; **left blank on the first submission** — Microsoft says so in the field's own help — and written per submission from 1.5 on | 1399 |
-| `features.txt` | Store listing ▸ Product features | up to 20 features, ≤ 200 chars each, one per line, **no bullets of our own** (the Store adds them) | 20 lines, longest 194 |
+| `description.txt` | Store listing ▸ Description | 10 000 chars, plain text — no HTML, code snippets or URLs (links go in their own fields) | 6339 |
+| `release-notes.txt` | Store listing ▸ What's new in this version | 1 500 chars; **left blank on the first submission** — Microsoft says so in the field's own help — and written per submission from 1.5 on | 1322 |
+| `features.txt` | Store listing ▸ Product features | up to 20 features, ≤ 200 chars each, one per line, **no bullets of our own** (the Store adds them) | 20 lines, longest 195 |
 | `short-description.txt` | Supplemental ▸ Short description | 1 000 chars, but some views show only the first 270 — keep under 270 | 265 |
 | `system-requirements.txt` | Supplemental ▸ Additional system requirements | up to 11 items each for Minimum and Recommended hardware, ≤ 200 chars each, no bullets | 3 minimum, 2 recommended, longest 91 |
 | `search-terms.txt` | Properties ▸ Search terms | ≤ 7 unique terms or phrases (policy 10.1.3); the form has capped each at 30 chars and the set at 21 unique words | 7 terms |
@@ -25,8 +25,8 @@ now on, one submission per release.
 | — | Supplemental ▸ Short title / Sort title / Voice title | 50 / 255 / 255 — Xbox-facing, leave blank | blank |
 | `privacy-policy-url.txt` | Properties ▸ Privacy policy URL | **Mandatory** for a `runFullTrust` (desktop) app — policy 10.5.1 | 43 |
 | `support-url.txt` | Properties ▸ Website and Support contact info | a URL; the same page the app opens from Help ▸ md Help | 43 |
-| `restricted-capabilities.txt` | Submission options ▸ Restricted capabilities ▸ "Why do you need the runFullTrust capability, and how will it be used in your product?" | no documented limit; keep it one screen and specific | 2204 |
-| `certification-notes.txt` | Submission options ▸ Notes for certification | no documented limit; the form has capped it at 2 000 chars — stay under | 1983 |
+| `restricted-capabilities.txt` | Submission options ▸ Restricted capabilities ▸ "Why do you need the runFullTrust capability, and how will it be used in your product?" | no documented limit; keep it one screen and specific | 2393 |
+| `certification-notes.txt` | Submission options ▸ Notes for certification | no documented limit; the form has capped it at 2 000 chars — stay under | 1994 |
 | `screenshots/` | Store listing ▸ Screenshots | at least 1; desktop up to 10; PNG, **1366 × 768 or larger** (4K allowed), ≤ 50 MB each; a caption ≤ 200 chars each | 5 shots, 3482 × 2098 each, ≤ 0.43 MB; captions in `screenshots/captions.txt` |
 | `logos/app-tile-icon-300x300.png` | Store listing ▸ Store logos ▸ 1:1 app tile icon | 300 × 300 PNG, strongly recommended (otherwise the Store uses the package's logo) | 300 × 300 |
 | `logos/box-art-1080x1080.png` | Store listing ▸ Store logos ▸ Box art (1:1) | 1080 × 1080 PNG | 1080 × 1080 |
@@ -68,7 +68,8 @@ listing must describe *this* version, not the roadmap.
   A REAL WINDOWS APP.
 - Privacy claims match the code *and* `PRIVACY.md` — the policy the
   listing links to. Both say the same thing: nothing is collected, and the
-  only network use is fetching an image a document itself points at.
+  only network use is fetching an image a document itself points at, or
+  the `https:` cover its front matter names for an EPUB export.
 - Shortcuts are written the Windows way (`Ctrl+1`, `Ctrl+Alt+Up`), never
   with Mac glyphs.
 
@@ -91,8 +92,9 @@ Windows-specific:
 - **Not** "zero permissions", "no network", "no network access" or "makes
   no network connections" — the preview fetches an image a document names
   by URL, and WebView2 is Microsoft's runtime with its own diagnostics.
-  Say "the only thing md fetches from the network is an image your own
-  document points at by URL".
+  Say "the only things md fetches from the network are an image your own
+  document points at by URL, and the cover an EPUB's front matter names by
+  an https address".
 - Private notes are hidden from the preview / PDF / print **only when the
   comment is on its own line**; inline, it renders.
 - Pagination is line-aware for *text*. A diagram taller than the page can
@@ -189,6 +191,9 @@ kept because a later submission re-uses or re-checks them.
       `store/screenshots/` with their captions in `captions.txt`, and the
       store logos in `store/logos/`. The recipe for new ones, and the six
       shots originally planned, are under *Screenshots to capture* above.
+      They were taken for 1.5, so their menu bar has no **Format** menu
+      (1.6 puts it between Edit and View). Nothing in them is untrue of
+      1.6, but a retake on Windows would show it.
 - [x] **IARC age-rating questionnaire.** Answered in the 1.0 submission form
       (policy 11.11); the rating carries over. The intended answers are
       under *Age rating (IARC)* above — answer the substance if asked again,
@@ -213,8 +218,8 @@ kept because a later submission re-uses or re-checks them.
       *Properties and declarations*). Re-check both answer 200 before each
       submission.
 - [ ] **Paste the release notes.** Store listing ▸ *What's new in this
-      version* is blank from the 1.0 submission; 1.5 fills it from
-      `release-notes.txt`.
+      version* takes `release-notes.txt`, rewritten for each submission
+      (1.5 was the first to fill it; 1.6 replaces it).
 
 ## Release notes, submission by submission
 
