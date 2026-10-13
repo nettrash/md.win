@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using Md.App.Logic.Commands;
+using Md.App.Logic.Text;
 using Md.Core.Markdown;
 
 namespace Md.App.Logic.Tests;
@@ -499,19 +500,51 @@ public sealed class WindowSurfaceTests
             "Panes.Editor.UseSettings(null);",
             "var typing = TypingSettings.Read(_services.Settings);",
             "ContinueLists: typing.ContinueLists,",
-            "CapitalizeSentences: typing.CapitalizeSentences);",
+            "CapitalizeSentences: typing.CapitalizeSentences,",
+            "WrapSelection: WrapSelectionSetting.Read(_services.Settings));",
             "TypingSettings.IsKey(key)) _ui.Post(Publish);",
-            "TypingSettings.Toggle(_services.Settings, key);");
+            "else if (WrapSelectionSetting.IsKey(key)) _ui.Post(Publish);",
+            "TypingSettings.Toggle(_services.Settings, key);",
+            "WrapSelectionSetting.Toggle(_services.Settings);");
         Pins(BookWindowFile, "§3.6",
             "_panes.Editor.UseSettings(_services.Settings);",
             "_panes.Editor.UseSettings(null);",
             "var typing = TypingSettings.Read(_services.Settings);",
             "ContinueLists = typing.ContinueLists,",
             "CapitalizeSentences = typing.CapitalizeSentences,",
-            "else if (TypingSettings.IsKey(key)) _services.UiThread.Post(Publish);");
+            "else if (TypingSettings.IsKey(key)) _services.UiThread.Post(Publish);",
+            "WrapSelection = WrapSelectionSetting.Read(_services.Settings),",
+            "else if (WrapSelectionSetting.IsKey(key)) _services.UiThread.Post(Publish);");
         Pins(ManagerFile, "§3.6",
             "commands.Register(CommandId.ContinueLists, () => TypingSettings.Toggle(_services.Settings, SettingsKeys.ContinueLists));",
-            "commands.Register(CommandId.CapitalizeSentences, () => TypingSettings.Toggle(_services.Settings, SettingsKeys.CapitalizeSentences));");
+            "commands.Register(CommandId.CapitalizeSentences, () => TypingSettings.Toggle(_services.Settings, SettingsKeys.CapitalizeSentences));",
+            "commands.Register(CommandId.WrapSelection, () => WrapSelectionSetting.Toggle(_services.Settings));");
+    }
+
+    /// <summary>
+    /// docs/formatting.md: every Format row reaches the editor through <c>EditorPane.ApplyFormat</c>,
+    /// the one place that applies an edit as a single undo unit — in the document window and, for the
+    /// article, in the Book window — and the wrap is planned before the typing hooks see the change.
+    /// </summary>
+    [Fact]
+    public void EveryFormatRowGoesThroughThePane()
+    {
+        foreach (var id in FormattingAdapter.Commands)
+        {
+            Pins(DocumentWindowFile, "docs/formatting.md", $"_dispatcher.Register(CommandId.{id}, () => Panes.Editor.ApplyFormat(CommandId.{id}));");
+            Pins(ManagerFile, "docs/formatting.md", $"commands.Register(CommandId.{id}, () => window.EditorPane.ApplyFormat(CommandId.{id}));");
+        }
+        Pins("../Controls/EditorPane.cs", "docs/formatting.md",
+            "public void ApplyFormat(Md.App.Logic.Commands.CommandId id)",
+            "FormattingAdapter.Edit(_box.Text, _box.SelectionStart, _box.SelectionLength, op)",
+            "_box.Select(edit.Start, edit.End - edit.Start);",
+            "_box.SelectedText = edit.Text;",
+            "PlanWrap(e.NewText);",
+            "FormattingAdapter.StillApplies(wrap, _box.Text, _box.SelectionStart, _box.SelectionLength)",
+            "_wrapSelection = WrapSelectionSetting.Read(_settings);");
+        Pins("../Menus/AcceleratorInstaller.cs", "docs/formatting.md §5",
+            "HeadingChordGuard.IsHeading(id)",
+            "KeyboardLayout.TypesCharacterWithCtrlAlt(chord.VirtualKey), KeyboardLayout.RightAltDown, KeyboardLayout.LeftAltDown");
     }
 
     /// <summary>

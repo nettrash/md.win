@@ -422,7 +422,7 @@ public class CommandEnablementTests
     [Fact]
     public void NothingElseIsEverTicked()
     {
-        CommandId[] toggles = [CommandId.ViewEdit, CommandId.ViewSplit, CommandId.ViewPreview, CommandId.ZenMode, CommandId.ShowSidebar, CommandId.ContinueLists, CommandId.CapitalizeSentences];
+        CommandId[] toggles = [CommandId.ViewEdit, CommandId.ViewSplit, CommandId.ViewPreview, CommandId.ZenMode, CommandId.ShowSidebar, CommandId.ContinueLists, CommandId.CapitalizeSentences, CommandId.WrapSelection];
         var full = Document with { ZenActive = true, ZenReading = true, SidebarOpen = true, IsBookWindow = true, IsFullScreen = true };
         foreach (var id in Enum.GetValues<CommandId>().Where(i => !toggles.Contains(i)))
             Assert.False(CommandEnablement.IsChecked(id, full));

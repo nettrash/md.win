@@ -7,14 +7,14 @@ namespace Md.App.Logic.Tests;
 public class SettingsKeysTests
 {
     [Fact]
-    public void The_ten_keys_are_pinned_in_section_9_order()
+    public void The_eleven_keys_are_pinned_in_section_9_order()
     {
         Assert.Equal(
             new[]
             {
                 "md.viewModeMemory", "md.pdfPageSize", "md.bookBookmark", "md.bookOpensInSeparateWindows",
                 "md.bookLastArticle", "md.bookViewMode", "md.win.windowSize.document", "md.win.windowSize.book",
-                "md.continueLists", "md.capitalizeSentences",
+                "md.continueLists", "md.capitalizeSentences", "md.wrapSelection",
             },
             SettingsKeys.All);
     }

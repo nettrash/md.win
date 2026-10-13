@@ -52,6 +52,21 @@ own 1.4 — and from here md.win is versioned with them.
   otherwise. Every md EPUB writer changed together and writes the same
   lines; without front matter the package document is byte-identical to
   1.5's. A book's own EPUB keeps its defaults. (#2)
+- **A Format menu, and the shortcuts every md app now shares.** Bold
+  (Ctrl+B), Italic (Ctrl+I), Code (Ctrl+Shift+C), Strikethrough
+  (Ctrl+Shift+X), Link (Ctrl+K), Heading 1–6 (Ctrl+Alt+1–6), Bullet List
+  (Ctrl+Shift+L), Task List (Ctrl+Shift+T), Quote (Ctrl+Shift+Q), Indent
+  and Outdent (Ctrl+] and Ctrl+[). Bold, Italic, Code, Strikethrough, the
+  headings, the lists and Quote toggle — Bold on `**word**` takes the stars
+  off, a heading command on a heading of that level removes it; Link
+  inserts link syntax, and Indent and Outdent add and remove indentation.
+  The commands work on every line a selection touches, and each is one undo
+  step. On keyboard layouts where AltGr+digit types a character (² on
+  German), AltGr still types it; the left Ctrl+Alt is the heading chord.
+  Typing `*`, `_`, `` ` `` or `$` with text selected wraps the selection
+  instead of replacing it, a new third switch under Edit ▸ Typing, on by
+  default. The rules are written once (`docs/formatting.md`) and held by
+  137 test vectors every md app carries. (#3)
 
 ## [1.5] — 2026-09-23
 

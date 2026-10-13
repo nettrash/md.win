@@ -30,16 +30,24 @@ public static class VirtualKeys
     public const int Number1 = 0x31;
     public const int Number2 = 0x32;
     public const int Number3 = 0x33;
+    public const int Number4 = 0x34;
+    public const int Number5 = 0x35;
+    public const int Number6 = 0x36;
     public const int A = 0x41;
     public const int B = 0x42;
     public const int C = 0x43;
     public const int E = 0x45;
     public const int F = 0x46;
     public const int H = 0x48;
+    public const int I = 0x49;
+    public const int K = 0x4B;
+    public const int L = 0x4C;
     public const int N = 0x4E;
     public const int O = 0x4F;
     public const int P = 0x50;
+    public const int Q = 0x51;
     public const int S = 0x53;
+    public const int T = 0x54;
     public const int V = 0x56;
     public const int W = 0x57;
     public const int X = 0x58;
@@ -48,6 +56,12 @@ public static class VirtualKeys
     public const int F1 = 0x70;
     public const int F3 = 0x72;
     public const int F11 = 0x7A;
+
+    /// <summary>VK_OEM_4: the <c>[</c> key on a US layout (Outdent).</summary>
+    public const int OpenBracket = 0xDB;
+
+    /// <summary>VK_OEM_6: the <c>]</c> key on a US layout (Indent).</summary>
+    public const int CloseBracket = 0xDD;
 }
 
 /// <summary>
@@ -87,6 +101,8 @@ public readonly record struct Chord(int VirtualKey, KeyModifiers Modifiers)
         >= 0x30 and <= 0x39 => ((char)virtualKey).ToString(),
         >= 0x41 and <= 0x5A => ((char)virtualKey).ToString(),
         >= 0x70 and <= 0x87 => "F" + (virtualKey - 0x6F).ToString(System.Globalization.CultureInfo.InvariantCulture),
+        VirtualKeys.OpenBracket => "[",
+        VirtualKeys.CloseBracket => "]",
         _ => "0x" + virtualKey.ToString("X2", System.Globalization.CultureInfo.InvariantCulture),
     };
 

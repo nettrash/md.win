@@ -101,6 +101,12 @@ public sealed class EditorPane : UserControl
     // Undo / Redo included.
     readonly TypingHooks _hooks = new();
     ISettingsStore? _settings;
+    // docs/formatting.md §4: md.wrapSelection, re-read with the typing switches.
+    bool _wrapSelection = SettingsKeys.WrapSelectionDefault;
+    // Up while a formatting edit goes in, so its own BeforeTextChanging is never taken for a typed wrap.
+    bool _formatting;
+    // A typed * _ ` $ over a selection, between BeforeTextChanging and the turn that wraps it.
+    Md.Core.Text.FormatEdit? _pendingWrap;
 
     public EditorPane()
     {
@@ -413,11 +419,71 @@ public sealed class EditorPane : UserControl
         if (direction != DeleteDirection.Unknown) AnnounceDeletion(direction);
     }
 
-    void OnBeforeTextChanging(TextBox sender, TextBoxBeforeTextChangingEventArgs e) =>
+    void OnBeforeTextChanging(TextBox sender, TextBoxBeforeTextChangingEventArgs e)
+    {
+        // docs/formatting.md §4: noted before the hooks see the change; the control still inserts
+        // the character (the hooks track that like any edit), and TextChanging wraps it.
+        PlanWrap(e.NewText);
         _hooks.BeforeTextChanging(_box.Text, _box.SelectionStart, _box.SelectionLength, e.NewText);
+    }
+
+    // ── 1.6: the formatting commands (docs/formatting.md) ─────────────────────────────────────
+
+    /// <summary>
+    /// Format ▸ … and its chords: the edit <see cref="FormattingAdapter"/> works out over the box's
+    /// own text and selection, applied as one <c>Select</c> + <c>SelectedText</c> pair — one undo
+    /// unit — with the selection the specification gives, and the focus back in the editor (a menu
+    /// click took it). A command that makes no edit (Outdent with nothing to remove) does nothing.
+    /// </summary>
+    public void ApplyFormat(Md.App.Logic.Commands.CommandId id)
+    {
+        if (FormattingAdapter.OpFor(id) is not { } op) return;
+        if (FormattingAdapter.Edit(_box.Text, _box.SelectionStart, _box.SelectionLength, op) is { } edit) ApplyEdit(edit);
+        _box.Focus(FocusState.Programmatic);
+    }
+
+    /// <summary>
+    /// One of <c>* _ ` $</c> typed over a selection (docs/formatting.md §4): the control inserts it as
+    /// usual — the first undo unit, never cancelled — and <see cref="OnTextChanging"/> then replaces it
+    /// with the selection wrapped in it, the original text still selected — the second, as with
+    /// SmartTyping's capital. Off with the setting, in a composition, for a paste and for history.
+    /// </summary>
+    void PlanWrap(string newText)
+    {
+        _pendingWrap = null;
+        if (_formatting || !_wrapSelection || _hooks.IsComposing || _hooks.IsPasting || _hooks.IsHistory || _hooks.IsReplacing) return;
+        if (FormattingAdapter.Wrap(_box.Text, _box.SelectionStart, _box.SelectionLength, newText) is { } wrap)
+            _pendingWrap = FormattingAdapter.AfterInsertion(wrap);
+    }
+
+    /// <summary>A formatting edit through the selection — the Tab key's undo-preserving path, never <c>Text =</c>.</summary>
+    void ApplyEdit(Md.Core.Text.FormatEdit edit) =>
+        Formatting(() => _hooks.ExternalEdit(() =>
+        {
+            _box.Select(edit.Start, edit.End - edit.Start);
+            _box.SelectedText = edit.Text;
+            _box.Select(edit.SelectionStart, edit.SelectionEnd - edit.SelectionStart);
+        }));
+
+    void Formatting(Action apply)
+    {
+        _formatting = true;
+        try { apply(); }
+        finally { _formatting = false; }
+    }
 
     void OnTextChanging(TextBox sender, TextBoxTextChangingEventArgs e)
     {
+        if (_pendingWrap is { } wrap)
+        {
+            _pendingWrap = null;
+            // A High turn, as the capital is applied (2026-09-27: an edit made inside TextChanging
+            // reaches the screen but not TextBox.Text).
+            _ = DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.High, () =>
+            {
+                if (FormattingAdapter.StillApplies(wrap, _box.Text, _box.SelectionStart, _box.SelectionLength)) ApplyEdit(wrap);
+            });
+        }
         // The typed text is in the box (undo unit one); replace it with the capitalized spelling
         // (undo unit two) — the hooks track the capital where it now stands (§3.4).
         if (_hooks.TextChanging(_box.Text, _box.SelectionStart, _box.SelectionLength) is not { } plan) return;
@@ -484,12 +550,14 @@ public sealed class EditorPane : UserControl
     void OnSettingChanged(string key)
     {
         if (TypingSettings.IsKey(key)) _ = DispatcherQueue.TryEnqueue(ReadTypingSettings);
+        else if (WrapSelectionSetting.IsKey(key)) _ = DispatcherQueue.TryEnqueue(ReadTypingSettings);
     }
 
     void ReadTypingSettings()
     {
         if (_settings is null) return;
         _hooks.Configure(TypingSettings.Read(_settings));
+        _wrapSelection = WrapSelectionSetting.Read(_settings);
     }
 
     void OnLoaded(object sender, RoutedEventArgs e)

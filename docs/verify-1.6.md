@@ -32,3 +32,32 @@ a real reader.
 4. Open the folder as a book, export the article holding `cover: cover.png`
    (beside the article): the cover appears.
 5. A document with no front matter exports exactly as in 1.5.
+
+## #3 Formatting commands and chords
+
+Core and App.Logic carry the rules (137 shared vectors), the command table, the
+AltGr decision and the setting; the shadow build compiles the WinUI side. The
+self-test now checks Format ▸ Bold through the dispatcher (wrap + one undo) and
+the third Typing toggle. Left for a person:
+
+1. Every chord on a fresh document: Ctrl+B, Ctrl+I, Ctrl+K, Ctrl+Shift+C/X/L/T/Q,
+   Ctrl+Alt+1–6, Ctrl+] and Ctrl+[ — each makes the change docs/formatting.md
+   says, and **one** Ctrl+Z undoes it. The same rows from the Format menu (the
+   editor keeps the focus afterwards). The same in the Book window's article.
+2. The chords from the **preview** in Split (focus in the WebView2): they act on
+   the editor's selection, as the menu would.
+3. **AltGr**: add German and Polish. German AltGr+2 types ², AltGr+3 types ³ —
+   no heading; **left** Ctrl+Alt+2 makes Heading 2. US layout: Ctrl+Alt+2 (either
+   Alt) is Heading 2. Check that letting the key through really delivers the
+   character to the TextBox (the guard sets `Handled = false`). Then with the
+   focus in the **preview** (Split): German AltGr+2 does nothing to the editor
+   (the page script lets AltGraph through), and left Ctrl+Alt+2 still makes
+   Heading 2.
+4. **Wrap**: select a word, type `*` → `*word*`, the word still selected; the same
+   for `_`, `` ` ``, `$`. Ctrl+Z once → `*` alone in its place, again → the word.
+   With an IME composing, and for a paste of `*`, nothing wraps. Edit ▸ Typing ▸
+   Wrap Selection When Typing … off → typing replaces the selection again; the
+   tick follows in every window.
+5. Ctrl+Shift+C must not reach WebView2 DevTools, and Ctrl+[ / Ctrl+] work on
+   the layouts where those keys are not brackets (they follow the key position,
+   VK_OEM_4 / VK_OEM_6).

@@ -89,8 +89,11 @@ public sealed record MenuNode(
 /// </summary>
 public static class CommandTable
 {
-    /// <summary>The seven menus, in bar order. The Mac's bar without its app menu (§2.1): About moved to Help, Quit to File ▸ Exit.</summary>
-    public static readonly IReadOnlyList<string> MenuTitles = ["File", "Edit", "View", "Book", "Go", "Window", "Help"];
+    /// <summary>
+    /// The eight menus, in bar order. The Mac's bar without its app menu (§2.1): About moved to Help,
+    /// Quit to File ▸ Exit. Format (1.6) sits where Notepad and Word put it, after Edit.
+    /// </summary>
+    public static readonly IReadOnlyList<string> MenuTitles = ["File", "Edit", "Format", "View", "Book", "Go", "Window", "Help"];
 
     /// <summary>
     /// The <c>GroupName</c> prefix of the seven PDF Page Size radios (§2.2). Each window appends a
@@ -112,6 +115,8 @@ public static class CommandTable
     static readonly MenuPath FileExportPageSize = new("File", "Export", "PDF Page Size");
     static readonly MenuPath Edit = new("Edit");
     static readonly MenuPath EditTyping = new("Edit", "Typing");
+    static readonly MenuPath Format = new("Format");
+    static readonly MenuPath FormatHeading = new("Format", "Heading");
     static readonly MenuPath View = new("View");
     static readonly MenuPath Book = new("Book");
     static readonly MenuPath BookExport = new("Book", "Export Book");
@@ -176,6 +181,27 @@ public static class CommandTable
         // heading and worded identically on every md port — a static submenu of toggles.
         new(CommandId.ContinueLists, "Continue Lists and Tables", null, EditTyping, CommandKind.Toggle, false, 0),
         new(CommandId.CapitalizeSentences, "Capitalize Sentences", null, EditTyping, CommandKind.Toggle, false, 0),
+        // docs/formatting.md §4: typing * _ ` $ over a selection wraps it — a setting like the two above.
+        new(CommandId.WrapSelection, "Wrap Selection When Typing * _ ` $", null, EditTyping, CommandKind.Toggle, false, 0),
+
+        // ── Format (1.6, docs/formatting.md §5) ───────────────────────────────────────────────
+        // Every row is one undoable edit of the editor's text; the chords are the family's.
+        new(CommandId.Bold, "Bold", new Chord(VirtualKeys.B, Ctrl), Format, CommandKind.Item, false, 0),
+        new(CommandId.Italic, "Italic", new Chord(VirtualKeys.I, Ctrl), Format, CommandKind.Item, false, 0),
+        new(CommandId.InlineCode, "Code", new Chord(VirtualKeys.C, CtrlShift), Format, CommandKind.Item, false, 0),
+        new(CommandId.Strikethrough, "Strikethrough", new Chord(VirtualKeys.X, CtrlShift), Format, CommandKind.Item, false, 0),
+        new(CommandId.Link, "Link", new Chord(VirtualKeys.K, Ctrl), Format, CommandKind.Item, false, 0),
+        new(CommandId.Heading1, "Heading 1", new Chord(VirtualKeys.Number1, CtrlAlt), FormatHeading, CommandKind.Item, false, 0),
+        new(CommandId.Heading2, "Heading 2", new Chord(VirtualKeys.Number2, CtrlAlt), FormatHeading, CommandKind.Item, false, 0),
+        new(CommandId.Heading3, "Heading 3", new Chord(VirtualKeys.Number3, CtrlAlt), FormatHeading, CommandKind.Item, false, 0),
+        new(CommandId.Heading4, "Heading 4", new Chord(VirtualKeys.Number4, CtrlAlt), FormatHeading, CommandKind.Item, false, 0),
+        new(CommandId.Heading5, "Heading 5", new Chord(VirtualKeys.Number5, CtrlAlt), FormatHeading, CommandKind.Item, false, 0),
+        new(CommandId.Heading6, "Heading 6", new Chord(VirtualKeys.Number6, CtrlAlt), FormatHeading, CommandKind.Item, false, 0),
+        new(CommandId.BulletList, "Bullet List", new Chord(VirtualKeys.L, CtrlShift), Format, CommandKind.Item, false, 2),
+        new(CommandId.TaskList, "Task List", new Chord(VirtualKeys.T, CtrlShift), Format, CommandKind.Item, false, 2),
+        new(CommandId.Quote, "Quote", new Chord(VirtualKeys.Q, CtrlShift), Format, CommandKind.Item, false, 2),
+        new(CommandId.Indent, "Indent", new Chord(VirtualKeys.CloseBracket, Ctrl), Format, CommandKind.Item, false, 3),
+        new(CommandId.Outdent, "Outdent", new Chord(VirtualKeys.OpenBracket, Ctrl), Format, CommandKind.Item, false, 3),
 
         // ── View (§2.5) ───────────────────────────────────────────────────────────────────────
         new(CommandId.ViewEdit, "Edit", new Chord(VirtualKeys.Number1, Ctrl), View, CommandKind.Toggle, false, 0),
@@ -270,6 +296,7 @@ public static class CommandTable
         _ when path == FileExportDiagrams => 1,
         _ when path == FileExportPageSize => 2,
         _ when path == EditTyping => 3,
+        _ when path == FormatHeading => 1,
         _ when path == BookExport => 1,
         _ when path == GoContents => 1,
         _ when path == GoNotes => 1,

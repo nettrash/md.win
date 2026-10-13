@@ -21,6 +21,9 @@ namespace Md.Core.Text
   and Capitalize(text, selectionStart, selectionEnd, typed) -> string? — the two pure keystroke helpers of
   docs/smart-typing.md (list/quote/table continuation and sentence capitalization), UTF-16 offsets in either
   order, pinned by every vector of Fixtures/typing-vectors.json (1350, shared with the other md ports).
+- enum FormatOp { Bold, Italic, Code, Strikethrough, Link, Heading1 … Heading6, HeadingCycle, BulletList, TaskList, Quote, Indent, Outdent } (1.6, docs/formatting.md)
+- readonly record struct FormatEdit(int Start, int End, string Text, int SelectionStart, int SelectionEnd) { string ApplyTo(string original) }
+- static MarkdownFormatting: Format(text, selectionStart, selectionEnd, FormatOp op) -> FormatEdit?; WrapTyped(text, selectionStart, selectionEnd, string typed) -> FormatEdit? — pinned by tests/Md.Core.Tests/Fixtures/formatting-vectors.json
 
 namespace Md.Core.Markdown
 - enum BlockKind { Heading, Paragraph, List, CodeBlock, Quote, Table, ThematicBreak, PageBreak, Note, FrontMatter, FootnoteDefinition }

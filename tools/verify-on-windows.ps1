@@ -347,8 +347,15 @@ Write-Host @"
        re-capitalised. Replace All, then Ctrl+Z once -> every hit back.
    [ ] The TextBox's right-click menu: Undo / Redo / Paste there behave like Ctrl+Z / Ctrl+Y / Ctrl+V
        (a context-menu Redo of a line-start letter is not capitalised into a new edit).
-   [ ] Edit > Typing: both rows tick and untick; the tick matches in a second window and in the
+   [ ] Edit > Typing: all three rows tick and untick; the tick matches in a second window and in the
        Book window at once.
+   [ ] 1.6 Format menu and chords (docs\verify-1.6.md section 3): Ctrl+B / I / K, Ctrl+Shift+C / X /
+       L / T / Q, Ctrl+Alt+1..6, Ctrl+] / Ctrl+[ each change the editor, and Ctrl+Z undoes each in ONE
+       step; the same from the Format menu and in the Book window's article.
+   [ ] AltGr (add German and Polish layouts): AltGr+2 types the layout's character (German: superscript
+       two; Polish keyboard: whatever it types) and does NOT make a heading; LEFT Ctrl+Alt+2 makes one.
+   [ ] Select a word and type * (and _ ` $): the word is wrapped and stays selected; Ctrl+Z once leaves
+       the typed character in its place, a second Ctrl+Z restores the word. Off under Edit > Typing.
    [ ] View > Preview (Ctrl+3): Edit > Find..., Find Next, Find Previous, Replace..., Use Selection
        for Find are all greyed; Ctrl+F / F3 / Ctrl+H do nothing visible. Zen (Ctrl+Shift+Enter):
        Ctrl+F / Ctrl+H do nothing, F3 still finds in the writing half.
