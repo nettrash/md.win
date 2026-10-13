@@ -1145,7 +1145,8 @@ Autosave never clears it; only an explicit Save does. Imported bundles show the 
 - `EvalAsync<T>(script)`: `ExecuteScriptAsync` → JSON-decode (`JsonSerializer.Deserialize<T>`; the four
   characters `null` → `default`). Never write a raw result to disk.
 - `CaptureRegionPngAsync(rect, scale)`: `CallDevToolsProtocolMethodAsync("Page.captureScreenshot", json)` with
-  `{"format":"png","clip":{"x":X,"y":Y,"width":max(W,1),"height":max(H,1),"scale":2},"captureBeyondViewport":true}`
+  `{"format":"png","clip":{"x":X,"y":Y,"width":max(W,1),"height":max(H,1),"scale":scale},"captureBeyondViewport":true}`
+  — `scale` is the caller's `RichSnapshotter.ScaleFor(W, H)` (§7.5), 2 unless the PNG would pass 16 Mpx —
   → `{"data": base64}` → bytes. Fallback if the CDP call throws on some runtime: `Scripts.CanvasRasterise`
   (the VS Code canvas rasteriser — formulas then keep their source text).
 - `PdfAsync(settings)`: `PrintToPdfAsync(tempPath, settings)` (returns `false` → "The PDF pages could not be produced.").

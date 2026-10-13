@@ -215,7 +215,8 @@ internal sealed class ExportRenderer : IRenderSurface
     });
 
     /// <summary>
-    /// A genuine 2× bitmap of one page-space rectangle — WebView2's analogue of
+    /// A genuine bitmap of one page-space rectangle at <paramref name="scale"/> — 2×, or less once the
+    /// PNG would pass 16 Mpx (<c>RichSnapshotter.ScaleFor</c>) — WebView2's analogue of
     /// <c>WKSnapshotConfiguration</c>. <c>CapturePreviewAsync</c> is viewport-only and would need the
     /// control grown to the whole document and the result cropped, so this goes through the DevTools
     /// protocol instead: a clip in page coordinates, <c>captureBeyondViewport</c> so it need not be
